@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomTab xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Admin setup and connection checks for propfocusAI package.</description>
+    <label>propfocusAI Admin Setup</label>
+    <lwcComponent>propfocusAdminSetup</lwcComponent>
+    <motif>Custom18: Form</motif>
+</CustomTab>

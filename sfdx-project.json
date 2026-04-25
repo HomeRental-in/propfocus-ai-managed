@@ -1,0 +1,17 @@
+{
+  "packageDirectories": [
+    {
+      "path": "force-app",
+      "default": true,
+      "package": "Propfocus AI",
+      "versionName": "ver 1.0",
+      "versionNumber": "1.0.0.NEXT",
+      "definitionFile": "config/project-scratch-def.json"
+    }
+  ],
+  "name": "propfocus-ai-managed",
+  "namespace": "propfocusAI",
+  "packageAliases": {},
+  "sfdcLoginUrl": "https://login.salesforce.com",
+  "sourceApiVersion": "66.0"
+}

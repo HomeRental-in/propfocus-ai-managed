@@ -1,0 +1,84 @@
+<template>
+    <article class="pf-shell">
+        <header class="pf-header">
+            <img src={logoUrl} alt="Propfocus" class="pf-logo" width="36" height="36" />
+            <div class="pf-brand-line">
+                <span class="pf-brand">Propfocus</span>
+                <span class="pf-brand-ai">AI</span>
+            </div>
+        </header>
+        <div class="pf-toolbar">
+            <button type="button" class="pf-btn pf-btn-primary" onclick={handlePrimaryMicrosite} disabled={isLoading}>{primaryMicrositeLabel}</button>
+            <button type="button" class="pf-btn pf-btn-secondary" onclick={handleConfirmSiteVisit} disabled={isLoading}>Confirm Site visit</button>
+        </div>
+        <div class="pf-body">
+            <template if:true={showBodySpinner}>
+                <div class="pf-spinner-wrap"><lightning-spinner alternative-text="Processing" size="medium"></lightning-spinner></div>
+            </template>
+            <template if:true={hasHistory}>
+                <div class="pf-history">
+                    <h3 class="pf-history-title">History</h3>
+                    <div class="pf-history-list">
+                        <template for:each={linkHistory} for:item="item">
+                            <div key={item.id} class="pf-history-item">
+                                <div class="pf-history-item-head">
+                                    <span class="pf-history-type">{item.type}</span>
+                                    <span class="pf-history-date">{item.createdAt}</span>
+                                </div>
+                                <div class="pf-history-meta">
+                                    <span>{item.status}</span>
+                                    <span>{item.projectName}</span>
+                                </div>
+                                <a class="pf-history-link" href={item.url} target="_blank" rel="noopener noreferrer">{item.url}</a>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+            <template if:true={showBuyerInsightsEmbed}>
+                <div class="pf-preview-section">
+                    <div class="pf-preview-head">
+                        <span class="pf-preview-title">Buyer Insights</span>
+                        <button type="button" class="pf-toggle" onclick={togglePreviewExpanded} aria-expanded={previewExpanded}>
+                            <lightning-icon icon-name={previewToggleIconName} size="x-small" alternative-text={previewToggleLabel}></lightning-icon>
+                            {previewToggleLabel}
+                        </button>
+                    </div>
+                    <div class={embedFrameClass}>
+                        <iframe class={embedIframeClass} src={iframeSrc} title="Propfocus microsite preview"></iframe>
+                    </div>
+                </div>
+            </template>
+            <template if:false={showBuyerInsightsEmbed}>
+                <template if:true={missingRecordContext}>
+                    <div class="pf-alert" role="alert">Add this component to a Lead record page to use Propfocus actions and preview.</div>
+                </template>
+            </template>
+        </div>
+    </article>
+    <template if:true={isModalOpen}>
+        <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header"><h2 class="slds-text-heading_medium pf-modal-title">{modalTitle}</h2></header>
+                <div class="slds-modal__content slds-p-around_medium slds-is-relative">
+                    <template if:true={isLoading}>
+                        <lightning-spinner alternative-text="Saving" size="medium" class="slds-align_absolute-center slds-m-bottom_medium"></lightning-spinner>
+                    </template>
+                    <lightning-input label="Full Name" value={clientName} onchange={handleNameChange} required></lightning-input>
+                    <template if:true={isSingleProjectSelection}>
+                        <lightning-input type="datetime-local" label="Site Visit Date & Time" value={siteVisitDateTime} onchange={handleSiteVisitDateTimeChange} required></lightning-input>
+                        <lightning-dual-listbox name="projects" label="Projects" source-label="Available" selected-label="Selected" options={projectOptions} value={selectedProjects} max="1" onchange={handleProjectChange}></lightning-dual-listbox>
+                    </template>
+                    <template if:false={isSingleProjectSelection}>
+                        <lightning-dual-listbox name="projects" label="Projects" source-label="Available" selected-label="Selected" options={projectOptions} value={selectedProjects} onchange={handleProjectChange}></lightning-dual-listbox>
+                    </template>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" variant="neutral" onclick={closeModal}></lightning-button>
+                    <lightning-button label={modalSubmitLabel} variant="brand" onclick={submitGenerate} class="slds-m-left_small" disabled={isLoading}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+</template>

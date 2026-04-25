@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>Lead.Propfocus_Link__c</members>
+        <members>Lead.Propfocus_Site_Visit__c</members>
+        <members>Lead.Enquiry_Ref_No__c</members>
+        <members>Lead.Lead_Status__c</members>
+        <members>Lead.Full_Name__c</members>
+        <members>Lead.Project_Interested__c</members>
+        <name>CustomField</name>
+    </types>
+    <version>66.0</version>
+</Package>

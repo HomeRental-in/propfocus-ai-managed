@@ -1,0 +1,33 @@
+<template>
+    <lightning-card title="propfocusAI Setup" icon-name="utility:settings">
+        <div class="slds-p-around_medium">
+            <template if:true={isLoading}>
+                <lightning-spinner size="small" alternative-text="Loading configuration"></lightning-spinner>
+            </template>
+            <template if:false={isLoading}>
+                <p class="slds-text-body_small slds-m-bottom_medium">
+                    Update the <strong>Propfocus Config</strong> custom metadata record named
+                    <strong>Default</strong> in Setup. This panel helps you verify the current
+                    values and test connectivity.
+                </p>
+                <lightning-input label="API Named Credential" value={apiNamedCredential} disabled></lightning-input>
+                <lightning-input class="slds-m-top_small" label="Embed Base URL" value={embedBaseUrl} disabled></lightning-input>
+                <lightning-input class="slds-m-top_small" label="Organization Id" value={organizationId} disabled></lightning-input>
+                <lightning-input class="slds-m-top_small" label="Logo URL" value={logoUrl} disabled></lightning-input>
+                <lightning-input class="slds-m-top_small" label="Buyer Id Field" value={buyerIdField} disabled></lightning-input>
+                <lightning-input class="slds-m-top_small" label="Buyer Name Field" value={buyerNameField} disabled></lightning-input>
+                <lightning-input class="slds-m-top_small" label="Lead Status Field" value={leadStatusField} disabled></lightning-input>
+                <lightning-input class="slds-m-top_small" label="Project Field" value={projectField} disabled></lightning-input>
+                <div class="slds-m-top_medium">
+                    <lightning-button label="Test Connection" variant="brand" onclick={handleTestConnection} disabled={isTesting}></lightning-button>
+                    <template if:true={isTesting}>
+                        <lightning-spinner class="slds-m-left_small" size="small" alternative-text="Testing"></lightning-spinner>
+                    </template>
+                </div>
+                <template if:true={testResult}>
+                    <div class="slds-m-top_medium"><p class={resultClass}>{testResult}</p></div>
+                </template>
+            </template>
+        </div>
+    </lightning-card>
+</template>
