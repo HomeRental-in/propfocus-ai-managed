@@ -1,18 +1,20 @@
 public with sharing class PropfocusConfigService {
     private static final String LOGO_URL =
         'https://propfocus.in/assets/logo-DSQFZbaE.png';
+    private static final String DEFAULT_NOTIFICATION_TYPE_DEVELOPER_NAME =
+        'PropFocus_Notification';
+    private static final String DEFAULT_PRE_SALES_REP_SOURCE_FIELD =
+        'Pre_Sales_Rep_Source__c';
 
     public class Config {
         @AuraEnabled public String apiNamedCredential;
         @AuraEnabled public String embedBaseUrl;
         @AuraEnabled public String organizationId;
         @AuraEnabled public String logoUrl;
-        @AuraEnabled public String notificationTypeDeveloperName;
         @AuraEnabled public String buyerIdField;
         @AuraEnabled public String leadStatusField;
         @AuraEnabled public String buyerNameField;
         @AuraEnabled public String projectField;
-        @AuraEnabled public String preSalesRepSourceField;
         @AuraEnabled public String siteVisitObject;
         @AuraEnabled public String siteVisitStatusField;
         @AuraEnabled public String siteVisitLeadLookupField;
@@ -40,13 +42,10 @@ public with sharing class PropfocusConfigService {
             );
             cfg.embedBaseUrl = normalizeBaseUrl(configured.Embed_Base_Url__c);
             cfg.organizationId = configured.Organization_Id__c;
-            cfg.notificationTypeDeveloperName =
-                configured.Notification_Type_Developer_Name__c;
             cfg.buyerIdField = configured.Buyer_Id_Field__c;
             cfg.leadStatusField = configured.Lead_Status_Field__c;
             cfg.buyerNameField = configured.Buyer_Name_Field__c;
             cfg.projectField = configured.Project_Field__c;
-            cfg.preSalesRepSourceField = configured.Pre_Sales_Rep_Source_Field__c;
             cfg.siteVisitObject = configured.Site_Visit_Object__c;
             cfg.siteVisitStatusField = configured.Site_Visit_Status_Field__c;
             cfg.siteVisitLeadLookupField = configured.Lead_Lookup_Field__c;
@@ -64,9 +63,6 @@ public with sharing class PropfocusConfigService {
             if (String.isBlank(cfg.organizationId)) {
                 cfg.organizationId = 'test-org-id';
             }
-            if (String.isBlank(cfg.notificationTypeDeveloperName)) {
-                cfg.notificationTypeDeveloperName = 'PropFocus_Notification';
-            }
             if (String.isBlank(cfg.buyerIdField)) {
                 cfg.buyerIdField = 'Enquiry_Ref_No__c';
             }
@@ -78,9 +74,6 @@ public with sharing class PropfocusConfigService {
             }
             if (String.isBlank(cfg.projectField)) {
                 cfg.projectField = 'Project_Interested__c';
-            }
-            if (String.isBlank(cfg.preSalesRepSourceField)) {
-                cfg.preSalesRepSourceField = 'Pre_Sales_Rep_Source__c';
             }
             if (String.isBlank(cfg.siteVisitObject)) {
                 cfg.siteVisitObject = 'Site_Visit__c';
@@ -137,13 +130,7 @@ public with sharing class PropfocusConfigService {
     }
 
     public static String requireNotificationTypeDeveloperName() {
-        String v = getConfig().notificationTypeDeveloperName;
-        if (String.isBlank(v)) {
-            throw new AuraHandledException(
-                'Propfocus configuration missing: Notification_Type_Developer_Name__c'
-            );
-        }
-        return v.trim();
+        return DEFAULT_NOTIFICATION_TYPE_DEVELOPER_NAME;
     }
 
     public static String requireBuyerIdField() {
@@ -187,8 +174,7 @@ public with sharing class PropfocusConfigService {
     }
 
     public static String getPreSalesRepSourceField() {
-        String v = getConfig().preSalesRepSourceField;
-        return String.isBlank(v) ? null : v.trim();
+        return DEFAULT_PRE_SALES_REP_SOURCE_FIELD;
     }
 
     public static String requireSiteVisitObject() {

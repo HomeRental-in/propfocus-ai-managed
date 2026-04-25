@@ -28,8 +28,6 @@ private class PropfocusConfigServiceTest {
         System.assert(!String.isBlank(cfg.apiNamedCredential));
         System.assert(!String.isBlank(cfg.embedBaseUrl));
         System.assert(!String.isBlank(cfg.organizationId));
-        System.assert(!String.isBlank(cfg.notificationTypeDeveloperName));
-        System.assert(!String.isBlank(cfg.preSalesRepSourceField));
         System.assert(!String.isBlank(cfg.logoUrl));
     }
 

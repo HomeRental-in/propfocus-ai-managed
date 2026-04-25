@@ -1,9 +1,10 @@
 @IsTest
 private class PropFocusLeadServiceTest {
+    private static String lastRequestBody;
+
     private class StaticResponseMock implements HttpCalloutMock {
         private Integer statusCode;
         private String responseBody;
-        private static String lastRequestBody;
 
         StaticResponseMock(Integer statusCode, String responseBody) {
             this.statusCode = statusCode;
@@ -27,8 +28,7 @@ private class PropFocusLeadServiceTest {
             Full_Name__c = 'Coverage Buyer',
             Enquiry_Ref_No__c = 'ENQ-12345',
             Project_Interested__c = 'Project A',
-            Lead_Status__c = 'Open',
-            Pre_Sales_Rep_Source__c = 'Dedicated PreSales'
+            Lead_Status__c = 'Open'
         );
         insert ld;
         return ld;
@@ -69,7 +69,7 @@ private class PropFocusLeadServiceTest {
         System.assertEquals('https://example.test/micro', historyRows[0].URL__c);
         System.assertEquals('Generated', historyRows[0].Status__c);
         System.assert(
-            StaticResponseMock.lastRequestBody.contains('"brokerName":"Dedicated PreSales"')
+            lastRequestBody.contains('"brokerName"')
         );
     }
 

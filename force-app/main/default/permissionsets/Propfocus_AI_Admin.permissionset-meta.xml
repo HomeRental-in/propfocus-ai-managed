@@ -98,10 +98,6 @@
         <field>Propfocus_Config__mdt.Site_Visit_Status_Field__c</field>
         <readable>true</readable>
     </fieldPermissions>
-    <namedCredentialAccesses>
-        <enabled>true</enabled>
-        <name>Propfocus_API</name>
-    </namedCredentialAccesses>
     <objectPermissions>
         <allowCreate>true</allowCreate>
         <allowDelete>true</allowDelete>
