@@ -12,6 +12,10 @@
         <enabled>true</enabled>
     </classAccesses>
     <classAccesses>
+        <apexClass>PropfocusLeadTrackingService</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
         <apexClass>PropfocusLeadTrackingWrapper</apexClass>
         <enabled>true</enabled>
     </classAccesses>
@@ -112,6 +116,25 @@
         <object>Propfocus_Config__mdt</object>
         <viewAllRecords>false</viewAllRecords>
     </objectPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Lead.Propfocus_Buyer_Insights_Available__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Config__mdt.Pre_Sales_Rep_Source_Field__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Config__mdt.Site_Visit_Project_Field__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <applicationVisibilities>
+        <application>Propfocus_AI</application>
+        <visible>true</visible>
+    </applicationVisibilities>
     <tabSettings>
         <tab>propfocusAI_Admin_Setup</tab>
         <visibility>Visible</visibility>

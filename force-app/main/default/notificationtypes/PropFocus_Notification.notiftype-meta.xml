@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomNotificationType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <customNotifTypeName>PropFocus_Notification</customNotifTypeName>
+    <description>Notifications sent by Propfocus AI for lead activity updates.</description>
+    <desktop>true</desktop>
+    <masterLabel>PropFocus Notification</masterLabel>
+    <mobile>true</mobile>
+</CustomNotificationType>

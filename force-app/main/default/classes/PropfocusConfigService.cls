@@ -3,8 +3,6 @@ public with sharing class PropfocusConfigService {
         'https://propfocus.in/assets/logo-DSQFZbaE.png';
     private static final String DEFAULT_NOTIFICATION_TYPE_DEVELOPER_NAME =
         'PropFocus_Notification';
-    private static final String DEFAULT_PRE_SALES_REP_SOURCE_FIELD =
-        'Pre_Sales_Rep_Source__c';
 
     public class Config {
         @AuraEnabled public String apiNamedCredential;
@@ -15,9 +13,11 @@ public with sharing class PropfocusConfigService {
         @AuraEnabled public String leadStatusField;
         @AuraEnabled public String buyerNameField;
         @AuraEnabled public String projectField;
+        @AuraEnabled public String preSalesRepSourceField;
         @AuraEnabled public String siteVisitObject;
         @AuraEnabled public String siteVisitStatusField;
         @AuraEnabled public String siteVisitLeadLookupField;
+        @AuraEnabled public String siteVisitProjectField;
     }
     public class ConnectionCheckResult {
         @AuraEnabled public Boolean success;
@@ -46,9 +46,11 @@ public with sharing class PropfocusConfigService {
             cfg.leadStatusField = configured.Lead_Status_Field__c;
             cfg.buyerNameField = configured.Buyer_Name_Field__c;
             cfg.projectField = configured.Project_Field__c;
+            cfg.preSalesRepSourceField = configured.Pre_Sales_Rep_Source_Field__c;
             cfg.siteVisitObject = configured.Site_Visit_Object__c;
             cfg.siteVisitStatusField = configured.Site_Visit_Status_Field__c;
             cfg.siteVisitLeadLookupField = configured.Lead_Lookup_Field__c;
+            cfg.siteVisitProjectField = configured.Site_Visit_Project_Field__c;
         }
 
         cfg.logoUrl = LOGO_URL;
@@ -63,17 +65,19 @@ public with sharing class PropfocusConfigService {
             if (String.isBlank(cfg.organizationId)) {
                 cfg.organizationId = 'test-org-id';
             }
+            // Tests fall back to standard Lead fields so the package never
+            // ships or assumes any customer-specific custom field names.
             if (String.isBlank(cfg.buyerIdField)) {
-                cfg.buyerIdField = 'Enquiry_Ref_No__c';
+                cfg.buyerIdField = 'Email';
             }
             if (String.isBlank(cfg.leadStatusField)) {
-                cfg.leadStatusField = 'Lead_Status__c';
+                cfg.leadStatusField = 'Status';
             }
             if (String.isBlank(cfg.buyerNameField)) {
-                cfg.buyerNameField = 'Full_Name__c';
+                cfg.buyerNameField = 'LastName';
             }
             if (String.isBlank(cfg.projectField)) {
-                cfg.projectField = 'Project_Interested__c';
+                cfg.projectField = 'Company';
             }
             if (String.isBlank(cfg.siteVisitObject)) {
                 cfg.siteVisitObject = 'Site_Visit__c';
@@ -174,7 +178,7 @@ public with sharing class PropfocusConfigService {
     }
 
     public static String getPreSalesRepSourceField() {
-        return DEFAULT_PRE_SALES_REP_SOURCE_FIELD;
+        return getConfig().preSalesRepSourceField;
     }
 
     public static String requireSiteVisitObject() {
@@ -208,7 +212,11 @@ public with sharing class PropfocusConfigService {
     }
 
     public static String requireSiteVisitProjectField() {
-        return requireProjectField();
+        String v = getConfig().siteVisitProjectField;
+        if (String.isBlank(v)) {
+            return requireProjectField();
+        }
+        return v;
     }
 
     @AuraEnabled(cacheable=true)

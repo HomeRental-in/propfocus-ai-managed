@@ -9,7 +9,6 @@ import generateMicrositeLink from '@salesforce/apex/PropFocusLeadService.generat
 import generateSiteVisitWithProjectAndDateTime from '@salesforce/apex/PropFocusLeadService.generateSiteVisitWithProjectAndDateTime';
 import getLatestSiteVisitDateTime from '@salesforce/apex/PropFocusLeadService.getLatestSiteVisitDateTime';
 import isSiteVisitAvailable from '@salesforce/apex/PropFocusLeadService.isSiteVisitAvailable';
-import isBuyerInsightsAvailable from '@salesforce/apex/PropFocusLeadService.isBuyerInsightsAvailable';
 import getLinkHistory from '@salesforce/apex/PropFocusLeadService.getLinkHistory';
 import getUiConfiguration from '@salesforce/apex/PropfocusConfigService.getUiConfiguration';
 
@@ -96,6 +95,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
                 ? String(lead[LEAD_BUYER_ID_FIELD]).trim()
                 : '';
         this.hasMicrosite = !!this.storedPropfocusLink;
+        this.hasValidBuyerInsights = !!lead?.buyerInsightsAvailable;
     }
 
     refreshMicrositeState() {
@@ -109,17 +109,6 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         return getLeadDetails({ leadId: this.recordId })
             .then((lead) => {
                 this.applyLeadLinkFromResponse(lead);
-                if (!this.hasMicrosite) {
-                    this.hasValidBuyerInsights = false;
-                    return;
-                }
-                return isBuyerInsightsAvailable({ leadId: this.recordId })
-                    .then((isAvailable) => {
-                        this.hasValidBuyerInsights = !!isAvailable;
-                    })
-                    .catch(() => {
-                        this.hasValidBuyerInsights = false;
-                    });
             })
             .catch(() => {
                 this.storedPropfocusLink = '';
@@ -300,10 +289,12 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         if (Number.isNaN(chosenDateTime.getTime())) return this.showToast('Error', 'Invalid visit date and time', 'error');
         this.isLoading = true;
         generateSiteVisitWithProjectAndDateTime({ leadId: this.recordId, buyerName, projectName: this.selectedProjects[0], visitDateTime: chosenDateTime.toISOString() })
-            .then(() => {
+            .then(async () => {
                 this.showToast('Success', 'Site visit confirmed', 'success');
                 this.checkSiteVisitAvailability();
-                this.loadLinkHistory();
+                await this.refreshMicrositeState();
+                await this.loadLinkHistory();
+                this.bumpIframeCache();
                 this.closeModal();
             })
             .catch((error) => this.showToast('Error', error.body?.message || 'Request failed', 'error'))
@@ -334,7 +325,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
     }
     get showBuyerInsightsEmbed() {
-        return this.recordId != null && String(this.recordId).trim().length > 0 && this.enquiryRefNo.length > 0 && this.hasMicrosite && this.hasValidBuyerInsights;
+        return this.recordId != null && String(this.recordId).trim().length > 0 && this.enquiryRefNo.length > 0 && this.hasValidBuyerInsights;
     }
     get missingRecordContext() { return !this.recordId; }
     get showBodySpinner() { return this.isLoading && !this.isModalOpen; }

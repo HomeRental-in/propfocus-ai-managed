@@ -48,11 +48,12 @@ private class PropFocusLeadServiceTest {
 
         System.assertEquals('https://example.test/micro', url);
         Lead updatedLead = [
-            SELECT Propfocus_Link__c
+            SELECT Propfocus_Link__c, Propfocus_Buyer_Insights_Available__c
             FROM Lead
             WHERE Id = :ld.Id
         ];
         System.assertEquals('https://example.test/micro', updatedLead.Propfocus_Link__c);
+        System.assertEquals(true, updatedLead.Propfocus_Buyer_Insights_Available__c);
 
         List<Propfocus_Link__c> historyRows = [
             SELECT Type__c, Project_Name__c, URL__c, Status__c
@@ -64,9 +65,10 @@ private class PropFocusLeadServiceTest {
         System.assertEquals('Project A, Project B', historyRows[0].Project_Name__c);
         System.assertEquals('https://example.test/micro', historyRows[0].URL__c);
         System.assertEquals('Generated', historyRows[0].Status__c);
-        System.assert(
-            lastRequestBody.contains('"brokerName"')
-        );
+        System.assert(lastRequestBody.contains('"brokerName"'));
+        System.assert(lastRequestBody.contains('"clientName":"Client 1"'));
+        // Asserts the Propfocus API JSON contract key, not a Salesforce field name.
+        System.assert(lastRequestBody.contains('"leadStatus"'));
     }
 
     @IsTest
@@ -130,7 +132,7 @@ private class PropFocusLeadServiceTest {
     }
 
     @IsTest
-    static void generateSiteVisit_wrappers_coverSuccessAndFailurePaths() {
+    static void generateSiteVisitWithProjectAndDateTime_success_updatesLeadAndHistory() {
         Lead ld = makeLead();
 
         Datetime requestedDt = Datetime.newInstance(2026, 1, 15, 9, 30, 0);
@@ -143,25 +145,22 @@ private class PropFocusLeadServiceTest {
         );
 
         Test.startTest();
-        String svUrl;
-        try {
-            svUrl = PropFocusLeadService.generateSiteVisitWithProjectAndDateTime(
-                ld.Id,
-                'Buyer Override',
-                'Project Override',
-                requestedDt
-            );
-        } finally {
-            Test.stopTest();
-        }
+        String svUrl = PropFocusLeadService.generateSiteVisitWithProjectAndDateTime(
+            ld.Id,
+            'Buyer Override',
+            'Project Override',
+            requestedDt
+        );
+        Test.stopTest();
 
         System.assertEquals('https://example.test/sv', svUrl);
         Lead updatedLead = [
-            SELECT Propfocus_Site_Visit__c
+            SELECT Propfocus_Site_Visit__c, Propfocus_Buyer_Insights_Available__c
             FROM Lead
             WHERE Id = :ld.Id
         ];
         System.assertEquals('https://example.test/sv', updatedLead.Propfocus_Site_Visit__c);
+        System.assertEquals(true, updatedLead.Propfocus_Buyer_Insights_Available__c);
 
         List<Propfocus_Link__c> historyRows = [
             SELECT Type__c, Project_Name__c, URL__c, Status__c
@@ -174,11 +173,10 @@ private class PropFocusLeadServiceTest {
         System.assertEquals('Project Override', historyRows[0].Project_Name__c);
         System.assertEquals('https://example.test/sv', historyRows[0].URL__c);
         System.assertEquals('Confirmed', historyRows[0].Status__c);
-
     }
 
     @IsTest
-    static void generateSiteVisit_httpError_throwsHandledException() {
+    static void generateSiteVisitWithProjectAndDateTime_httpError_throwsHandledException() {
         Lead ld = makeLead();
         Test.setMock(
             HttpCalloutMock.class,
@@ -188,7 +186,12 @@ private class PropFocusLeadServiceTest {
         Boolean httpErrorFailedAsExpected = false;
         Test.startTest();
         try {
-            PropFocusLeadService.generateSiteVisit(ld.Id);
+            PropFocusLeadService.generateSiteVisitWithProjectAndDateTime(
+                ld.Id,
+                'Buyer X',
+                'Project X',
+                System.now()
+            );
         } catch (AuraHandledException e) {
             httpErrorFailedAsExpected = true;
             String errorMessage = e.getMessage();
@@ -204,7 +207,7 @@ private class PropFocusLeadServiceTest {
     }
 
     @IsTest
-    static void generateSiteVisit_missingSvUrl_throwsHandledException() {
+    static void generateSiteVisitWithProjectAndDateTime_missingSvUrl_throwsHandledException() {
         Lead ld = makeLead();
         Test.setMock(
             HttpCalloutMock.class,
@@ -214,7 +217,12 @@ private class PropFocusLeadServiceTest {
         Boolean missingUrlFailedAsExpected = false;
         Test.startTest();
         try {
-            PropFocusLeadService.generateSiteVisitWithProject(ld.Id, 'Buyer X', 'Project X');
+            PropFocusLeadService.generateSiteVisitWithProjectAndDateTime(
+                ld.Id,
+                'Buyer X',
+                'Project X',
+                System.now()
+            );
         } catch (AuraHandledException e2) {
             missingUrlFailedAsExpected = true;
             String errorMessage = e2.getMessage();
@@ -230,10 +238,15 @@ private class PropFocusLeadServiceTest {
     }
 
     @IsTest
-    static void generateSiteVisit_nullLead_throws() {
+    static void generateSiteVisitWithProjectAndDateTime_nullLead_throws() {
         try {
             Test.startTest();
-            PropFocusLeadService.generateSiteVisit(null);
+            PropFocusLeadService.generateSiteVisitWithProjectAndDateTime(
+                null,
+                'Buyer X',
+                'Project X',
+                System.now()
+            );
             Test.stopTest();
             System.assert(false, 'Expected null lead Id to throw AuraHandledException');
         } catch (AuraHandledException e) {
@@ -246,6 +259,19 @@ private class PropFocusLeadServiceTest {
                 )
             );
         }
+    }
+
+    @IsTest
+    static void isBuyerInsightsAvailable_readsLeadFlag() {
+        Lead ld = makeLead();
+        ld.Propfocus_Buyer_Insights_Available__c = true;
+        update ld;
+
+        Test.startTest();
+        Boolean available = PropFocusLeadService.isBuyerInsightsAvailable(ld.Id);
+        Test.stopTest();
+
+        System.assertEquals(true, available);
     }
 
     @IsTest

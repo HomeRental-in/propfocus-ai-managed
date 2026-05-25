@@ -10,7 +10,7 @@
     }
   ],
   "name": "propfocus-ai-managed",
-  "namespace": "propfocusAI",
+  "namespace": "PropfocusAI",
   "packageAliases": {},
   "sfdcLoginUrl": "https://login.salesforce.com",
   "sourceApiVersion": "66.0"

@@ -1,4 +1,8 @@
-global class PropFocusLeadService {
+public class PropFocusLeadService {
+    // This is a wire-contract key with the Propfocus backend and is intentionally
+     independent of any salesforce field API name or namespace.
+    private static final String API_LEAD_STATUS_KEY = 'leadStatus';
+
     private static void createPropfocusLinkHistory(
         Id leadId,
         String typeValue,
@@ -89,6 +93,7 @@ global class PropFocusLeadService {
             leadId,
             new List<String>{
                 'Propfocus_Link__c',
+                'Propfocus_Buyer_Insights_Available__c',
                 buyerIdFieldApiName,
                 buyerNameFieldApiName,
                 projectFieldApiName
@@ -97,6 +102,7 @@ global class PropFocusLeadService {
         return new Map<String, Object>{
             'Id' => ld.get('Id'),
             'Propfocus_Link__c' => ld.get('Propfocus_Link__c'),
+            'buyerInsightsAvailable' => ld.get('Propfocus_Buyer_Insights_Available__c'),
             'buyerId' => ld.get(buyerIdFieldApiName),
             'buyerName' => ld.get(buyerNameFieldApiName),
             'projectName' => ld.get(projectFieldApiName)
@@ -104,8 +110,7 @@ global class PropFocusLeadService {
     }
 
     @AuraEnabled
-    public static String generateMicrositeLink(Id leadId, String leadFullName, List<String> listProj) {
-
+    public static String generateMicrositeLink(Id leadId, String clientName, List<String> listProj) {
         if (leadId == null) {
             throw new AuraHandledException('Lead Id is required');
         }
@@ -122,6 +127,7 @@ global class PropFocusLeadService {
         List<String> leadFieldApiNames = new List<String>{
             'Owner.Name',
             'Propfocus_Link__c',
+            'Propfocus_Buyer_Insights_Available__c',
             buyerIdFieldApiName,
             leadStatusFieldApiName
         };
@@ -133,7 +139,6 @@ global class PropFocusLeadService {
             leadFieldApiNames
         );
 
-
         String organizationId = PropfocusConfigService.requireOrganizationId();
         HttpRequest req = new HttpRequest();
         req.setEndpoint(
@@ -143,9 +148,9 @@ global class PropFocusLeadService {
         req.setHeader('Content-Type', 'application/json');
         Map<String, Object> body = new Map<String, Object>{
             'brokerName' => resolvePreSalesRepSource(ld, preSalesRepSourceFieldApiName),
-            'clientName'   => leadFullName,
-            'projects'     => listProj,
-            'Lead_Status__c' => ld.get(leadStatusFieldApiName),
+            'clientName' => clientName,
+            'projects' => listProj,
+            API_LEAD_STATUS_KEY => ld.get(leadStatusFieldApiName),
             'organizationId' => organizationId,
             'buyer_id' => ld.get(buyerIdFieldApiName)
         };
@@ -175,6 +180,7 @@ global class PropFocusLeadService {
 
         String micrositeUrl = (String) response.get('micrositeUrl');
         ld.put('Propfocus_Link__c', micrositeUrl);
+        ld.put('Propfocus_Buyer_Insights_Available__c', true);
         update ld;
         createPropfocusLinkHistory(
             ld.Id,
@@ -186,38 +192,39 @@ global class PropFocusLeadService {
 
         return micrositeUrl;
     }
+
     private static List<String> getProjectsByEndpoint(String endpointPath) {
         HttpRequest req = new HttpRequest();
         req.setEndpoint(PropfocusConfigService.apiEndpoint(endpointPath));
         req.setMethod('GET');
-        req.setHeader('Content-Type', 'application/json');  
+        req.setHeader('Content-Type', 'application/json');
 
         Http http = new Http();
-        HttpResponse res = http.send(req);  
+        HttpResponse res = http.send(req);
 
         if (res.getStatusCode() != 200) {
             throw new AuraHandledException(
                 'Propfocus API failed with status ' + res.getStatusCode()
             );
-        }   
+        }
 
         Map<String, Object> response =
-            (Map<String, Object>) JSON.deserializeUntyped(res.getBody());   
+            (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
 
         if (response.containsKey('success') && response.get('success') == false) {
             String apiError = (String) response.get('error_message');
             throw new AuraHandledException(apiError);
-        }   
+        }
 
         Map<String, Object> dataMap =
-            (Map<String, Object>) response.get('data'); 
+            (Map<String, Object>) response.get('data');
         List<Object> projectObjs =
-            (List<Object>) dataMap.get('projects'); 
-        List<String> projects = new List<String>(); 
+            (List<Object>) dataMap.get('projects');
+        List<String> projects = new List<String>();
 
         for (Object proj : projectObjs) {
             projects.add((String) proj);
-        }   
+        }
 
         return projects;
     }
@@ -254,8 +261,14 @@ global class PropFocusLeadService {
     }
 
     private static Schema.SObjectType requireSiteVisitObjectType(String objectApiName) {
-        Schema.SObjectType objectType = Schema.getGlobalDescribe().get(objectApiName);
-        return objectType;
+        return Schema.getGlobalDescribe().get(objectApiName);
+    }
+
+    public static List<SObject> queryLatestSiteVisitsForTracking(
+        Id leadId,
+        Integer rowLimit
+    ) {
+        return queryLatestSiteVisits(leadId, rowLimit);
     }
 
     private static List<SObject> queryLatestSiteVisits(
@@ -276,7 +289,7 @@ global class PropFocusLeadService {
         );
         String projectFieldApiName = requireSafeApiName(
             PropfocusConfigService.requireSiteVisitProjectField(),
-            'Project_Field__c'
+            'Site_Visit_Project_Field__c'
         );
 
         Schema.SObjectType objectType = requireSiteVisitObjectType(objectApiName);
@@ -362,7 +375,7 @@ global class PropFocusLeadService {
     ) {
         if (leadId == null) {
             throw new AuraHandledException('Lead Id is required');
-        }       
+        }
 
         String buyerIdFieldApiName = requireLeadFieldApiName(
             PropfocusConfigService.requireBuyerIdField(),
@@ -380,6 +393,7 @@ global class PropFocusLeadService {
         List<String> leadFieldApiNames = new List<String>{
             'Owner.Name',
             'Propfocus_Site_Visit__c',
+            'Propfocus_Buyer_Insights_Available__c',
             buyerIdFieldApiName,
             buyerNameFieldApiName,
             projectFieldApiName
@@ -410,7 +424,7 @@ global class PropFocusLeadService {
             PropfocusConfigService.apiEndpoint('/api/site-visit/create-sv')
         );
         req.setMethod('POST');
-        req.setHeader('Content-Type', 'application/json');      
+        req.setHeader('Content-Type', 'application/json');
 
         String resolvedProjectName = String.isBlank(projectName)
             ? asString(ld.get(projectFieldApiName))
@@ -420,42 +434,43 @@ global class PropFocusLeadService {
             : buyerName;
 
         Map<String, Object> body = new Map<String, Object>{
-            'buyer_id'        => ld.get(buyerIdFieldApiName),
-            'project_name'    => resolvedProjectName,
-            'visit_date'      => visitDate,
-            'visit_time'      => visitTime,
-            'buyer_name'      => resolvedBuyerName,
-            'brokerName'      => resolvePreSalesRepSource(ld, preSalesRepSourceFieldApiName),
-            'organizationId'  => organizationId
-        };          
+            'buyer_id' => ld.get(buyerIdFieldApiName),
+            'project_name' => resolvedProjectName,
+            'visit_date' => visitDate,
+            'visit_time' => visitTime,
+            'buyer_name' => resolvedBuyerName,
+            'brokerName' => resolvePreSalesRepSource(ld, preSalesRepSourceFieldApiName),
+            'organizationId' => organizationId
+        };
 
-        req.setBody(JSON.serialize(body));      
+        req.setBody(JSON.serialize(body));
 
         Http http = new Http();
-        HttpResponse res = http.send(req);          
+        HttpResponse res = http.send(req);
 
         if (res.getStatusCode() != 200) {
             throw new AuraHandledException(
                 'Propfocus API failed with status ' + res.getStatusCode()
             );
-        }           
+        }
 
         Map<String, Object> response =
-            (Map<String, Object>) JSON.deserializeUntyped(res.getBody());       
+            (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
 
         if (!(Boolean) response.get('success')) {
             throw new AuraHandledException((String) response.get('message'));
-        }       
+        }
 
         Map<String, Object> dataMap =
-            (Map<String, Object>) response.get('data');     
+            (Map<String, Object>) response.get('data');
 
         if (dataMap == null || !dataMap.containsKey('sv_url')) {
             throw new AuraHandledException('Site Visit URL not returned by Propfocus');
-        }       
+        }
 
         String micrositeUrl = (String) dataMap.get('sv_url');
         ld.put('Propfocus_Site_Visit__c', micrositeUrl);
+        ld.put('Propfocus_Buyer_Insights_Available__c', true);
         update ld;
         createPropfocusLinkHistory(
             ld.Id,
@@ -469,16 +484,6 @@ global class PropFocusLeadService {
     }
 
     @AuraEnabled
-    public static String generateSiteVisit(Id leadId) {
-        return generateSiteVisitInternal(leadId, null, null, null);
-    }
-
-    @AuraEnabled
-    public static String generateSiteVisitWithProject(Id leadId, String buyerName, String projectName) {
-        return generateSiteVisitInternal(leadId, buyerName, projectName, null);
-    }
-
-    @AuraEnabled
     public static String generateSiteVisitWithProjectAndDateTime(
         Id leadId,
         String buyerName,
@@ -487,47 +492,23 @@ global class PropFocusLeadService {
     ) {
         return generateSiteVisitInternal(leadId, buyerName, projectName, visitDateTime);
     }
+
     @AuraEnabled(cacheable=true)
     public static Boolean isBuyerInsightsAvailable(Id leadId) {
         if (leadId == null) {
             return false;
         }
 
-        String buyerIdFieldApiName = requireLeadFieldApiName(
-            PropfocusConfigService.requireBuyerIdField(),
-            'Buyer_Id_Field__c'
-        );
-        SObject ld = queryLeadById(
-            leadId,
-            new List<String>{ buyerIdFieldApiName }
-        );
-        String buyerId = asString(ld.get(buyerIdFieldApiName));
-        if (String.isBlank(buyerId)) {
+        List<Lead> leads = [
+            SELECT Propfocus_Buyer_Insights_Available__c
+            FROM Lead
+            WHERE Id = :leadId
+            LIMIT 1
+        ];
+        if (leads.isEmpty()) {
             return false;
         }
-
-        String embedBaseUrl = PropfocusConfigService.requireEmbedBaseUrl();
-        HttpRequest req = new HttpRequest();
-        req.setEndpoint(
-            embedBaseUrl + '/' + EncodingUtil.urlEncode(buyerId, 'UTF-8')
-        );
-        req.setMethod('GET');
-        req.setHeader('Accept', 'text/html');
-        req.setTimeout(10000);
-
-        try {
-            HttpResponse res = (new Http()).send(req);
-            if (res.getStatusCode() != 200) {
-                return false;
-            }
-            String body = res.getBody();
-            if (String.isBlank(body)) {
-                return false;
-            }
-            return !body.toLowerCase().contains('invalid microsite id');
-        } catch (Exception e) {
-            return false;
-        }
+        return leads[0].Propfocus_Buyer_Insights_Available__c == true;
     }
 
     @AuraEnabled(cacheable=true)
@@ -555,87 +536,4 @@ global class PropFocusLeadService {
             LIMIT 50
         ];
     }
-
-
-    public static PropfocusLeadTrackingWrapper getLeadForTracking(Id leadId) {
-        if (leadId == null) throw new IllegalArgumentException('Lead Id is required');
-        PropfocusLeadTrackingWrapper w = new PropfocusLeadTrackingWrapper();
-        w.lead = [SELECT Id, CreatedDate, LastModifiedDate, Status, Description FROM Lead WHERE Id = :leadId LIMIT 1];
-        w.history = [SELECT Field, OldValue, NewValue, CreatedDate FROM LeadHistory WHERE LeadId = :leadId ORDER BY CreatedDate ASC];
-        w.activities = [SELECT Subject, Status, ActivityDate, Description, CreatedDate FROM Task WHERE WhatId = :leadId ORDER BY ActivityDate DESC];
-        w.siteVisits = queryLatestSiteVisits(leadId, 50);
-        return w;
-    }
-
-
-    public static Id notifyLeadOwner(String leadIdStr,Map<String, Object> notif){
-
-       if (String.isBlank(leadIdStr)) {
-           throw new IllegalArgumentException('Lead Id is required');
-       }
-
-       Id leadId;
-
-       try {
-           leadId = (Id) leadIdStr;
-       } catch (Exception e) {
-           throw new IllegalArgumentException('Invalid Lead Id');
-       }
-
-       String title   = (String) notif.get('title');
-       String message = (String) notif.get('message');
-       String type    = (String) notif.get('type');
-
-       if (String.isBlank(title) || String.isBlank(message)) {
-           throw new IllegalArgumentException(
-               'Notification title and message are required'
-           );
-       }
-
-       Lead l = [
-           SELECT Id, OwnerId
-           FROM Lead
-           WHERE Id = :leadId
-           LIMIT 1
-       ];
-
-       String notificationTypeDeveloperName =
-           PropfocusConfigService.requireNotificationTypeDeveloperName();
-
-       List<CustomNotificationType> notificationTypes = [
-           SELECT Id
-           FROM CustomNotificationType
-           WHERE DeveloperName = :notificationTypeDeveloperName
-           LIMIT 1
-       ];
-
-       if (notificationTypes.isEmpty()) {
-           if (Test.isRunningTest()) {
-               return l.OwnerId;
-           }
-           throw new PropFocusServiceException(
-               'Custom notification type ' + notificationTypeDeveloperName + ' is not configured'
-           );
-       }
-
-       CustomNotificationType cnt = notificationTypes[0];
-       Messaging.CustomNotification notification = new Messaging.CustomNotification();
-       notification.setTitle(title);
-       notification.setBody(message);
-       notification.setNotificationTypeId(cnt.Id);
-       notification.setTargetId(l.Id);
-
-       Set<String> recipients = new Set<String>{ l.OwnerId };
-
-       try {
-           notification.send(recipients);
-       }
-       catch (Exception e) {
-           throw new PropFocusServiceException(
-               'Failed to send notification : ' + e.getMessage()
-           );
-       }
-
-       return l.OwnerId;
-    }   
 }

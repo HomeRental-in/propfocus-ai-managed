@@ -1,4 +1,4 @@
-global class PropfocusLeadTrackingWrapper {
+public class PropfocusLeadTrackingWrapper {
 
     public Boolean success;
     public String message;

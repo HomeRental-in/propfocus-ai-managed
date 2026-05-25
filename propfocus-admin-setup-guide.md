@@ -34,19 +34,19 @@ Use this checklist to complete the Propfocus app setup in Salesforce.
 
 1. Go to **Setup -> Custom Metadata Types**.
 2. Click **Manage**, then click **Edit** for **Propfocus Config**.
-3. Scroll to the custom fields section and set:
+3. Scroll to the custom fields section and set each value to the API name of the Lead/Site Visit field in **your** org that should be mapped to the corresponding Propfocus concept. The package ships no Lead custom fields of its own for these mappings — use whatever you already have.
    - **API Named Credential** = `Propfocus_API`
-   - **Buyer Id Field** = `Enquiry_Ref_No__c`
-   - **Buyer Name Field** = `Full_Name__c`
-   - **Lead Status Field** = `Lead_Status__c`
-   - **Project Field** = `Project_Interested__c`
-   - **Pre-Sales Rep Source Field** = `Pre_Sales_Rep_Source__c` (or any Lead field API name to map)
-   - **Lead Id Field** = `Lead__c`
-   - **Site Visit Status Field** = `Status__c`
-   - **Site Visit Object** = `Site_Visit__c` (if object exists)
-   - **Embed Base URL** = your real embed URL
-   - **Notification Type Developer Name** = `PropFocus_Notification` (or your org-specific developer name)
-   - **Organization Id** = your real org id
+   - **Buyer Id Field** = API name of the Lead field that uniquely identifies the buyer (e.g. an enquiry reference number, account number, or `Email`).
+   - **Buyer Name Field** = API name of the Lead field holding the buyer's full name (e.g. `LastName` or a custom full-name field).
+   - **Lead Status Field** = API name of the Lead field holding the lead status (e.g. `Status` or a custom status field).
+   - **Project Field** = API name of the Lead field holding the project the buyer is interested in (e.g. `Company` or a custom project field).
+   - **Pre-Sales Rep Source Field** = API name of the Lead field holding the pre-sales rep, or leave blank to fall back to `Owner.Name`.
+   - **Lead Id Field** = lookup field API name on the Site Visit object that points to the Lead (e.g. `Lead__c`).
+   - **Site Visit Status Field** = API name of the status field on the Site Visit object (e.g. `Status__c`).
+   - **Site Visit Object** = API name of the Site Visit object if you have one (e.g. `Site_Visit__c`).
+   - **Embed Base URL** = your real embed URL.
+   - **Notification Type Developer Name** = `PropFocus_Notification` (or your org-specific developer name).
+   - **Organization Id** = your real org id.
 4. Click **Save**.
 
 ## 5) Add CSP Trusted Site

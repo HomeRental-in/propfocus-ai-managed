@@ -1,10 +1,10 @@
 <template>
     <lightning-card title="propfocusAI Setup" icon-name="utility:settings">
         <div class="slds-p-around_medium">
-            <template if:true={isLoading}>
+            <template lwc:if={isLoading}>
                 <lightning-spinner size="small" alternative-text="Loading configuration"></lightning-spinner>
             </template>
-            <template if:false={isLoading}>
+            <template lwc:else>
                 <p class="slds-text-body_small slds-m-bottom_medium">
                     Update the <strong>Propfocus Config</strong> custom metadata record named
                     <strong>Default</strong> in Setup. This panel helps you verify the current
@@ -20,11 +20,11 @@
                 <lightning-input class="slds-m-top_small" label="Project Field" value={projectField} disabled></lightning-input>
                 <div class="slds-m-top_medium">
                     <lightning-button label="Test Connection" variant="brand" onclick={handleTestConnection} disabled={isTesting}></lightning-button>
-                    <template if:true={isTesting}>
+                    <template lwc:if={isTesting}>
                         <lightning-spinner class="slds-m-left_small" size="small" alternative-text="Testing"></lightning-spinner>
                     </template>
                 </div>
-                <template if:true={testResult}>
+                <template lwc:if={testResult}>
                     <div class="slds-m-top_medium"><p class={resultClass}>{testResult}</p></div>
                 </template>
             </template>
