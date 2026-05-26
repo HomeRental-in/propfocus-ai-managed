@@ -9,7 +9,7 @@
         </header>
         <div class="pf-toolbar">
             <button type="button" class="pf-btn pf-btn-primary" onclick={handlePrimaryMicrosite} disabled={isLoading}>{primaryMicrositeLabel}</button>
-            <button type="button" class="pf-btn pf-btn-secondary" onclick={handleConfirmSiteVisit}>Confirm Site visit</button>
+            <button type="button" class="pf-btn pf-btn-secondary" onclick={handleConfirmSiteVisit} disabled={isLoading}>Confirm Site visit</button>
         </div>
         <div class="pf-body">
             <template lwc:if={showBodySpinner}>

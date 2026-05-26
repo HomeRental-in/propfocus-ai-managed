@@ -1,6 +1,7 @@
 import { LightningElement } from 'lwc';
 import getUiConfiguration from '@salesforce/apex/PropfocusConfigService.getUiConfiguration';
 import testConnection from '@salesforce/apex/PropfocusConfigService.testConnection';
+import getInboundEndpoint from '@salesforce/apex/PropfocusConfigService.getInboundEndpoint';
 
 export default class PropfocusAdminSetup extends LightningElement {
     config = {};
@@ -8,8 +9,13 @@ export default class PropfocusAdminSetup extends LightningElement {
     isTesting = false;
     testResult;
     testVariant = 'info';
+    inboundEndpoint = '';
+    endpointCopied = false;
 
-    connectedCallback() { this.loadConfig(); }
+    connectedCallback() {
+        this.loadConfig();
+        this.loadInboundEndpoint();
+    }
 
     loadConfig() {
         this.isLoading = true;
@@ -17,6 +23,12 @@ export default class PropfocusAdminSetup extends LightningElement {
             .then((cfg) => { this.config = cfg || {}; })
             .catch(() => { this.config = {}; })
             .finally(() => { this.isLoading = false; });
+    }
+
+    loadInboundEndpoint() {
+        getInboundEndpoint()
+            .then((url) => { this.inboundEndpoint = url || ''; })
+            .catch(() => { this.inboundEndpoint = ''; });
     }
 
     handleTestConnection() {
@@ -34,6 +46,13 @@ export default class PropfocusAdminSetup extends LightningElement {
             .finally(() => { this.isTesting = false; });
     }
 
+    handleCopyEndpoint() {
+        navigator.clipboard.writeText(this.inboundEndpoint).then(() => {
+            this.endpointCopied = true;
+            setTimeout(() => { this.endpointCopied = false; }, 2000);
+        });
+    }
+
     get apiNamedCredential() { return this.config?.apiNamedCredential || ''; }
     get embedBaseUrl() { return this.config?.embedBaseUrl || ''; }
     get organizationId() { return this.config?.organizationId || ''; }
@@ -42,6 +61,7 @@ export default class PropfocusAdminSetup extends LightningElement {
     get buyerNameField() { return this.config?.buyerNameField || ''; }
     get leadStatusField() { return this.config?.leadStatusField || ''; }
     get projectField() { return this.config?.projectField || ''; }
+    get copyEndpointLabel() { return this.endpointCopied ? 'Copied!' : 'Copy'; }
     get resultClass() {
         return this.testVariant === 'success' ? 'result result_success' : 'result result_error';
     }

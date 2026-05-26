@@ -4,6 +4,14 @@
     <hasActivationRequired>false</hasActivationRequired>
     <label>Propfocus AI Admin</label>
     <classAccesses>
+        <apexClass>PropfocusInboundService</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>PropfocusLeadEventService</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
         <apexClass>PropFocusLeadService</apexClass>
         <enabled>true</enabled>
     </classAccesses>
@@ -114,6 +122,15 @@
         <allowRead>true</allowRead>
         <modifyAllRecords>false</modifyAllRecords>
         <object>Propfocus_Config__mdt</object>
+        <viewAllRecords>false</viewAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <allowCreate>true</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>Propfocus_Lead_Event__e</object>
         <viewAllRecords>false</viewAllRecords>
     </objectPermissions>
     <fieldPermissions>

@@ -224,6 +224,12 @@ public with sharing class PropfocusConfigService {
         return getConfig();
     }
 
+    @AuraEnabled(cacheable=true)
+    public static String getInboundEndpoint() {
+        String base = URL.getSalesforceBaseUrl().toExternalForm();
+        return base + '/services/apexrest/PropfocusAI/propfocus/events/';
+    }
+
     @AuraEnabled
     public static ConnectionCheckResult testConnection() {
         ConnectionCheckResult result = new ConnectionCheckResult();

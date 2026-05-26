@@ -27,6 +27,32 @@
                 <template lwc:if={testResult}>
                     <div class="slds-m-top_medium"><p class={resultClass}>{testResult}</p></div>
                 </template>
+                <template lwc:if={inboundEndpoint}>
+                    <div class="slds-m-top_large slds-p-top_medium slds-border_top">
+                        <h3 class="slds-text-heading_small slds-m-bottom_x-small">Inbound Webhook Endpoint</h3>
+                        <p class="slds-text-body_small slds-m-bottom_small">
+                            Share this URL with PropFocus so buyer activity events can be pushed into this org.
+                            PropFocus authenticates via the Connected App — this URL alone is not enough to call the endpoint.
+                        </p>
+                        <div class="slds-grid slds-gutters_x-small slds-wrap">
+                            <div class="slds-col slds-size_1-of-1 slds-large-size_10-of-12">
+                                <lightning-input
+                                    label="REST Endpoint URL"
+                                    value={inboundEndpoint}
+                                    disabled
+                                    class="endpoint-input">
+                                </lightning-input>
+                            </div>
+                            <div class="slds-col slds-size_1-of-1 slds-large-size_2-of-12 slds-align-bottom slds-p-top_small">
+                                <lightning-button
+                                    label={copyEndpointLabel}
+                                    variant="neutral"
+                                    onclick={handleCopyEndpoint}>
+                                </lightning-button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
             </template>
         </div>
     </lightning-card>

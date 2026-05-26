@@ -155,12 +155,11 @@ private class PropFocusLeadServiceTest {
 
         System.assertEquals('https://example.test/sv', svUrl);
         Lead updatedLead = [
-            SELECT Propfocus_Site_Visit__c, Propfocus_Buyer_Insights_Available__c
+            SELECT Propfocus_Site_Visit__c
             FROM Lead
             WHERE Id = :ld.Id
         ];
         System.assertEquals('https://example.test/sv', updatedLead.Propfocus_Site_Visit__c);
-        System.assertEquals(true, updatedLead.Propfocus_Buyer_Insights_Available__c);
 
         List<Propfocus_Link__c> historyRows = [
             SELECT Type__c, Project_Name__c, URL__c, Status__c

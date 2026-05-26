@@ -49,6 +49,8 @@ Use this checklist to complete the Propfocus app setup in Salesforce.
    - **Organization Id** = your real org id.
 4. Click **Save**.
 
+> **Note for integration user**: The integration user (assigned `Propfocus_Integration`) also needs field-level Read access on whichever Lead field you mapped to **Buyer Id Field** above. The package can't grant this statically because it doesn't know which field you chose. Add it via the integration user's permission set or profile after step 4.
+
 ## 5) Add CSP Trusted Site
 
 1. Go to **Setup -> CSP Trusted Sites**.

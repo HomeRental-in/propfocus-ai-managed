@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ConnectedApp xmlns="http://soap.sforce.com/2006/04/metadata">
+    <contactEmail>support@propfocus.in</contactEmail>
+    <description>Allows PropFocus AI to authenticate into a subscriber org and push buyer activity events via the inbound REST endpoint.</description>
+    <label>PropFocus AI</label>
+    <oauthConfig>
+        <callbackUrl>https://propfocus.in/oauth/callback</callbackUrl>
+        <scopes>Api</scopes>
+        <scopes>RefreshToken</scopes>
+        <scopes>OfflineAccess</scopes>
+    </oauthConfig>
+</ConnectedApp>

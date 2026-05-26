@@ -19,6 +19,16 @@ private class PropfocusConfigServiceTest {
     }
 
     @IsTest
+    static void testGetInboundEndpoint_returnsUrl() {
+        Test.startTest();
+        String endpoint = PropfocusConfigService.getInboundEndpoint();
+        Test.stopTest();
+
+        System.assertNotEquals(null, endpoint);
+        System.assert(endpoint.contains('/services/apexrest/PropfocusAI/propfocus/events/'));
+    }
+
+    @IsTest
     static void testGetUiConfiguration_FallbackInTests() {
         Test.startTest();
         PropfocusConfigService.Config cfg = PropfocusConfigService.getUiConfiguration();

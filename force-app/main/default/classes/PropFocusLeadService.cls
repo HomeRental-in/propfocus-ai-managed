@@ -1,6 +1,7 @@
 public class PropFocusLeadService {
-    // This is a wire-contract key with the Propfocus backend and is intentionally
-     independent of any salesforce field API name or namespace.
+    // Fixed JSON key in the Propfocus API request body. This is a wire-contract
+    // with the Propfocus backend and is intentionally independent of any
+    // Salesforce field API name or namespace.
     private static final String API_LEAD_STATUS_KEY = 'leadStatus';
 
     private static void createPropfocusLinkHistory(
@@ -393,7 +394,6 @@ public class PropFocusLeadService {
         List<String> leadFieldApiNames = new List<String>{
             'Owner.Name',
             'Propfocus_Site_Visit__c',
-            'Propfocus_Buyer_Insights_Available__c',
             buyerIdFieldApiName,
             buyerNameFieldApiName,
             projectFieldApiName
@@ -470,7 +470,6 @@ public class PropFocusLeadService {
 
         String micrositeUrl = (String) dataMap.get('sv_url');
         ld.put('Propfocus_Site_Visit__c', micrositeUrl);
-        ld.put('Propfocus_Buyer_Insights_Available__c', true);
         update ld;
         createPropfocusLinkHistory(
             ld.Id,
@@ -509,18 +508,6 @@ public class PropFocusLeadService {
             return false;
         }
         return leads[0].Propfocus_Buyer_Insights_Available__c == true;
-    }
-
-    @AuraEnabled(cacheable=true)
-    public static Boolean isSiteVisitAvailable(Id leadId){
-        try {
-            return !queryLatestSiteVisits(leadId, 1).isEmpty();
-        } catch (AuraHandledException ex) {
-            if (!isMissingSiteVisitMetadata(ex)) {
-                throw ex;
-            }
-            return false;
-        }
     }
 
     @AuraEnabled(cacheable=true)

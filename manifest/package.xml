@@ -1,79 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
     <types>
-        <members>Propfocus_AI</members>
-        <name>CustomApplication</name>
-    </types>
-    <types>
-        <members>PropFocusLeadService</members>
-        <members>PropFocusLeadServiceTest</members>
-        <members>PropFocusServiceException</members>
-        <members>PropfocusConfigService</members>
-        <members>PropfocusConfigServiceTest</members>
-        <members>PropfocusLeadTrackingService</members>
-        <members>PropfocusLeadTrackingServiceTest</members>
-        <members>PropfocusLeadTrackingWrapper</members>
-        <name>ApexClass</name>
-    </types>
-    <types>
-        <members>Lead.Pre_Sales_Rep_Source__c</members>
-        <members>Lead.Propfocus_Buyer_Insights_Available__c</members>
         <members>Lead.Propfocus_Link__c</members>
         <members>Lead.Propfocus_Site_Visit__c</members>
-        <members>Propfocus_Config__mdt.Api_Named_Credential__c</members>
-        <members>Propfocus_Config__mdt.Buyer_Id_Field__c</members>
-        <members>Propfocus_Config__mdt.Buyer_Name_Field__c</members>
-        <members>Propfocus_Config__mdt.Embed_Base_Url__c</members>
-        <members>Propfocus_Config__mdt.Lead_Lookup_Field__c</members>
-        <members>Propfocus_Config__mdt.Lead_Status_Field__c</members>
-        <members>Propfocus_Config__mdt.Organization_Id__c</members>
-        <members>Propfocus_Config__mdt.Pre_Sales_Rep_Source_Field__c</members>
-        <members>Propfocus_Config__mdt.Project_Field__c</members>
-        <members>Propfocus_Config__mdt.Site_Visit_Object__c</members>
-        <members>Propfocus_Config__mdt.Site_Visit_Project_Field__c</members>
-        <members>Propfocus_Config__mdt.Site_Visit_Status_Field__c</members>
-        <members>Propfocus_Link__c.Created_At__c</members>
-        <members>Propfocus_Link__c.Lead__c</members>
-        <members>Propfocus_Link__c.Project_Name__c</members>
-        <members>Propfocus_Link__c.Status__c</members>
-        <members>Propfocus_Link__c.Type__c</members>
-        <members>Propfocus_Link__c.URL__c</members>
         <name>CustomField</name>
-    </types>
-    <types>
-        <members>Propfocus_Config.Default</members>
-        <name>CustomMetadata</name>
-    </types>
-    <types>
-        <members>Propfocus_Config__mdt</members>
-        <members>Propfocus_Link__c</members>
-        <name>CustomObject</name>
-    </types>
-    <types>
-        <members>PropFocus_Notification</members>
-        <name>CustomNotificationType</name>
-    </types>
-    <types>
-        <members>propfocusAdminSetup</members>
-        <members>propfocusLeadLinkGen</members>
-        <name>LightningComponentBundle</name>
-    </types>
-    <types>
-        <members>Propfocus_API</members>
-        <name>NamedCredential</name>
-    </types>
-    <types>
-        <members>Propfocus_AI_Admin</members>
-        <members>Propfocus_User</members>
-        <name>PermissionSet</name>
-    </types>
-    <types>
-        <members>Propfocus_API</members>
-        <name>RemoteSiteSetting</name>
-    </types>
-    <types>
-        <members>propfocusAI_Admin_Setup</members>
-        <name>CustomTab</name>
     </types>
     <version>66.0</version>
 </Package>
