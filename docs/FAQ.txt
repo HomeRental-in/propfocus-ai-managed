@@ -1,0 +1,144 @@
+================================================================================
+PROPFOCUS AI — FAQ
+================================================================================
+
+Audience: Salesforce administrators and stakeholders
+Package version: Propfocus AI 0.4.0-1 (Released)
+
+================================================================================
+QUICK ANSWERS
+================================================================================
+
+How to get updates?
+  Dev team publishes a new package version. You upgrade in Setup — config is kept.
+  Repo changes do NOT update your org automatically.
+
+How to test two-way sync?
+  SF → Propfocus: Test Connection + change Lead; Propfocus confirms Platform Event.
+  Propfocus → SF: POST to inbound REST with Bearer token; verify Lead update + bell.
+
+Do we share admin password with Propfocus?
+  No. Use a dedicated integration user with Propfocus Integration permission set.
+
+Inbound REST URL in browser?
+  No token. POST only with Authorization: Bearer <access_token>.
+
+Install URL:
+  https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000dKWjQAM
+
+Full setup: SETUP_GUIDE.md
+Inbound API: INBOUND.md
+
+================================================================================
+GENERAL
+================================================================================
+
+Q: What is Propfocus AI for Salesforce?
+A: Managed package connecting Salesforce Leads to Propfocus:
+   microsite links, site visits, Buyer Insights iframe, notifications, two-way sync.
+
+Q: What Salesforce edition do we need?
+A: Org must support Apex (Developer, Enterprise, Unlimited, Enterprise sandbox).
+   Starter/Essentials/Group often fail. Professional needs Security Review.
+
+Q: Do we need Dev Hub?
+A: No — that is packaging for the dev team only. You install from the URL above.
+
+Q: Before install?
+A: 1. Enable Lead field history  2. Install package  3. Assign permission sets
+   4. Configure Propfocus Config  5. CSP Trusted Site  6. Add Lead component
+   Full steps: SETUP_GUIDE.md
+
+================================================================================
+PACKAGE UPGRADES
+================================================================================
+
+Q: How do we get new features or bug fixes?
+A: Dev team publishes a NEW version. You UPGRADE — changes do not appear automatically.
+
+   Your process:
+     1. Open new install URL while logged into your org
+     2. Click Upgrade (Setup -> Installed Packages -> Upgrade)
+     3. Re-test after upgrade
+
+   What is kept: Propfocus Config, permission sets, Lead data, Named Credential, CSP.
+   What changes: Package code (Apex, LWC, REST API).
+
+Q: When do we NOT need an upgrade?
+A: Field mappings, Organization Id, Embed URL, permission sets, Postman payload fixes.
+
+Q: Upgrade steps (sandbox or production)
+A:  1. Dev team shares new install URL + version + release notes
+    2. Log in (sandbox: test.salesforce.com; production: login.salesforce.com)
+    3. Open install URL -> choose Upgrade
+    4. Verify version under Installed Packages
+    5. Smoke test: Lead buttons, Test Connection, one inbound POST
+
+Q: Upgrade not offered?
+A: Beta install -> uninstall, install Released version (note OAuth values first).
+   Wrong org -> log out, log into target org, retry.
+
+================================================================================
+REPO vs ORG
+================================================================================
+
+Q: Do Git repo changes auto-update our org?
+A: NO. Flow: Repo -> Dev Hub build -> Package version -> Install/Upgrade in org.
+
+Q: Deploy source directly instead of package?
+A: Not recommended for production. Use the managed package.
+
+================================================================================
+TWO-WAY SYNC
+================================================================================
+
+Q: What is the inbound REST URL?
+A: https://<your-org-host>/services/apexrest/PropfocusAI/propfocus/events/
+   Copy from propfocusAI Admin Setup tab.
+
+Q: How to test SF -> Propfocus?
+A: Configure OAuth in Config -> Test Connection -> change Lead -> Propfocus confirms event.
+
+Q: How to test Propfocus -> SF?
+A: Integration user + Connected App -> POST JSON with Bearer token.
+   See INBOUND.md for payload format.
+
+Q: What does Test Connection test?
+A: Outbound only (OAuth to dev.propfocus.in). Does not test inbound REST.
+
+================================================================================
+SECURITY & PERMISSION SETS
+================================================================================
+
+Q: Permission sets included?
+A: Propfocus User (sales), Propfocus AI Admin (config), Propfocus Integration (API user).
+
+Q: What does Propfocus need from us?
+A: Organization Id, Inbound REST URL, OAuth Client Id/Secret (outbound),
+   Connected App for inbound. NOT admin username/password.
+
+Q: Sandbox first?
+A: Yes — recommended for UAT. Use test.salesforce.com for sandbox installs.
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Install fails — Apex Classes missing     -> Wrong org edition
+Install fails — Lead.FieldHistoryTracking -> Enable Lead history first
+Test Connection fails                    -> OAuth Client Id/Secret, Organization Id
+Blank iframe                             -> CSP Trusted Site frame-src + hard refresh
+History shows dashes                     -> Upgrade to 0.4.0-1+
+Two-way sync not working                 -> Outbound: Test Connection + event subscription
+                                           Inbound: integration user + POST to REST
+
+================================================================================
+RELATED DOCUMENTS
+================================================================================
+
+SETUP_GUIDE.md    Install, configure, test
+INBOUND.md        REST API, auth, Postman fixes
+FIELDS.md         Field API names
+DEV_GUIDE.md      Dev Hub, CLI, package build
+
+================================================================================

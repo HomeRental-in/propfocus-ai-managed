@@ -1,10 +1,15 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
-    <description>Assign to the Salesforce integration user that PropFocus authenticates as via the Connected App. Grants the minimum access needed to receive inbound events and send notifications.</description>
+    <description
+  >Assign to the Salesforce integration user that PropFocus authenticates as via the Connected App. Grants the minimum access needed to receive inbound events and send notifications.</description>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Propfocus Integration</label>
     <classAccesses>
         <apexClass>PropfocusInboundService</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>PropfocusInboundWritebackService</apexClass>
         <enabled>true</enabled>
     </classAccesses>
     <classAccesses>
@@ -24,22 +29,11 @@
         <enabled>true</enabled>
     </classAccesses>
     <!--
-        Field-level security for the customer-mapped Buyer Id field on Lead
-        (whatever the admin selects in Propfocus_Config.Default.Buyer_Id_Field__c)
-        must be granted manually to the integration user post-install. The
-        package itself ships no customer-specific Lead fields, so it cannot
-        statically declare that FLS here.
+        Field-level security for customer-mapped Lead fields (Buyer Id, Buyer Name,
+        Lead Status, Project, write-back owner fields, etc.) must be granted manually
+        to the integration user post-install. The package ships no customer-specific
+        Lead fields, so it cannot statically declare that FLS here.
     -->
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>Lead.Lead_Status__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>Lead.Project_Interested__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
         <field>Lead.Propfocus_Link__c</field>
@@ -57,7 +51,102 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>Lead.Full_Name__c</field>
+        <field>Propfocus_Call_Log__c.Call_Time__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Call_Log__c.Disposition__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Call_Log__c.Duration__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Call_Log__c.Lead__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Call_Log__c.Recording_URL__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Sync_History__c.Change_Date__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Sync_History__c.Changed_By__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Sync_History__c.Field_Changed__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Sync_History__c.Lead__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Sync_History__c.New_Value__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Sync_History__c.Old_Value__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Site_Visit_Sync__c.Lead__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Site_Visit_Sync__c.Manager_Email__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Site_Visit_Sync__c.Manager_Name__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Site_Visit_Sync__c.Manager_Phone__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Site_Visit_Sync__c.SV_Team__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Site_Visit_Sync__c.Site_Visit_Datetime__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Site_Visit_Sync__c.Site_Visit_Number__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Site_Visit_Sync__c.Site_Visit_Status__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Site_Visit_Sync__c.Site_Visit_Type__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
@@ -135,6 +224,33 @@
         <modifyAllRecords>false</modifyAllRecords>
         <object>Propfocus_Config__mdt</object>
         <viewAllRecords>false</viewAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <allowCreate>true</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>true</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>Propfocus_Call_Log__c</object>
+        <viewAllRecords>true</viewAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <allowCreate>true</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>true</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>Propfocus_Sync_History__c</object>
+        <viewAllRecords>true</viewAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <allowCreate>true</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>true</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>Propfocus_Site_Visit_Sync__c</object>
+        <viewAllRecords>true</viewAllRecords>
     </objectPermissions>
     <userPermissions>
         <enabled>true</enabled>

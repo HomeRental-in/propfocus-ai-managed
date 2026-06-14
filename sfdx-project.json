@@ -1,17 +1,32 @@
 {
   "packageDirectories": [
     {
+      "versionName": "ver 0.1",
+      "versionNumber": "0.4.0.NEXT",
       "path": "force-app",
       "default": true,
       "package": "Propfocus AI",
-      "versionName": "ver 1.0",
-      "versionNumber": "1.0.0.NEXT",
-      "definitionFile": "config/project-scratch-def.json"
+      "versionDescription": "Propfocus AI Salesforce integration",
+      "ancestorId": "05idL0000003TqHQAU"
     }
   ],
   "name": "propfocus-ai-managed",
   "namespace": "PropfocusAI",
-  "packageAliases": {},
+  "packageAliases": {
+    "Propfocus AI": "0HodL0000004HThSAM",
+    "Propfocus AI@0.1.0-1": "04tdL000000c8m9QAA",
+    "Propfocus AI@0.1.0-2": "04tdL000000cCTBQA2",
+    "Propfocus AI@0.1.0-3": "04tdL000000cDHBQA2",
+    "Propfocus AI@0.1.0-4": "04tdL000000cFADQA2",
+    "Propfocus AI@0.1.0-6": "04tdL000000cIjtQAE",
+    "Propfocus AI@0.1.0-7": "04tdL000000ch5ZQAQ",
+    "Propfocus AI@0.1.0-8": "04tdL000000cmrdQAA",
+    "Propfocus AI@0.1.0-9": "04tdL000000dK25QAE",
+    "Propfocus AI@0.1.0-10": "04tdL000000dK8XQAU",
+    "Propfocus AI@0.2.0-1": "04tdL000000dKTVQA2",
+    "Propfocus AI@0.3.0-1": "04tdL000000dKV7QAM",
+    "Propfocus AI@0.4.0-1": "04tdL000000dKWjQAM"
+  },
   "sfdcLoginUrl": "https://login.salesforce.com",
   "sourceApiVersion": "66.0"
 }

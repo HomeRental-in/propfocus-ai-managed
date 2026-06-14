@@ -1,53 +1,109 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata">
     <label>Default</label>
     <protected>false</protected>
     <values>
         <field>Api_Named_Credential__c</field>
-        <value xsi:type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">Propfocus_API</value>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    >Propfocus_API</value>
     </values>
     <values>
         <field>Embed_Base_Url__c</field>
-        <value xsi:type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"></value>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    />
     </values>
     <values>
         <field>Organization_Id__c</field>
-        <value xsi:type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"></value>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    />
     </values>
     <values>
         <field>Buyer_Id_Field__c</field>
-        <value xsi:type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"></value>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    />
     </values>
     <values>
         <field>Lead_Status_Field__c</field>
-        <value xsi:type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"></value>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    />
     </values>
     <values>
         <field>Buyer_Name_Field__c</field>
-        <value xsi:type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"></value>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    />
     </values>
     <values>
         <field>Project_Field__c</field>
-        <value xsi:type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"></value>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    />
     </values>
     <values>
         <field>Pre_Sales_Rep_Source_Field__c</field>
-        <value xsi:type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"></value>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    />
     </values>
     <values>
         <field>Site_Visit_Object__c</field>
-        <value xsi:type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">Site_Visit__c</value>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    >Site_Visit__c</value>
     </values>
     <values>
         <field>Site_Visit_Status_Field__c</field>
-        <value xsi:type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">Status__c</value>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    >Status__c</value>
     </values>
     <values>
         <field>Lead_Lookup_Field__c</field>
-        <value xsi:type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">Lead__c</value>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    >Lead__c</value>
+    </values>
+    <values>
+        <field>Lead_Source_Field__c</field>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    >LeadSource</value>
     </values>
     <values>
         <field>Site_Visit_Project_Field__c</field>
-        <value xsi:type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"></value>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    />
     </values>
 </CustomMetadata>

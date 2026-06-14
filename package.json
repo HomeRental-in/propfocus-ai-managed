@@ -1,8 +1,8 @@
 {
-  "name": "salesforce-app",
+  "name": "propfocus-ai-managed",
   "private": true,
-  "version": "1.0.0",
-  "description": "Salesforce App",
+  "version": "0.4.0.0",
+  "description": "Propfocus AI Salesforce managed package (2GP)",
   "scripts": {
     "lint": "eslint **/{aura,lwc}/**/*.js",
     "test": "npm run test:unit",
@@ -38,7 +38,11 @@
       "eslint"
     ],
     "**/lwc/**": [
-        "sfdx-lwc-jest -- --bail --findRelatedTests --passWithNoTests"
+      "sfdx-lwc-jest -- --bail --findRelatedTests --passWithNoTests"
     ]
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "jsonwebtoken": "^9.0.3"
   }
 }

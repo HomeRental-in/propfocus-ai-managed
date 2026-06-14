@@ -12,3 +12,6 @@ package.xml
 **/__tests__/**
 
 node_modules/
+
+# Subscriber orgs may already have these or block creation via CLI
+force-app/main/default/connectedApps/

@@ -1,71 +1,87 @@
 # Propfocus Salesforce Setup Guide
 
-Use this checklist to complete the Propfocus app setup in Salesforce.
+**Full walkthrough:** [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md)
+
+Short reference below. The setup guide has navigation paths, field values, pass/fail checks, and troubleshooting.
+
+---
+
+## Quick links
+
+| Item                    | Value                                                                                          |
+| ----------------------- | ---------------------------------------------------------------------------------------------- |
+| **Install link**        | `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000dKWjQAM` (v0.4.0-1) |
+| **Hosachiguru sandbox** | `https://hosachiguru--consultefy.sandbox.my.salesforce.com`                                    |
+| **Organization Id**     | _(from Propfocus team)_                                                                        |
+| **API base (dev)**      | `https://dev.propfocus.in`                                                                     |
+
+---
 
 ## 1) Show the Admin Tab in the App
 
-1. Go to **App Manager** (Service setup)
-2. Open your app (Developer Edition app you are using) and click **Edit**.
-3. Go to **Navigation Items**.
-4. Add **propfocusAI Admin Setup**.
-5. Click **Save** and refresh the app.
+1. **Setup → App Manager** → your app → **Edit → Navigation Items**
+2. Add **propfocusAI Admin Setup** → **Save**
+
+---
 
 ## 2) Add Lead LWC to Lead Record Page
 
-1. Open any **Lead** record.
-2. Click the **gear icon** and choose **Edit Page**.
-3. In Lightning App Builder, search for **propfocusLeadLinkGen**.
-4. Drag the component onto the page (for example, right sidebar or details area).
-5. Click **Save** and **Activate**.
-6. Assign as one of the following:
-   - **Org Default**, or
-   - **App + Record Type** for your current app.
-7. Refresh the record page.
+1. Lead record → gear → **Edit Page**
+2. Add **propfocusLeadLinkGen** → **Save → Activate**
 
-## 3) Update Custom Metadata Type Page Layout
+---
 
-1. Go to **Setup -> Custom Metadata Types**.
-2. Click the label **Propfocus Config**.
-3. On the detail page, scroll below the fields list.
-4. Find **Page Layouts** and click **Edit**.
-5. Add all fields to the layout and save.
+## 3) Custom Metadata page layout (if fields missing)
 
-## 4) Configure Propfocus Config Values
+**Setup → Custom Metadata Types → Propfocus Config → Page Layouts → Edit** → add all fields → Save
 
-1. Go to **Setup -> Custom Metadata Types**.
-2. Click **Manage**, then click **Edit** for **Propfocus Config**.
-3. Scroll to the custom fields section and set each value to the API name of the Lead/Site Visit field in **your** org that should be mapped to the corresponding Propfocus concept. The package ships no Lead custom fields of its own for these mappings — use whatever you already have.
-   - **API Named Credential** = `Propfocus_API`
-   - **Buyer Id Field** = API name of the Lead field that uniquely identifies the buyer (e.g. an enquiry reference number, account number, or `Email`).
-   - **Buyer Name Field** = API name of the Lead field holding the buyer's full name (e.g. `LastName` or a custom full-name field).
-   - **Lead Status Field** = API name of the Lead field holding the lead status (e.g. `Status` or a custom status field).
-   - **Project Field** = API name of the Lead field holding the project the buyer is interested in (e.g. `Company` or a custom project field).
-   - **Pre-Sales Rep Source Field** = API name of the Lead field holding the pre-sales rep, or leave blank to fall back to `Owner.Name`.
-   - **Lead Id Field** = lookup field API name on the Site Visit object that points to the Lead (e.g. `Lead__c`).
-   - **Site Visit Status Field** = API name of the status field on the Site Visit object (e.g. `Status__c`).
-   - **Site Visit Object** = API name of the Site Visit object if you have one (e.g. `Site_Visit__c`).
-   - **Embed Base URL** = your real embed URL.
-   - **Notification Type Developer Name** = `PropFocus_Notification` (or your org-specific developer name).
-   - **Organization Id** = your real org id.
-4. Click **Save**.
+---
 
-> **Note for integration user**: The integration user (assigned `Propfocus_Integration`) also needs field-level Read access on whichever Lead field you mapped to **Buyer Id Field** above. The package can't grant this statically because it doesn't know which field you chose. Add it via the integration user's permission set or profile after step 4.
+## 4) Configure Propfocus Config → Default
 
-## 5) Add CSP Trusted Site
+**Setup → Custom Metadata Types → Propfocus Config → Manage → Default → Edit**
 
-1. Go to **Setup -> CSP Trusted Sites**.
-2. Click **New Trusted Site**.
-3. Add:
-   - **Trusted Site Name**: `PropfocusCDN` (any name is fine)
-   - **Trusted Site URL**: `https://propfocus.in`
-4. Click **Save**.
-5. Ensure it is active for Lightning Experience (default is usually fine).
-6. Hard refresh the page.
+Field values: [docs/FIELDS.md](docs/FIELDS.md) or [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) section 2.2.
 
-## 6) Update Named Credential URL
+> Integration user needs **Read/Edit** on all mapped Lead fields.
 
-1. Go to **Setup -> Named Credentials**.
-2. Open **Propfocus API**.
-3. Change the URL to `https://dev.propfocus.in`.
-4. Save changes.
+---
 
+## 5) CSP Trusted Site
+
+**Setup → CSP Trusted Sites → New** → URL `https://dev.propfocus.in`
+
+---
+
+## 6) Named Credential
+
+**Setup → Named Credentials → Propfocus API** → URL `https://dev.propfocus.in`
+
+---
+
+## 7) OAuth (outbound API)
+
+In **Propfocus Config → Default**: Token URL, Grant Type `client_credentials`, Client Id/Secret from Propfocus team.
+
+**Check:** Admin Setup → **Test Connection** succeeds.
+
+---
+
+## 8) Permission sets
+
+| Permission set            | Who                             |
+| ------------------------- | ------------------------------- |
+| **Propfocus User**        | Sales reps                      |
+| **Propfocus AI Admin**    | Admins                          |
+| **Propfocus Integration** | Integration user (inbound REST) |
+
+---
+
+## 9) Test
+
+1. Admin Setup → **Test Connection**
+2. Lead → **Generate Microsite** / **Confirm Site Visit**
+3. Verify iframe
+4. Propfocus backend: sync + write-back + notifications
+
+Full test matrix: [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md)

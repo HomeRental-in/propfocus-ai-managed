@@ -1,0 +1,367 @@
+================================================================================
+SALESFORCE JWT BEARER FLOW — STEP BY STEP
+================================================================================
+
+For: Propfocus backend calling inbound REST (Propfocus -> Salesforce)
+No password. No security token. Uses certificate + integration user.
+
+
+================================================================================
+OVERVIEW
+================================================================================
+
+  1. Create integration user in Salesforce
+  2. Generate RSA certificate (private key + public cert)
+  3. Create External Client App + upload certificate
+  4. Pre-authorize integration user on the app
+  5. Build signed JWT in your code
+  6. POST JWT to Salesforce token URL -> get access_token
+  7. POST inbound REST with Bearer access_token
+
+================================================================================
+STEP 1 — CREATE INTEGRATION USER (SALESFORCE ADMIN)
+================================================================================
+
+1.1  Setup -> Users -> New User
+
+1.2  Fill in:
+       Username:  propfocus.integration@yourcompany.com
+                   (or use existing dedicated API user)
+       Email:     same or team email
+       Profile:   Minimum Access  (NOT System Administrator)
+
+1.3  Save -> user Active
+
+1.4  Setup -> Permission Sets -> Propfocus Integration
+       -> Manage Assignments -> Add this user -> Assign
+
+1.5  If custom Lead fields: grant Read + Edit on mapped fields
+       to this user (via permission set or profile)
+
+WRITE DOWN:
+  integration_username = propfocus.integration@yourcompany.com
+
+================================================================================
+STEP 2 — GENERATE RSA KEY PAIR (ON YOUR SERVER / DEV MACHINE)
+================================================================================
+
+Requires OpenSSL (Mac/Linux built-in; Windows: Git Bash or OpenSSL install)
+
+2.1  Open terminal. Create a folder for keys (keep private — never commit to git):
+
+       mkdir propfocus-sf-jwt
+       cd propfocus-sf-jwt
+
+2.2  Generate private key (2048-bit RSA):
+
+       openssl genrsa -out server.key 2048
+
+2.3  Generate self-signed certificate (valid 1 year):
+
+       openssl req -new -x509 -key server.key -out server.crt -days 365
+
+       When prompted:
+         Country, Org, etc. — any values OK
+         Common Name: propfocus-integration  (or your company name)
+
+2.4  You now have two files:
+       server.key  = PRIVATE KEY  (keep secret — Propfocus backend only)
+       server.crt  = PUBLIC CERT   (upload to Salesforce)
+
+NEVER share server.key in email, git, or Slack.
+
+================================================================================
+STEP 3 — CREATE EXTERNAL CLIENT APP (SALESFORCE ADMIN)
+================================================================================
+
+Do this in the SAME org as the integration user (e.g. your sandbox or production org).
+
+3.1  Setup -> App Manager -> New External Client App
+
+3.2  Basic info:
+       External Client App Name:  Propfocus Integration JWT
+       Contact Email:             your-email@company.com
+       Distribution State:        Local
+
+3.3  OAuth Settings / API (Enable OAuth):
+       [x] Enable OAuth
+
+       Callback URL (required field — placeholder OK for JWT):
+         https://login.salesforce.com/services/oauth2/callback
+
+       OAuth Scopes — add:
+         Manage user data via APIs (api)
+         Perform requests at any time (refresh_token, offline_access)
+
+3.4  Enable JWT Bearer + upload certificate (CRITICAL):
+
+       Scroll down to section:  FLOW ENABLEMENT  (not "Digital signatures")
+
+       [x] Enable JWT Bearer Flow
+
+       After you check it, a  Certificate Upload  area appears below.
+       Click Upload / Choose File -> select  server.crt  (from Step 2.3)
+
+       IF YOU STILL DON'T SEE "Enable JWT Bearer Flow":
+       - Scroll the whole create/edit form — it is below OAuth Scopes
+       - Or use ALTERNATIVE PATH (Step 3.4b) below
+
+3.4b ALTERNATIVE — upload cert first, then link to app:
+
+       A) Setup -> Certificate and Key Management -> Upload Certificate
+          -> upload server.crt -> Save
+
+       B) Edit your External Client App -> Flow Enablement
+          -> Enable JWT Bearer Flow -> pick uploaded certificate
+
+3.4c OLD UI (Classic Connected App only — not External Client App):
+       [x] Use digital signatures  + upload certificate
+       (External Client Apps use "Enable JWT Bearer Flow" instead)
+
+3.5  Save
+
+3.6  WAIT 2-10 minutes for Salesforce to activate the app
+
+3.7  App Manager -> Propfocus Integration JWT -> View / Manage
+
+3.8  Copy Consumer Key (Client Id):
+       Starts with: 3MVG9................................
+
+       WRITE DOWN:
+         client_id (iss) = 3MVG9...............
+
+     Consumer Secret is NOT used for JWT Bearer flow.
+
+================================================================================
+STEP 4 — PRE-AUTHORIZE INTEGRATION USER
+================================================================================
+
+The integration user must be allowed to use this app.
+
+4.1  Open External Client App -> Policies (or Manage -> Policies)
+
+4.2  Permitted Users:
+       Choose ONE:
+         - "All users may self-authorize"  (easiest for testing)
+         OR
+         - "Admin approved users are pre-authorized"
+           then add integration user's Profile or Permission Set
+
+4.3  Save
+
+4.4  Optional — Setup -> OAuth and OpenID Connect Settings:
+       Review org OAuth policies (usually no change needed for JWT)
+
+================================================================================
+STEP 5 — UNDERSTAND THE JWT (WHAT YOUR CODE BUILDS)
+================================================================================
+
+JWT = 3 parts joined by dots:  header.payload.signature
+
+5.1  HEADER (JSON, base64url encoded):
+       {
+         "alg": "RS256",
+         "typ": "JWT"
+       }
+
+5.2  PAYLOAD / CLAIMS (JSON, base64url encoded):
+       {
+         "iss": "3MVG9.............",     <- Consumer Key (client_id)
+         "sub": "propfocus.integration@yourcompany.com",  <- integration username
+         "aud": "https://login.salesforce.com",         <- token audience
+         "exp": 1717843200                  <- Unix time ~3 min from now
+       }
+
+       aud values:
+         Production / Developer Edition:  https://login.salesforce.com
+         Sandbox:                         https://test.salesforce.com
+
+5.3  SIGNATURE:
+       Sign(base64url(header) + "." + base64url(payload), server.key, RS256)
+
+5.4  Final JWT string looks like:
+       eyJhbGciOiJSUzI1NiIs...  .  eyJpc3MiOiIzTVZH...  .  signature...
+
+================================================================================
+STEP 6 — REQUEST access_token (YOUR CODE)
+================================================================================
+
+6.1  Build and sign JWT (see Step 7 for code examples)
+
+6.2  HTTP request:
+
+       POST https://login.salesforce.com/services/oauth2/token
+       Content-Type: application/x-www-form-urlencoded
+
+       Body:
+         grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer
+         assertion=<full_signed_JWT_string>
+
+       For sandbox:
+         POST https://test.salesforce.com/services/oauth2/token
+
+6.3  Success response (200):
+       {
+         "access_token": "00Dxxxxx!AR8AQ...",
+         "scope": "api refresh_token",
+         "instance_url": "https://orgfarm-fe4cf9447a-dev-ed.develop.my.salesforce.com",
+         "id": "https://login.salesforce.com/id/00D.../005...",
+         "token_type": "Bearer"
+       }
+
+6.4  Save access_token and instance_url
+
+6.5  Token expires (typically ~2 hours). Generate new JWT and request
+       new token when expired. No refresh token in standard JWT flow.
+
+6.6  Common errors:
+
+       invalid_grant | user hasn't approved this consumer
+         -> Step 4: pre-authorize integration user on the app
+
+       invalid_client_id
+         -> Wrong iss (Consumer Key) or app not propagated yet (wait 10 min)
+
+       invalid assertion
+         -> Wrong signature, expired exp, wrong aud, or wrong private key
+
+       user invalid
+         -> sub username wrong or user inactive in this org
+
+================================================================================
+STEP 7 — CODE EXAMPLES
+================================================================================
+
+--------------------------------------------------------------------------------
+Node.js (jsonwebtoken package)
+--------------------------------------------------------------------------------
+
+  npm install jsonwebtoken
+
+  const fs = require('fs');
+  const jwt = require('jsonwebtoken');
+  const axios = require('axios');
+
+  const CLIENT_ID = process.env.SF_CLIENT_ID;      // 3MVG9...
+  const USERNAME  = process.env.SF_INTEGRATION_USER; // propfocus.integration@...
+  const LOGIN_URL = 'https://login.salesforce.com';  // or test.salesforce.com
+  const privateKey = fs.readFileSync('./server.key', 'utf8');
+
+  // Build JWT
+  const token = jwt.sign(
+    {
+      iss: CLIENT_ID,
+      sub: USERNAME,
+      aud: LOGIN_URL,
+    },
+    privateKey,
+    { algorithm: 'RS256', expiresIn: '3m' }
+  );
+
+  // Exchange JWT for access_token
+  const params = new URLSearchParams({
+    grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+    assertion: token,
+  });
+
+  const { data } = await axios.post(
+    `${LOGIN_URL}/services/oauth2/token`,
+    params.toString(),
+    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+  );
+
+  console.log('access_token:', data.access_token);
+  console.log('instance_url:', data.instance_url);
+
+--------------------------------------------------------------------------------
+Python (PyJWT + requests)
+--------------------------------------------------------------------------------
+
+  pip install pyjwt cryptography requests
+
+  import jwt
+  import time
+  import requests
+
+  CLIENT_ID = "3MVG9..."
+  USERNAME  = "propfocus.integration@yourcompany.com"
+  LOGIN_URL = "https://login.salesforce.com"
+
+  with open("server.key", "r") as f:
+      private_key = f.read()
+
+  payload = {
+      "iss": CLIENT_ID,
+      "sub": USERNAME,
+      "aud": LOGIN_URL,
+      "exp": int(time.time()) + 180,
+  }
+
+  assertion = jwt.encode(payload, private_key, algorithm="RS256")
+
+  r = requests.post(
+      f"{LOGIN_URL}/services/oauth2/token",
+      data={
+          "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+          "assertion": assertion,
+      },
+  )
+  data = r.json()
+  access_token = data["access_token"]
+  instance_url = data["instance_url"]
+
+================================================================================
+STEP 8 — CALL INBOUND REST (AFTER access_token)
+================================================================================
+
+8.1  POST {instance_url}/services/apexrest/PropfocusAI/propfocus/events/
+
+8.2  Headers:
+       Authorization: Bearer <access_token>
+       Content-Type: application/json
+
+8.3  Body:
+       {
+         "event_type": "buyer_activity",
+         "buyer_id": "lead@example.com",
+         "organization_id": "63e68b70-6b76-4997-b5fe-6084484d7819",
+         "title": "New Site Visit Scheduled",
+         "message": "Customer has scheduled a site visit for tomorrow at 11 AM"
+       }
+
+8.4  buyer_id must match Lead Email (or configured Buyer Id field)
+
+8.5  organization_id must match Propfocus Config in that org
+
+8.6  Method must be POST (not PUT)
+
+================================================================================
+STEP 9 — PRODUCTION CHECKLIST
+================================================================================
+
+[ ]  Integration user created (not admin)
+[ ]  Propfocus Integration permission set assigned
+[ ]  RSA key pair generated; private key in secrets manager
+[ ]  External Client App created IN SAME ORG as integration user
+[ ]  server.crt uploaded to app; digital signatures enabled
+[ ]  Consumer Key (3MVG9...) stored as SF_CLIENT_ID
+[ ]  Integration user pre-authorized on app policies
+[ ]  JWT uses correct aud (login vs test.salesforce.com)
+[ ]  Token exchange returns access_token
+[ ]  Inbound POST returns success: true
+[ ]  Private key NOT in git / email / setup guide
+
+================================================================================
+JWT vs PASSWORD FLOW
+================================================================================
+
+  Password flow:
+    - Needs password + security token
+    - Often blocked in production orgs
+    - Good for quick Postman tests only
+
+  JWT Bearer flow:
+    - No password, no security token
+    - Recommended for Propfocus production backend
+    - Needs one-time certificate setup
+
