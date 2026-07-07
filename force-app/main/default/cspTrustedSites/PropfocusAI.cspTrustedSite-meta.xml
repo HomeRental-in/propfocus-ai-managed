@@ -4,8 +4,8 @@
     <canAccessMicrophone>false</canAccessMicrophone>
     <context>All</context>
     <description
-  >Propfocus production host for Buyer Insights iframe and API callouts.</description>
-    <endpointUrl>https://propfocus.in</endpointUrl>
+  >Propfocus dev host for Buyer Insights iframe and API callouts.</description>
+    <endpointUrl>https://dev.propfocus.in</endpointUrl>
     <isActive>true</isActive>
     <isApplicableToConnectSrc>true</isApplicableToConnectSrc>
     <isApplicableToFontSrc>true</isApplicableToFontSrc>

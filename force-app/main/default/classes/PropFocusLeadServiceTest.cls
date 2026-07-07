@@ -1,6 +1,8 @@
 @IsTest
 private class PropFocusLeadServiceTest {
   private static PropfocusHttpCalloutMock apiMock;
+  private static final String CUSTOMER_SUPPORT_MESSAGE =
+    PropFocusLeadService.CUSTOMER_SUPPORT_MESSAGE;
 
   private static Lead makeLead() {
     return PropfocusTestUtil.createLead('Coverage Buyer');
@@ -23,17 +25,23 @@ private class PropFocusLeadServiceTest {
     );
 
     Test.startTest();
-    String url = PropFocusLeadService.generateMicrositeLink(
+    PropFocusLeadService.PropfocusLinkResult result = PropFocusLeadService.generateMicrositeLink(
       ld.Id,
       'Client 1',
-      new List<String>{ 'Project A', 'Project B' }
+      new List<String>{ 'Project A', 'Project B' },
+      'new',
+      ''
     );
     Test.stopTest();
 
     System.assertEquals(
       'https://example.test/micro',
-      url,
-      'Unexpected microsite URL: ' + url
+      result.url,
+      'Unexpected microsite URL: ' + result.url
+    );
+    System.assert(
+      result.whatsappMessage != null && result.whatsappMessage.contains('https://example.test/micro'),
+      'Expected whatsapp message to include microsite URL'
     );
     Lead updatedLead = [
       SELECT Propfocus_Link__c, Propfocus_Buyer_Insights_Available__c
@@ -67,6 +75,40 @@ private class PropFocusLeadServiceTest {
       String.valueOf(ld.Id),
       requestBody.get('salesforce_lead_id')
     );
+    System.assert(
+      !String.isBlank(apiMock.lastApiIdempotencyKey),
+      'Expected Idempotency-Key header for microsite create'
+    );
+  }
+
+  @IsTest
+  static void generateMicrositeLink_reused_marksHistoryAsReused() {
+    Lead ld = makeLead();
+    setApiMock(
+      200,
+      '{"success":true,"reused":true,"data":{"microsite_url":"https://example.test/micro-reused"}}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.PropfocusLinkResult result = PropFocusLeadService.generateMicrositeLink(
+      ld.Id,
+      'Client Reuse',
+      new List<String>{ 'Project A' },
+      'new',
+      ''
+    );
+    Test.stopTest();
+
+    System.assertEquals('https://example.test/micro-reused', result.url);
+    List<Propfocus_Link__c> historyRows = [
+      SELECT Status__c
+      FROM Propfocus_Link__c
+      WHERE Lead__c = :ld.Id
+      ORDER BY CreatedDate DESC
+      LIMIT 1
+    ];
+    System.assertEquals(1, historyRows.size());
+    System.assertEquals('Reused', historyRows[0].Status__c);
   }
 
   @IsTest
@@ -80,14 +122,16 @@ private class PropFocusLeadServiceTest {
       PropFocusLeadService.generateMicrositeLink(
         ld.Id,
         'Client 1',
-        new List<String>{ 'Project A' }
+        new List<String>{ 'Project A' },
+        'new',
+        ''
       );
     } catch (AuraHandledException e) {
       firstCallFailedAsExpected = true;
       String errorMessage = e.getMessage();
       System.assert(
         errorMessage != null &&
-        (errorMessage.contains('Propfocus API failed with status 503') ||
+        (errorMessage.contains(CUSTOMER_SUPPORT_MESSAGE) ||
         errorMessage.contains('Script-thrown exception'))
       );
     }
@@ -109,14 +153,16 @@ private class PropFocusLeadServiceTest {
       PropFocusLeadService.generateMicrositeLink(
         ld.Id,
         'Client 1',
-        new List<String>{ 'Project A' }
+        new List<String>{ 'Project A' },
+        'new',
+        ''
       );
     } catch (AuraHandledException e2) {
       secondCallFailedAsExpected = true;
       String errorMessage = e2.getMessage();
       System.assert(
         errorMessage != null &&
-        (errorMessage.contains('Microsite URL not returned by Propfocus') ||
+        (errorMessage.contains(CUSTOMER_SUPPORT_MESSAGE) ||
         errorMessage.contains('Script-thrown exception'))
       );
     }
@@ -125,6 +171,128 @@ private class PropFocusLeadServiceTest {
       secondCallFailedAsExpected,
       'Expected missing micrositeUrl to throw AuraHandledException'
     );
+  }
+
+  @IsTest
+  static void generateMicrositeLink_sendsBrokerNameOrNumberNotBoth() {
+    Lead ld = makeLead();
+    setApiMock(
+      200,
+      '{"success":true,"micrositeUrl":"https://example.test/micro"}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.generateMicrositeLink(
+      ld.Id,
+      'Client 1',
+      new List<String>{ 'Project A' },
+      'new',
+      ''
+    );
+    Test.stopTest();
+
+    Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
+      apiMock.lastApiRequestBody
+    );
+    Boolean hasBrokerNumber =
+      requestBody.containsKey('brokerNumber') &&
+      !String.isBlank(String.valueOf(requestBody.get('brokerNumber')));
+    Boolean hasBrokerName =
+      requestBody.containsKey('brokerName') &&
+      !String.isBlank(String.valueOf(requestBody.get('brokerName')));
+    System.assert(
+      !(hasBrokerNumber && hasBrokerName),
+      'Should not send both broker identifiers'
+    );
+  }
+
+  @IsTest
+  static void generateMicrositeLink_prefersApiWhatsappMessage() {
+    Lead ld = makeLead();
+    setApiMock(
+      200,
+      '{"success":true,"micrositeUrl":"https://example.test/micro","whatsappMessage":"Custom WhatsApp template"}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.PropfocusLinkResult result = PropFocusLeadService.generateMicrositeLink(
+      ld.Id,
+      'Client 1',
+      new List<String>{ 'Project A' },
+      'new',
+      ''
+    );
+    Test.stopTest();
+
+    System.assertEquals('Custom WhatsApp template', result.whatsappMessage);
+  }
+
+  @IsTest
+  static void generateMicrositeLink_sendsLeadTypesAndConfigurationFilter() {
+    Lead ld = makeLead();
+    setApiMock(
+      200,
+      '{"success":true,"micrositeUrl":"https://example.test/micro"}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.generateMicrositeLink(
+      ld.Id,
+      'Client 1',
+      new List<String>{ 'Project A' },
+      'rnr',
+      '2 BHK, 3 BHK'
+    );
+    Test.stopTest();
+
+    Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
+      apiMock.lastApiRequestBody
+    );
+    List<Object> leadTypes = (List<Object>) requestBody.get('lead_types');
+    System.assertNotEquals(null, leadTypes);
+    System.assertEquals(1, leadTypes.size());
+    System.assertEquals('Open', String.valueOf(leadTypes[0]));
+    System.assertEquals('2 BHK, 3 BHK', requestBody.get('configurationFilter'));
+  }
+
+  @IsTest
+  static void resolveMicrositeLeadTypesForApi_mapsUiValues() {
+    System.assertEquals(0, PropFocusLeadService.resolveMicrositeLeadTypesForApi('new').size());
+    System.assertEquals(
+      'Open',
+      PropFocusLeadService.resolveMicrositeLeadTypesForApi('rnr')[0]
+    );
+    System.assertEquals(
+      'Referral',
+      PropFocusLeadService.resolveMicrositeLeadTypesForApi('refer')[0]
+    );
+    System.assertEquals(
+      'Old Data',
+      PropFocusLeadService.resolveMicrositeLeadTypesForApi('old data')[0]
+    );
+    System.assertEquals(
+      'Investment',
+      PropFocusLeadService.resolveMicrositeLeadTypesForApi('investor')[0]
+    );
+  }
+
+  @IsTest
+  static void getConfigurationsForProjects_returnsUnionLabels() {
+    setApiMock(
+      200,
+      '{"success":true,"projects":["Project A","Project B"],"projectConfigurations":{"Project A":["3 BHK","2 BHK"],"Project B":["3 BHK"]}}'
+    );
+
+    Test.startTest();
+    List<String> labels = PropFocusLeadService.getConfigurationsForProjects(
+      new List<String>{ 'Project A', 'Project B' }
+    );
+    Test.stopTest();
+
+    System.assert(apiMock.lastApiEndpoint.contains('/accessible-projects'));
+    System.assertEquals(2, labels.size());
+    System.assertEquals('2 BHK', labels[0]);
+    System.assertEquals('3 BHK', labels[1]);
   }
 
   @IsTest
@@ -137,15 +305,16 @@ private class PropFocusLeadServiceTest {
     );
 
     Test.startTest();
-    String svUrl = PropFocusLeadService.generateSiteVisitWithProjectAndDateTime(
+    PropFocusLeadService.PropfocusLinkResult svResult = PropFocusLeadService.generateSiteVisitWithProjectAndDateTime(
       ld.Id,
       'Buyer Override',
       'Project Override',
-      requestedDt
+      requestedDt,
+      null
     );
     Test.stopTest();
 
-    System.assertEquals('https://example.test/sv', svUrl);
+    System.assertEquals('https://example.test/sv', svResult.url);
     Lead updatedLead = [
       SELECT Propfocus_Site_Visit__c
       FROM Lead
@@ -167,6 +336,181 @@ private class PropFocusLeadServiceTest {
     System.assertEquals('Project Override', historyRows[0].Project_Name__c);
     System.assertEquals('https://example.test/sv', historyRows[0].URL__c);
     System.assertEquals('Confirmed', historyRows[0].Status__c);
+    System.assert(
+      !String.isBlank(apiMock.lastApiIdempotencyKey),
+      'Expected Idempotency-Key header for site visit create'
+    );
+  }
+
+  @IsTest
+  static void generateSiteVisitWithProjectAndDateTime_includesSiteVisitManagerObject() {
+    Lead ld = makeLead();
+    setApiMock(
+      200,
+      '{"success":true,"data":{"sv_url":"https://example.test/sv"}}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.generateSiteVisitWithProjectAndDateTime(
+      ld.Id,
+      'Buyer Override',
+      'Project Override',
+      System.now(),
+      'mgr-1'
+    );
+    Test.stopTest();
+
+    Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
+      apiMock.lastApiRequestBody
+    );
+    Map<String, Object> siteVisitManager = (Map<String, Object>) requestBody.get(
+      'siteVisitManager'
+    );
+    System.assertNotEquals(null, siteVisitManager);
+    System.assertEquals('mgr-1', siteVisitManager.get('id'));
+  }
+
+  @IsTest
+  static void generateSiteVisitWithProjectAndDateTime_reused_marksHistoryAsReused() {
+    Lead ld = makeLead();
+    setApiMock(
+      200,
+      '{"success":true,"reused":true,"sv_url":"https://example.test/sv-reused"}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.PropfocusLinkResult svResult = PropFocusLeadService.generateSiteVisitWithProjectAndDateTime(
+      ld.Id,
+      'Buyer Reuse',
+      'Project Reuse',
+      System.now(),
+      null
+    );
+    Test.stopTest();
+
+    System.assertEquals('https://example.test/sv-reused', svResult.url);
+    List<Propfocus_Link__c> historyRows = [
+      SELECT Status__c
+      FROM Propfocus_Link__c
+      WHERE Lead__c = :ld.Id
+      ORDER BY CreatedDate DESC
+      LIMIT 1
+    ];
+    System.assertEquals(1, historyRows.size());
+    System.assertEquals('Reused', historyRows[0].Status__c);
+  }
+
+  @IsTest
+  static void generatePostVisitWithProjectAndConfiguration_success_updatesLeadAndHistory() {
+    Lead ld = makeLead();
+    Date visitDate = Date.newInstance(2026, 1, 20);
+    setApiMock(
+      200,
+      '{"success":true,"data":{"postVisitUrl":"https://example.test/pv"}}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.PropfocusLinkResult pvResult = PropFocusLeadService.generatePostVisitWithProjectAndConfiguration(
+      ld.Id,
+      'Buyer Post',
+      'Project Post',
+      '3 BHK',
+      visitDate
+    );
+    Test.stopTest();
+
+    System.assertEquals('https://example.test/pv', pvResult.url);
+    Lead updatedLead = [
+      SELECT Propfocus_Post_Visit__c
+      FROM Lead
+      WHERE Id = :ld.Id
+    ];
+    System.assertEquals('https://example.test/pv', updatedLead.Propfocus_Post_Visit__c);
+
+    List<Propfocus_Link__c> historyRows = [
+      SELECT Type__c, Project_Name__c, URL__c, Status__c
+      FROM Propfocus_Link__c
+      WHERE Lead__c = :ld.Id
+      ORDER BY CreatedDate DESC
+      LIMIT 1
+    ];
+    System.assertEquals(1, historyRows.size());
+    System.assertEquals('Post Visit', historyRows[0].Type__c);
+    System.assertEquals('Project Post', historyRows[0].Project_Name__c);
+    System.assertEquals('https://example.test/pv', historyRows[0].URL__c);
+    System.assertEquals('Generated', historyRows[0].Status__c);
+
+    Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
+      apiMock.lastApiRequestBody
+    );
+    System.assertEquals('3 BHK', requestBody.get('visited_configuration'));
+    System.assertEquals(String.valueOf(visitDate), requestBody.get('visit_conducted_at'));
+    System.assertEquals(String.valueOf(ld.Id), requestBody.get('salesforce_lead_id'));
+    System.assert(
+      !String.isBlank(apiMock.lastApiIdempotencyKey),
+      'Expected Idempotency-Key header for post visit create'
+    );
+  }
+
+  @IsTest
+  static void generatePostVisitWithProjectAndConfiguration_reused_marksHistoryAsReused() {
+    Lead ld = makeLead();
+    setApiMock(
+      200,
+      '{"success":true,"reused":true,"post_visit_url":"https://example.test/pv-reused"}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.PropfocusLinkResult pvResult = PropFocusLeadService.generatePostVisitWithProjectAndConfiguration(
+      ld.Id,
+      'Buyer Post',
+      'Project Post',
+      '2 BHK',
+      Date.today()
+    );
+    Test.stopTest();
+
+    System.assertEquals('https://example.test/pv-reused', pvResult.url);
+    List<Propfocus_Link__c> historyRows = [
+      SELECT Status__c
+      FROM Propfocus_Link__c
+      WHERE Lead__c = :ld.Id
+      ORDER BY CreatedDate DESC
+      LIMIT 1
+    ];
+    System.assertEquals(1, historyRows.size());
+    System.assertEquals('Reused', historyRows[0].Status__c);
+  }
+
+  @IsTest
+  static void generatePostVisitWithProjectAndConfiguration_missingUrl_throwsHandledException() {
+    Lead ld = makeLead();
+    setApiMock(200, '{"success":true,"data":{}}');
+
+    Boolean failedAsExpected = false;
+    Test.startTest();
+    try {
+      PropFocusLeadService.generatePostVisitWithProjectAndConfiguration(
+        ld.Id,
+        'Buyer Post',
+        'Project Post',
+        '2 BHK',
+        Date.today()
+      );
+    } catch (AuraHandledException e) {
+      failedAsExpected = true;
+      String errorMessage = e.getMessage();
+      System.assert(
+        errorMessage != null &&
+        (errorMessage.contains(CUSTOMER_SUPPORT_MESSAGE) ||
+        errorMessage.contains('Script-thrown exception'))
+      );
+    }
+    Test.stopTest();
+    System.assert(
+      failedAsExpected,
+      'Expected missing post visit URL to throw AuraHandledException'
+    );
   }
 
   @IsTest
@@ -181,14 +525,15 @@ private class PropFocusLeadServiceTest {
         ld.Id,
         'Buyer X',
         'Project X',
-        System.now()
+        System.now(),
+        null
       );
     } catch (AuraHandledException e) {
       httpErrorFailedAsExpected = true;
       String errorMessage = e.getMessage();
       System.assert(
         errorMessage != null &&
-        (errorMessage.contains('Propfocus API failed with status 500') ||
+        (errorMessage.contains(CUSTOMER_SUPPORT_MESSAGE) ||
         errorMessage.contains('Script-thrown exception'))
       );
     }
@@ -211,14 +556,15 @@ private class PropFocusLeadServiceTest {
         ld.Id,
         'Buyer X',
         'Project X',
-        System.now()
+        System.now(),
+        null
       );
     } catch (AuraHandledException e2) {
       missingUrlFailedAsExpected = true;
       String errorMessage = e2.getMessage();
       System.assert(
         errorMessage != null &&
-        (errorMessage.contains('Site Visit URL not returned by Propfocus') ||
+        (errorMessage.contains(CUSTOMER_SUPPORT_MESSAGE) ||
         errorMessage.contains('Script-thrown exception'))
       );
     }
@@ -237,7 +583,8 @@ private class PropFocusLeadServiceTest {
         null,
         'Buyer X',
         'Project X',
-        System.now()
+        System.now(),
+        null
       );
       Test.stopTest();
       System.assert(
@@ -266,6 +613,57 @@ private class PropFocusLeadServiceTest {
     Test.stopTest();
 
     System.assertEquals(true, available);
+  }
+
+  @IsTest
+  static void getSiteVisitManagers_returnsEmptyWhenProjectMissing() {
+    Test.startTest();
+    List<PropFocusLeadService.SiteVisitManagerItem> managers = PropFocusLeadService.getSiteVisitManagers(
+      null
+    );
+    Test.stopTest();
+
+    System.assertEquals(0, managers.size());
+  }
+
+  @IsTest
+  static void getSiteVisitManagers_returnsManagersForProject() {
+    setApiMock(
+      200,
+      '{"success":true,"siteVisitProjects":["Project A"],"siteVisitManagers":{"Project A":[{"id":"mgr-1","name":"Visit Lead","phone":"+91111"}]}}'
+    );
+
+    Test.startTest();
+    List<PropFocusLeadService.SiteVisitManagerItem> managers = PropFocusLeadService.getSiteVisitManagers(
+      'Project A'
+    );
+    Test.stopTest();
+
+    System.assertEquals(1, managers.size());
+    System.assertEquals('mgr-1', managers[0].id);
+    System.assertEquals('Visit Lead', managers[0].name);
+    System.assertEquals('+91111', managers[0].phone);
+    System.assert(
+      apiMock.lastApiEndpoint != null &&
+      apiMock.lastApiEndpoint.contains('/accessible-projects'),
+      'Expected accessible-projects endpoint'
+    );
+  }
+
+  @IsTest
+  static void getSiteVisitManagers_returnsEmptyWhenProjectHasNoManagers() {
+    setApiMock(
+      200,
+      '{"success":true,"siteVisitManagers":{"Other Project":[{"id":"mgr-2","name":"Other","phone":"+91222"}]}}'
+    );
+
+    Test.startTest();
+    List<PropFocusLeadService.SiteVisitManagerItem> managers = PropFocusLeadService.getSiteVisitManagers(
+      'Project A'
+    );
+    Test.stopTest();
+
+    System.assertEquals(0, managers.size());
   }
 
   @IsTest
@@ -332,15 +730,23 @@ private class PropFocusLeadServiceTest {
   }
 
   @IsTest
-  static void getProjectsForSiteVisit_returnsProjectList() {
-    setApiMock(200, '{"success":true,"data":{"projects":["Visit Project"]}}');
+  static void getProjectsForSiteVisit_returnsSiteVisitProjectList() {
+    setApiMock(
+      200,
+      '{"success":true,"siteVisitProjects":["Visit Project","Phased Estate"]}'
+    );
 
     Test.startTest();
     List<String> projects = PropFocusLeadService.getProjectsForSiteVisit();
     Test.stopTest();
 
-    System.assertEquals(1, projects.size());
+    System.assertEquals(2, projects.size());
     System.assertEquals('Visit Project', projects[0]);
+    System.assert(
+      apiMock.lastApiEndpoint != null &&
+      apiMock.lastApiEndpoint.contains('/accessible-projects'),
+      'Expected accessible-projects endpoint'
+    );
   }
 
   @IsTest
@@ -352,6 +758,71 @@ private class PropFocusLeadServiceTest {
     Test.stopTest();
 
     System.assertEquals(null, latest);
+  }
+
+  @IsTest
+  static void getLinkHistory_excludesReusedAndDuplicateUrls() {
+    Lead ld = makeLead();
+    String reusedUrl = 'https://example.test/reused';
+    insert new Propfocus_Link__c(
+      Lead__c = ld.Id,
+      Type__c = 'Microsite',
+      Project_Name__c = 'Project A',
+      URL__c = reusedUrl,
+      Created_At__c = System.now(),
+      Status__c = 'Reused'
+    );
+    insert new Propfocus_Link__c(
+      Lead__c = ld.Id,
+      Type__c = 'Microsite',
+      Project_Name__c = 'Project A',
+      URL__c = reusedUrl,
+      Created_At__c = System.now().addMinutes(-5),
+      Status__c = 'Generated'
+    );
+    insert new Propfocus_Link__c(
+      Lead__c = ld.Id,
+      Type__c = 'Microsite',
+      Project_Name__c = 'Project B',
+      URL__c = 'https://example.test/new',
+      Created_At__c = System.now().addMinutes(-10),
+      Status__c = 'Generated'
+    );
+
+    Test.startTest();
+    List<PropFocusLeadService.LinkHistoryItem> history = PropFocusLeadService.getLinkHistory(
+      ld.Id
+    );
+    Test.stopTest();
+
+    System.assertEquals(2, history.size());
+    System.assertEquals(reusedUrl, history[0].url);
+    System.assertEquals('https://example.test/new', history[1].url);
+  }
+
+  @IsTest
+  static void getLinkHistory_deduplicatesDuplicateGeneratedUrls() {
+    Lead ld = makeLead();
+    String sharedUrl = 'https://example.test/shared';
+    for (Integer i = 0; i < 4; i++) {
+      insert new Propfocus_Link__c(
+        Lead__c = ld.Id,
+        Type__c = 'Microsite',
+        Project_Name__c = 'Project A',
+        URL__c = sharedUrl,
+        Created_At__c = System.now().addMinutes(-i),
+        Status__c = 'Generated'
+      );
+    }
+
+    Test.startTest();
+    List<PropFocusLeadService.LinkHistoryItem> history = PropFocusLeadService.getLinkHistory(
+      ld.Id
+    );
+    Test.stopTest();
+
+    System.assertEquals(1, history.size());
+    System.assertEquals(sharedUrl, history[0].url);
   }
 
   @IsTest

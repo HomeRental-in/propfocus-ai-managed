@@ -3,6 +3,8 @@ public class PropfocusHttpCalloutMock implements HttpCalloutMock {
   public Integer apiStatusCode = 200;
   public String apiBody = '{"success":true}';
   public String lastApiRequestBody;
+  public String lastApiIdempotencyKey;
+  public String lastApiEndpoint;
 
   public HTTPResponse respond(HTTPRequest req) {
     if (isTokenRequest(req)) {
@@ -16,6 +18,8 @@ public class PropfocusHttpCalloutMock implements HttpCalloutMock {
     }
 
     lastApiRequestBody = req.getBody();
+    lastApiIdempotencyKey = req.getHeader('Idempotency-Key');
+    lastApiEndpoint = req.getEndpoint();
     HttpResponse apiResponse = new HttpResponse();
     apiResponse.setStatusCode(apiStatusCode);
     apiResponse.setHeader('Content-Type', 'application/json');

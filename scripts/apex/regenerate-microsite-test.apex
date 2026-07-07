@@ -2,7 +2,9 @@ Id leadId = '00QdL00000bmlulUAA';
 String url = PropfocusAI.PropFocusLeadService.generateMicrositeLink(
     leadId,
     'lastname',
-    new List<String>{ 'All Projects' }
+    new List<String>{ 'All Projects' },
+    'new',
+    ''
 );
 PropfocusAI.PropFocusLeadService.BuyerInsightsEmbedContext ctx =
     PropfocusAI.PropFocusLeadService.getBuyerInsightsEmbedContext(leadId);

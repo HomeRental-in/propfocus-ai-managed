@@ -58,6 +58,8 @@ public with sharing class PropfocusConfigService {
     @AuraEnabled
     public Boolean embedUsesSalesforceLeadId;
     @AuraEnabled
+    public Boolean showCopyModal;
+    @AuraEnabled
     public String oauthTokenUrl;
     @AuraEnabled
     public String oauthGrantType;
@@ -115,6 +117,7 @@ public with sharing class PropfocusConfigService {
       cfg.siteVisitManagerEmailField = configured.Site_Visit_Manager_Email_Field__c;
       cfg.embedUsesSalesforceLeadId =
         configured.Embed_Uses_Salesforce_Lead_Id__c == true;
+      cfg.showCopyModal = configured.Show_Copy_Modal__c == true;
       cfg.oauthTokenUrl = configured.OAuth_Token_Url__c;
       cfg.oauthGrantType = configured.OAuth_Grant_Type__c;
       cfg.oauthConfigured = PropfocusOAuthService.isOAuthConfigured();
@@ -152,6 +155,7 @@ public with sharing class PropfocusConfigService {
         cfg.leadSourceField = 'LeadSource';
       }
       cfg.embedUsesSalesforceLeadId = true;
+      cfg.showCopyModal = false;
       cfg.oauthTokenUrl = 'https://test.oauth.local/token';
       cfg.oauthGrantType = 'client_credentials';
     }
@@ -356,13 +360,16 @@ public with sharing class PropfocusConfigService {
 
   @TestVisible
   private static String packageNamespace() {
-    String objectName = Propfocus_Config__mdt.SObjectType.getDescribe()
-      .getName();
-    Integer separatorIndex = objectName.indexOf('__');
+    String objectName = Propfocus_Config__mdt.SObjectType.getDescribe().getName();
+    if (!objectName.endsWith('__mdt')) {
+      return null;
+    }
+    String withoutMdt = objectName.substring(0, objectName.length() - 5);
+    Integer separatorIndex = withoutMdt.indexOf('__');
     if (separatorIndex <= 0) {
       return null;
     }
-    return objectName.substring(0, separatorIndex);
+    return withoutMdt.substring(0, separatorIndex);
   }
 
   @TestVisible

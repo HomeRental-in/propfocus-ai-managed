@@ -46,6 +46,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>Lead.Propfocus_Post_Visit__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>Lead.Propfocus_Buyer_Insights_Available__c</field>
         <readable>true</readable>
     </fieldPermissions>

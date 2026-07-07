@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Propfocus_Post_Visit__c</fullName>
+    <description>Latest generated Propfocus post-visit page URL.</description>
+    <inlineHelpText>Stores the latest post-visit pricing page link generated from Propfocus.</inlineHelpText>
+    <label>Propfocus Post Visit</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Url</type>
+</CustomField>

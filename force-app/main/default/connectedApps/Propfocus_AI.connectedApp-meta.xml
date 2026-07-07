@@ -4,7 +4,7 @@
     <description>Allows PropFocus AI to authenticate into a subscriber org and push buyer activity events via the inbound REST endpoint.</description>
     <label>PropFocus AI</label>
     <oauthConfig>
-        <callbackUrl>https://propfocus.in/oauth/callback</callbackUrl>
+        <callbackUrl>https://dev.propfocus.in/oauth/callback</callbackUrl>
         <scopes>Api</scopes>
         <scopes>RefreshToken</scopes>
         <scopes>OfflineAccess</scopes>
