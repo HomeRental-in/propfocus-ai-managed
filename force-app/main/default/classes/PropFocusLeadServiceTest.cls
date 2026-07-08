@@ -63,7 +63,7 @@ private class PropFocusLeadServiceTest {
       WHERE Lead__c = :ld.Id
     ];
     System.assertEquals(1, historyRows.size());
-    System.assertEquals('Microsite', historyRows[0].Type__c);
+    System.assertEquals('Microsite Generation', historyRows[0].Type__c);
     System.assertEquals('Project A, Project B', historyRows[0].Project_Name__c);
     System.assertEquals('https://example.test/micro', historyRows[0].URL__c);
     System.assertEquals('Generated', historyRows[0].Status__c);
@@ -296,6 +296,41 @@ private class PropFocusLeadServiceTest {
   }
 
   @IsTest
+  static void getConfigurationsForProjects_matchesCaseInsensitiveAndObjectLabels() {
+    setApiMock(
+      200,
+      '{"success":true,"projectConfigurations":{"Project A":[{"label":"4 BHK"},{"name":" Studio "},{"unit_type":"1 BHK"},null,"2 BHK"],"Other":["ignored"]}}'
+    );
+
+    Test.startTest();
+    List<String> labels = PropFocusLeadService.getConfigurationsForProjects(
+      new List<String>{ '  project a  ', '', null, 'Missing Project' }
+    );
+    Test.stopTest();
+
+    System.assertEquals(4, labels.size());
+    System.assertEquals('1 BHK', labels[0]);
+    System.assertEquals('2 BHK', labels[1]);
+    System.assertEquals('4 BHK', labels[2]);
+    System.assertEquals('Studio', labels[3]);
+  }
+
+  @IsTest
+  static void getConfigurationsForProjects_returnsEmptyForBlankInput() {
+    Test.startTest();
+    List<String> labels = PropFocusLeadService.getConfigurationsForProjects(
+      new List<String>()
+    );
+    List<String> nullLabels = PropFocusLeadService.getConfigurationsForProjects(
+      null
+    );
+    Test.stopTest();
+
+    System.assertEquals(0, labels.size());
+    System.assertEquals(0, nullLabels.size());
+  }
+
+  @IsTest
   static void generateSiteVisitWithProjectAndDateTime_success_updatesLeadAndHistory() {
     Lead ld = makeLead();
     Datetime requestedDt = Datetime.newInstance(2026, 1, 15, 9, 30, 0);
@@ -332,7 +367,7 @@ private class PropFocusLeadServiceTest {
       ORDER BY CreatedDate DESC
     ];
     System.assert(!historyRows.isEmpty());
-    System.assertEquals('Site Visit', historyRows[0].Type__c);
+    System.assertEquals('Site Visit Confirmation', historyRows[0].Type__c);
     System.assertEquals('Project Override', historyRows[0].Project_Name__c);
     System.assertEquals('https://example.test/sv', historyRows[0].URL__c);
     System.assertEquals('Confirmed', historyRows[0].Status__c);
@@ -435,7 +470,7 @@ private class PropFocusLeadServiceTest {
       LIMIT 1
     ];
     System.assertEquals(1, historyRows.size());
-    System.assertEquals('Post Visit', historyRows[0].Type__c);
+    System.assertEquals('Post Visit Page', historyRows[0].Type__c);
     System.assertEquals('Project Post', historyRows[0].Project_Name__c);
     System.assertEquals('https://example.test/pv', historyRows[0].URL__c);
     System.assertEquals('Generated', historyRows[0].Status__c);
@@ -695,8 +730,49 @@ private class PropFocusLeadServiceTest {
     System.assertEquals(2, history.size());
     System.assertEquals('https://example.test/new', history[0].url);
     System.assertEquals('https://example.test/old', history[1].url);
-    System.assertEquals('Site Visit', history[0].type);
+    System.assertEquals('Site Visit Confirmation', history[0].type);
+    System.assertEquals('Microsite Generation', history[1].type);
     System.assertEquals('Project B', history[0].projectName);
+  }
+
+  @IsTest
+  static void getLinkHistory_formatsLegacyAndUnknownTypes() {
+    Lead ld = makeLead();
+    insert new Propfocus_Link__c(
+      Lead__c = ld.Id,
+      Type__c = 'Post Visit',
+      Project_Name__c = 'Project PV',
+      URL__c = 'https://example.test/pv-legacy',
+      Created_At__c = System.now(),
+      Status__c = 'Generated'
+    );
+    insert new Propfocus_Link__c(
+      Lead__c = ld.Id,
+      Type__c = 'Custom Type',
+      Project_Name__c = 'Project X',
+      URL__c = 'https://example.test/custom',
+      Created_At__c = System.now().addMinutes(-1),
+      Status__c = 'Generated'
+    );
+    insert new Propfocus_Link__c(
+      Lead__c = ld.Id,
+      Type__c = 'Post Visit Page',
+      Project_Name__c = 'Project PV2',
+      URL__c = 'https://example.test/pv-new',
+      Created_At__c = System.now().addMinutes(-2),
+      Status__c = 'Generated'
+    );
+
+    Test.startTest();
+    List<PropFocusLeadService.LinkHistoryItem> history = PropFocusLeadService.getLinkHistory(
+      ld.Id
+    );
+    Test.stopTest();
+
+    System.assertEquals(3, history.size());
+    System.assertEquals('Post Visit Page', history[0].type);
+    System.assertEquals('Custom Type', history[1].type);
+    System.assertEquals('Post Visit Page', history[2].type);
   }
 
   @IsTest

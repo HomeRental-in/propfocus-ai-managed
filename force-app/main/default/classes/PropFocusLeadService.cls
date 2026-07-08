@@ -101,6 +101,19 @@ public class PropFocusLeadService {
     insert historyRow;
   }
 
+  private static String formatLinkHistoryType(String typeValue) {
+    if (typeValue == 'Post Visit') {
+      return 'Post Visit Page';
+    }
+    if (typeValue == 'Site Visit') {
+      return 'Site Visit Confirmation';
+    }
+    if (typeValue == 'Microsite') {
+      return 'Microsite Generation';
+    }
+    return typeValue;
+  }
+
   private static String requireLeadFieldApiName(
     String value,
     String configFieldApiName
@@ -390,7 +403,7 @@ public class PropFocusLeadService {
       asBoolean(response.get('reused')) == true ? 'Reused' : 'Generated';
     createPropfocusLinkHistory(
       ld.Id,
-      'Microsite',
+      'Microsite Generation',
       (listProj == null || listProj.isEmpty())
         ? null
         : String.join(listProj, ', '),
@@ -560,17 +573,28 @@ public class PropFocusLeadService {
       'projectConfigurations'
     );
 
+    Map<String, Object> normalizedProjectConfigurations = new Map<String, Object>();
+    for (String key : projectConfigurations.keySet()) {
+      String normalizedKey = normalizeProjectKey(key);
+      if (!String.isBlank(normalizedKey)) {
+        normalizedProjectConfigurations.put(normalizedKey, projectConfigurations.get(key));
+      }
+    }
+
     Set<String> configurationLabels = new Set<String>();
     for (String projectName : projectNames) {
-      if (String.isBlank(projectName) || !projectConfigurations.containsKey(projectName)) {
+      String normalizedProjectName = normalizeProjectKey(projectName);
+      if (String.isBlank(normalizedProjectName)) {
         continue;
       }
-      Object configsObj = projectConfigurations.get(projectName);
+      Object configsObj = projectConfigurations.containsKey(projectName)
+        ? projectConfigurations.get(projectName)
+        : normalizedProjectConfigurations.get(normalizedProjectName);
       if (!(configsObj instanceof List<Object>)) {
         continue;
       }
       for (Object configObj : (List<Object>) configsObj) {
-        String label = asString(configObj);
+        String label = resolveConfigurationLabel(configObj);
         if (!String.isBlank(label)) {
           configurationLabels.add(label.trim());
         }
@@ -580,6 +604,27 @@ public class PropFocusLeadService {
     List<String> sortedLabels = new List<String>(configurationLabels);
     sortedLabels.sort();
     return sortedLabels;
+  }
+
+  private static String normalizeProjectKey(String value) {
+    return String.isBlank(value) ? null : value.trim().toLowerCase();
+  }
+
+  private static String resolveConfigurationLabel(Object configObj) {
+    if (configObj == null) {
+      return null;
+    }
+    if (configObj instanceof String) {
+      return ((String) configObj).trim();
+    }
+    Map<String, Object> configMap = asMap(configObj);
+    if (configMap == null) {
+      return asString(configObj);
+    }
+    return firstNonBlank(
+      configMap,
+      new List<String>{ 'label', 'name', 'configuration', 'unit_type', 'value' }
+    );
   }
 
   @TestVisible
@@ -1113,7 +1158,7 @@ public class PropFocusLeadService {
       asBoolean(response.get('reused')) == true ? 'Reused' : 'Confirmed';
     createPropfocusLinkHistory(
       ld.Id,
-      'Site Visit',
+      'Site Visit Confirmation',
       resolvedProjectName,
       siteVisitUrl,
       historyStatus
@@ -1323,7 +1368,7 @@ public class PropFocusLeadService {
       asBoolean(response.get('reused')) == true ? 'Reused' : 'Generated';
     createPropfocusLinkHistory(
       ld.Id,
-      'Post Visit',
+      'Post Visit Page',
       resolvedProjectName,
       postVisitUrl,
       historyStatus
@@ -1398,7 +1443,7 @@ public class PropFocusLeadService {
       seenUrls.add(row.URL__c);
       LinkHistoryItem item = new LinkHistoryItem();
       item.id = row.Id;
-      item.type = row.Type__c;
+      item.type = formatLinkHistoryType(row.Type__c);
       item.projectName = row.Project_Name__c;
       item.status = row.Status__c;
       item.url = row.URL__c;

@@ -31,6 +31,8 @@ const MICROSITE_LEAD_TYPE_OPTIONS = [
   { label: "Old Data", value: "old data" },
   { label: "Investor", value: "investor" }
 ];
+const ALL_CONFIG_OPTION_VALUE = "__ALL_CONFIGS__";
+const ALL_CONFIG_API_VALUE = "all";
 
 function buildMicrositeWhatsAppMessage(clientName, projectNames, micrositeUrl) {
   if (!micrositeUrl) return "";
@@ -320,7 +322,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
           value: item
         }));
         this.projectOptions = options;
-        return options;
+        return this.postVisitConfigurationOptions;
       })
       .catch(() => {
         this.projectOptions = [];
@@ -612,7 +614,24 @@ export default class PropfocusLeadLinkGen extends LightningElement {
     }
   }
   handlePostVisitConfigurationChange(event) {
-    this.postVisitSelectedConfigurations = event.detail.value || [];
+    const selected = event.detail.value || [];
+    this.postVisitSelectedConfigurations = selected.includes(
+      ALL_CONFIG_OPTION_VALUE
+    )
+      ? [ALL_CONFIG_OPTION_VALUE]
+      : selected;
+  }
+  getPostVisitSpecificConfigurationValues() {
+    return (this.postVisitConfigurationOptions || [])
+      .map((option) => option?.value)
+      .filter((value) => value && value !== ALL_CONFIG_OPTION_VALUE);
+  }
+  getResolvedPostVisitConfigurations() {
+    const selected = this.postVisitSelectedConfigurations || [];
+    if (selected.includes(ALL_CONFIG_OPTION_VALUE)) {
+      return [ALL_CONFIG_API_VALUE];
+    }
+    return selected;
   }
   loadPostVisitConfigurations(projectName) {
     const normalizedProject = (projectName || "").trim();
@@ -625,21 +644,28 @@ export default class PropfocusLeadLinkGen extends LightningElement {
     this.isLoadingPostVisitConfigurations = true;
     return getConfigurationsForProjects({ projectNames: [normalizedProject] })
       .then((labels) => {
-        const options = (labels || []).map((label) => ({
+        const specificOptions = (labels || []).map((label) => ({
           label,
           value: label
         }));
-        this.postVisitConfigurationOptions = options;
-        const allowed = new Set(options.map((o) => o.value));
+        this.postVisitConfigurationOptions = [
+          { label: "All", value: ALL_CONFIG_OPTION_VALUE },
+          ...specificOptions
+        ];
+        const allowed = new Set(
+          this.postVisitConfigurationOptions.map((o) => o.value)
+        );
         this.postVisitSelectedConfigurations = (
           this.postVisitSelectedConfigurations || []
         ).filter((value) => allowed.has(value));
-        return options;
+        return this.postVisitConfigurationOptions;
       })
       .catch(() => {
-        this.postVisitConfigurationOptions = [];
-        this.postVisitSelectedConfigurations = [];
         this.showToast("Warning", CUSTOMER_SUPPORT_MESSAGE, "warning");
+        this.postVisitConfigurationOptions = [
+          { label: "All", value: ALL_CONFIG_OPTION_VALUE }
+        ];
+        this.postVisitSelectedConfigurations = [];
         return [];
       })
       .finally(() => {
@@ -795,10 +821,9 @@ export default class PropfocusLeadLinkGen extends LightningElement {
       this.showToast("Error", "Select a project", "error");
       return;
     }
+    const selectedConfigurations = this.getResolvedPostVisitConfigurations();
     const visitedConfiguration =
-      this.postVisitSelectedConfigurations?.length > 0
-        ? this.postVisitSelectedConfigurations.join(", ")
-        : "";
+      selectedConfigurations.length > 0 ? selectedConfigurations.join(", ") : "";
     if (!visitedConfiguration) {
       this.showToast("Error", "Select at least one configuration", "error");
       return;
@@ -959,10 +984,13 @@ export default class PropfocusLeadLinkGen extends LightningElement {
       );
     }
     if (this.modalAction === "postVisit") {
+      const selectedConfigurations = this.getResolvedPostVisitConfigurations();
       return buildPostVisitWhatsAppMessage(
         this.clientName,
         this.postVisitProject,
-        this.postVisitSelectedConfigurations.join(", "),
+        selectedConfigurations.includes(ALL_CONFIG_API_VALUE)
+          ? "All Configurations"
+          : selectedConfigurations.join(", "),
         url
       );
     }
