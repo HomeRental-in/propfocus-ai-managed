@@ -98,15 +98,15 @@ See [DEV_HUB_SETUP.md](./DEV_HUB_SETUP.md) for detailed Dev Hub steps (namespace
 | **Deploy**   | Code deploys; 43/43 Propfocus tests pass                 |
 | **Config**   | Propfocus Config, permission sets, CSP, Named Credential |
 | **Features** | All 5 capabilities + write-back verified                 |
-| **Package**  | v0.4.0-1 Released; install link works in fresh org       |
+| **Package**  | v0.5.0-1 Released; install link works in fresh org       |
 | **Handoff**  | SETUP_GUIDE.md, FAQ.txt, INBOUND.md shared               |
 
 Current status (2026-06-14):
 
 ```
 Apex tests:     Pass (43/43 Propfocus test classes)
-Package:        v0.4.0-1 Released
-Install URL:    https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000dKWjQAM
+Package:        v0.5.0-1 Released
+Install URL:    https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000iXWXQA2
 Feature testing: Partial — verify with subscriber + Propfocus backend
 ```
 
@@ -118,7 +118,7 @@ Feature testing: Partial — verify with subscriber + Propfocus backend
 | --- | ---------------------------------------------------- |
 | 0.1 | Share install URL                                    |
 | 0.2 | Subscriber enables Lead history                      |
-| 0.3 | Package installed (0.4.0-1)                          |
+| 0.3 | Package installed (0.5.0-1)                          |
 | 1.x | Permission sets assigned                             |
 | 2.x | Propfocus Config configured (see FIELDS.md)          |
 | 3.x | CSP + Named Credential verified                      |

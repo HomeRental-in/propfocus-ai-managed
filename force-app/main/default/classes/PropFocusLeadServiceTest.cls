@@ -32,6 +32,8 @@ private class PropFocusLeadServiceTest {
       'new',
       ''
     );
+    String capturedBody = apiMock.lastApiRequestBody;
+    String capturedIdempotencyKey = apiMock.lastApiIdempotencyKey;
     Test.stopTest();
 
     System.assertEquals(
@@ -69,14 +71,15 @@ private class PropFocusLeadServiceTest {
     System.assertEquals('Generated', historyRows[0].Status__c);
 
     Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
-      apiMock.lastApiRequestBody
+      capturedBody
     );
     System.assertEquals(
       String.valueOf(ld.Id),
       requestBody.get('salesforce_lead_id')
     );
+    System.assertEquals('microsite', requestBody.get('communicationType'));
     System.assert(
-      !String.isBlank(apiMock.lastApiIdempotencyKey),
+      !String.isBlank(capturedIdempotencyKey),
       'Expected Idempotency-Key header for microsite create'
     );
   }
@@ -174,11 +177,11 @@ private class PropFocusLeadServiceTest {
   }
 
   @IsTest
-  static void generateMicrositeLink_sendsBrokerNameOrNumberNotBoth() {
+  static void generateMicrositeLink_sendsUnifiedCommunicationPayload() {
     Lead ld = makeLead();
     setApiMock(
       200,
-      '{"success":true,"micrositeUrl":"https://example.test/micro"}'
+      '{"success":true,"link":"https://example.test/micro","template":"Hi there"}'
     );
 
     Test.startTest();
@@ -189,21 +192,23 @@ private class PropFocusLeadServiceTest {
       'new',
       ''
     );
+    String capturedBody = apiMock.lastApiRequestBody;
+    String capturedEndpoint = apiMock.lastApiEndpoint;
     Test.stopTest();
 
     Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
-      apiMock.lastApiRequestBody
+      capturedBody
     );
-    Boolean hasBrokerNumber =
-      requestBody.containsKey('brokerNumber') &&
-      !String.isBlank(String.valueOf(requestBody.get('brokerNumber')));
-    Boolean hasBrokerName =
-      requestBody.containsKey('brokerName') &&
-      !String.isBlank(String.valueOf(requestBody.get('brokerName')));
+    System.assertEquals('microsite', requestBody.get('communicationType'));
+    System.assertEquals('Client 1', requestBody.get('buyerName'));
     System.assert(
-      !(hasBrokerNumber && hasBrokerName),
-      'Should not send both broker identifiers'
+      capturedEndpoint != null &&
+      capturedEndpoint.contains('/api/v1/generate-communication'),
+      'Unexpected endpoint: ' + capturedEndpoint
     );
+    Map<String, Object> context = (Map<String, Object>) requestBody.get('context');
+    System.assertNotEquals(null, context);
+    System.assertEquals('Project A', context.get('projectName'));
   }
 
   @IsTest
@@ -211,7 +216,7 @@ private class PropFocusLeadServiceTest {
     Lead ld = makeLead();
     setApiMock(
       200,
-      '{"success":true,"micrositeUrl":"https://example.test/micro","whatsappMessage":"Custom WhatsApp template"}'
+      '{"success":true,"link":"https://example.test/micro","template":"Custom WhatsApp template"}'
     );
 
     Test.startTest();
@@ -232,7 +237,7 @@ private class PropFocusLeadServiceTest {
     Lead ld = makeLead();
     setApiMock(
       200,
-      '{"success":true,"micrositeUrl":"https://example.test/micro"}'
+      '{"success":true,"link":"https://example.test/micro"}'
     );
 
     Test.startTest();
@@ -243,16 +248,19 @@ private class PropFocusLeadServiceTest {
       'rnr',
       '2 BHK, 3 BHK'
     );
+    String capturedBody = apiMock.lastApiRequestBody;
     Test.stopTest();
 
     Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
-      apiMock.lastApiRequestBody
+      capturedBody
     );
-    List<Object> leadTypes = (List<Object>) requestBody.get('lead_types');
+    Map<String, Object> context = (Map<String, Object>) requestBody.get('context');
+    System.assertNotEquals(null, context);
+    List<Object> leadTypes = (List<Object>) context.get('lead_types');
     System.assertNotEquals(null, leadTypes);
     System.assertEquals(1, leadTypes.size());
     System.assertEquals('Open', String.valueOf(leadTypes[0]));
-    System.assertEquals('2 BHK, 3 BHK', requestBody.get('configurationFilter'));
+    System.assertEquals('2 BHK, 3 BHK', context.get('configurationFilter'));
   }
 
   @IsTest
@@ -347,6 +355,7 @@ private class PropFocusLeadServiceTest {
       requestedDt,
       null
     );
+    String capturedIdempotencyKey = apiMock.lastApiIdempotencyKey;
     Test.stopTest();
 
     System.assertEquals('https://example.test/sv', svResult.url);
@@ -372,7 +381,7 @@ private class PropFocusLeadServiceTest {
     System.assertEquals('https://example.test/sv', historyRows[0].URL__c);
     System.assertEquals('Confirmed', historyRows[0].Status__c);
     System.assert(
-      !String.isBlank(apiMock.lastApiIdempotencyKey),
+      !String.isBlank(capturedIdempotencyKey),
       'Expected Idempotency-Key header for site visit create'
     );
   }
@@ -393,12 +402,16 @@ private class PropFocusLeadServiceTest {
       System.now(),
       'mgr-1'
     );
+    String capturedBody = apiMock.lastApiRequestBody;
     Test.stopTest();
 
     Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
-      apiMock.lastApiRequestBody
+      capturedBody
     );
-    Map<String, Object> siteVisitManager = (Map<String, Object>) requestBody.get(
+    System.assertEquals('site_visit', requestBody.get('communicationType'));
+    Map<String, Object> context = (Map<String, Object>) requestBody.get('context');
+    System.assertNotEquals(null, context);
+    Map<String, Object> siteVisitManager = (Map<String, Object>) context.get(
       'siteVisitManager'
     );
     System.assertNotEquals(null, siteVisitManager);
@@ -452,6 +465,8 @@ private class PropFocusLeadServiceTest {
       '3 BHK',
       visitDate
     );
+    String capturedBody = apiMock.lastApiRequestBody;
+    String capturedIdempotencyKey = apiMock.lastApiIdempotencyKey;
     Test.stopTest();
 
     System.assertEquals('https://example.test/pv', pvResult.url);
@@ -476,13 +491,16 @@ private class PropFocusLeadServiceTest {
     System.assertEquals('Generated', historyRows[0].Status__c);
 
     Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
-      apiMock.lastApiRequestBody
+      capturedBody
     );
-    System.assertEquals('3 BHK', requestBody.get('visited_configuration'));
-    System.assertEquals(String.valueOf(visitDate), requestBody.get('visit_conducted_at'));
+    System.assertEquals('post_visit', requestBody.get('communicationType'));
+    Map<String, Object> context = (Map<String, Object>) requestBody.get('context');
+    System.assertNotEquals(null, context);
+    System.assertEquals('3 BHK', context.get('visitedConfiguration'));
+    System.assertEquals(String.valueOf(visitDate), context.get('visitConductedAt'));
     System.assertEquals(String.valueOf(ld.Id), requestBody.get('salesforce_lead_id'));
     System.assert(
-      !String.isBlank(apiMock.lastApiIdempotencyKey),
+      !String.isBlank(capturedIdempotencyKey),
       'Expected Idempotency-Key header for post visit create'
     );
   }
@@ -940,6 +958,203 @@ private class PropFocusLeadServiceTest {
         'https://dev.propfocus.in/embed/salesforce/',
         '00Q123'
       )
+    );
+  }
+
+  @IsTest
+  static void generatePropfocusTemplate_microsite_success() {
+    Lead ld = makeLead();
+    setApiMock(
+      200,
+      '{"success":true,"link":"https://example.test/micro","template":"Hi Priya","mediaUrl":"https://example.test/m.jpg"}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.PropfocusTemplateResult result = PropFocusLeadService.generatePropfocusTemplate(
+      ld.Id,
+      'MICROSITE',
+      JSON.serialize(
+        new Map<String, Object>{
+          'buyerName' => 'Priya Sharma',
+          'projects' => new List<String>{ 'Skyline Residences' },
+          'leadType' => 'new',
+          'configurationFilter' => '2 BHK'
+        }
+      )
+    );
+    String capturedEndpoint = apiMock.lastApiEndpoint;
+    String capturedBody = apiMock.lastApiRequestBody;
+    Test.stopTest();
+
+    System.assertEquals('microsite', result.communicationType);
+    System.assertEquals('https://example.test/micro', result.url);
+    System.assertEquals('Hi Priya', result.whatsappMessage);
+    System.assertEquals('https://example.test/m.jpg', result.mediaUrl);
+    System.assert(
+      capturedEndpoint != null &&
+      capturedEndpoint.contains('/api/v1/generate-communication'),
+      'Unexpected endpoint: ' + capturedEndpoint
+    );
+
+    Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
+      capturedBody
+    );
+    System.assertEquals('microsite', requestBody.get('communicationType'));
+    System.assertEquals('Priya Sharma', requestBody.get('buyerName'));
+    Lead updated = [
+      SELECT Propfocus_Link__c, Propfocus_Buyer_Insights_Available__c
+      FROM Lead
+      WHERE Id = :ld.Id
+    ];
+    System.assertEquals('https://example.test/micro', updated.Propfocus_Link__c);
+    System.assertEquals(true, updated.Propfocus_Buyer_Insights_Available__c);
+  }
+
+  @IsTest
+  static void generatePropfocusTemplate_siteVisit_success() {
+    Lead ld = makeLead();
+    setApiMock(
+      200,
+      '{"success":true,"link":"https://example.test/sv","template":"Visit ready"}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.PropfocusTemplateResult result = PropFocusLeadService.generatePropfocusTemplate(
+      ld.Id,
+      'site_visit',
+      JSON.serialize(
+        new Map<String, Object>{
+          'buyerName' => 'Priya Sharma',
+          'projectName' => 'Skyline Residences',
+          'visitDate' => '2026-07-15',
+          'visitTime' => '10:00',
+          'siteVisitManager' => new Map<String, Object>{ 'id' => 'mgr-1' }
+        }
+      )
+    );
+    String capturedBody = apiMock.lastApiRequestBody;
+    Test.stopTest();
+
+    System.assertEquals('site_visit', result.communicationType);
+    System.assertEquals('https://example.test/sv', result.url);
+    System.assertEquals('Visit ready', result.whatsappMessage);
+    Lead updated = [
+      SELECT Propfocus_Site_Visit__c
+      FROM Lead
+      WHERE Id = :ld.Id
+    ];
+    System.assertEquals('https://example.test/sv', updated.Propfocus_Site_Visit__c);
+
+    Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
+      capturedBody
+    );
+    Map<String, Object> context = (Map<String, Object>) requestBody.get('context');
+    System.assertEquals('2026-07-15', context.get('visitDate'));
+    System.assertEquals('10:00', context.get('visitTime'));
+  }
+
+  @IsTest
+  static void generatePropfocusTemplate_postVisit_success() {
+    Lead ld = makeLead();
+    setApiMock(
+      200,
+      '{"success":true,"link":"https://example.test/pv","template":"Post visit ready"}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.PropfocusTemplateResult result = PropFocusLeadService.generatePropfocusTemplate(
+      ld.Id,
+      'post_visit',
+      JSON.serialize(
+        new Map<String, Object>{
+          'buyerName' => 'Priya Sharma',
+          'projectName' => 'Skyline Residences',
+          'visitedConfiguration' => '2 BHK'
+        }
+      )
+    );
+    Test.stopTest();
+
+    System.assertEquals('post_visit', result.communicationType);
+    System.assertEquals('https://example.test/pv', result.url);
+    Lead updated = [
+      SELECT Propfocus_Post_Visit__c
+      FROM Lead
+      WHERE Id = :ld.Id
+    ];
+    System.assertEquals('https://example.test/pv', updated.Propfocus_Post_Visit__c);
+  }
+
+  @IsTest
+  static void generatePropfocusTemplate_invalidType_throws() {
+    Lead ld = makeLead();
+    Boolean failed = false;
+    Test.startTest();
+    try {
+      PropFocusLeadService.generatePropfocusTemplate(ld.Id, 'payment_reminder', '{}');
+    } catch (AuraHandledException e) {
+      failed = true;
+    }
+    Test.stopTest();
+    System.assert(failed, 'Expected unsupported type to throw');
+  }
+
+  @IsTest
+  static void generatePropfocusTemplate_invalidContextJson_throws() {
+    Lead ld = makeLead();
+    Boolean failed = false;
+    Test.startTest();
+    try {
+      PropFocusLeadService.generatePropfocusTemplate(ld.Id, 'microsite', 'not-json');
+    } catch (AuraHandledException e) {
+      failed = true;
+    }
+    Test.stopTest();
+    System.assert(failed, 'Expected invalid contextJson to throw');
+  }
+
+  @IsTest
+  static void generatePropfocusTemplateInvocable_routesRequests() {
+    Lead ld = makeLead();
+    setApiMock(
+      200,
+      '{"success":true,"link":"https://example.test/micro","template":"Hi"}'
+    );
+
+    PropFocusLeadService.GenerateTemplateRequest req = new PropFocusLeadService.GenerateTemplateRequest();
+    req.leadId = ld.Id;
+    req.communicationType = 'microsite';
+    req.contextJson = JSON.serialize(
+      new Map<String, Object>{
+        'buyerName' => 'Flow Buyer',
+        'projectName' => 'Project A'
+      }
+    );
+
+    Test.startTest();
+    List<PropFocusLeadService.PropfocusTemplateResult> results = PropFocusLeadService.generatePropfocusTemplateInvocable(
+      new List<PropFocusLeadService.GenerateTemplateRequest>{ req }
+    );
+    Test.stopTest();
+
+    System.assertEquals(1, results.size());
+    System.assertEquals('https://example.test/micro', results[0].url);
+    System.assertEquals('Hi', results[0].whatsappMessage);
+  }
+
+  @IsTest
+  static void normalizeCommunicationType_mapsAliases() {
+    System.assertEquals(
+      'microsite',
+      PropFocusLeadService.normalizeCommunicationType('MICROSITE')
+    );
+    System.assertEquals(
+      'site_visit',
+      PropFocusLeadService.normalizeCommunicationType('Site Visit')
+    );
+    System.assertEquals(
+      'post_visit',
+      PropFocusLeadService.normalizeCommunicationType('postvisit')
     );
   }
 }

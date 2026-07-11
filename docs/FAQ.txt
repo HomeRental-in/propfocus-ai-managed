@@ -3,7 +3,7 @@ PROPFOCUS AI — FAQ
 ================================================================================
 
 Audience: Salesforce administrators and stakeholders
-Package version: Propfocus AI 0.4.0-1 (Released)
+Package version: Propfocus AI 0.5.0-1 (Released)
 
 ================================================================================
 QUICK ANSWERS
@@ -24,7 +24,7 @@ Inbound REST URL in browser?
   No token. POST only with Authorization: Bearer <access_token>.
 
 Install URL:
-  https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000dKWjQAM
+  https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000iXWXQA2
 
 Full setup: SETUP_GUIDE.md
 Inbound API: INBOUND.md
@@ -128,7 +128,7 @@ Install fails — Apex Classes missing     -> Wrong org edition
 Install fails — Lead.FieldHistoryTracking -> Enable Lead history first
 Test Connection fails                    -> OAuth Client Id/Secret, Organization Id
 Blank iframe                             -> CSP Trusted Site frame-src + hard refresh
-History shows dashes                     -> Upgrade to 0.4.0-1+
+History shows dashes                     -> Upgrade to 0.5.0-1+
 Two-way sync not working                 -> Outbound: Test Connection + event subscription
                                            Inbound: integration user + POST to REST
 

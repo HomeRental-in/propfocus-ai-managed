@@ -5,10 +5,8 @@ import { CurrentPageReference } from "lightning/navigation";
 import getLeadDetails from "@salesforce/apex/PropFocusLeadService.getLeadDetails";
 import getProjects from "@salesforce/apex/PropFocusLeadService.getProjects";
 import getProjectsForSiteVisit from "@salesforce/apex/PropFocusLeadService.getProjectsForSiteVisit";
-import generateMicrositeLink from "@salesforce/apex/PropFocusLeadService.generateMicrositeLink";
+import generatePropfocusTemplate from "@salesforce/apex/PropFocusLeadService.generatePropfocusTemplate";
 import getConfigurationsForProjects from "@salesforce/apex/PropFocusLeadService.getConfigurationsForProjects";
-import generateSiteVisitWithProjectAndDateTime from "@salesforce/apex/PropFocusLeadService.generateSiteVisitWithProjectAndDateTime";
-import generatePostVisitWithProjectAndConfiguration from "@salesforce/apex/PropFocusLeadService.generatePostVisitWithProjectAndConfiguration";
 import getLatestSiteVisitDateTime from "@salesforce/apex/PropFocusLeadService.getLatestSiteVisitDateTime";
 import getSiteVisitManagers from "@salesforce/apex/PropFocusLeadService.getSiteVisitManagers";
 import getLinkHistory from "@salesforce/apex/PropFocusLeadService.getLinkHistory";
@@ -20,6 +18,10 @@ const LEAD_BUYER_ID_FIELD = "buyerId";
 const LEAD_BUYER_NAME_FIELD = "buyerName";
 const LEAD_PROJECT_FIELD = "projectName";
 const LEAD_STATUS_FIELD = "leadStatus";
+
+const COMM_TYPE_MICROSITE = "microsite";
+const COMM_TYPE_SITE_VISIT = "site_visit";
+const COMM_TYPE_POST_VISIT = "post_visit";
 
 const CUSTOMER_SUPPORT_MESSAGE =
   "Something went wrong. Please contact the Propfocus support team.";
@@ -206,6 +208,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
   hasValidBuyerInsights = false;
   previewExpanded = false;
   linkHistory = [];
+  selectedLinkKey = "";
   historyExpanded = false;
   lastReloadAt = null;
   showCopySuccess = false;
@@ -232,6 +235,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
       this.hasMicrosite = false;
       this.hasValidBuyerInsights = false;
       this.linkHistory = [];
+      this.selectedLinkKey = "";
       this.historyExpanded = false;
       this.lastReloadAt = null;
       this.buyerInsightsEmbedUrl = "";
@@ -374,26 +378,50 @@ export default class PropfocusLeadLinkGen extends LightningElement {
       });
   }
 
+  extractLinkKey(url) {
+    if (!url) {
+      return "";
+    }
+    try {
+      const parts = new URL(url).pathname.split("/").filter(Boolean);
+      return parts.length ? parts[parts.length - 1] : "";
+    } catch (e) {
+      const parts = String(url).split("?")[0].split("/").filter(Boolean);
+      return parts.length ? parts[parts.length - 1] : "";
+    }
+  }
+
   loadLinkHistory() {
     if (!this.recordId) {
       this.linkHistory = [];
+      this.selectedLinkKey = "";
       return Promise.resolve();
     }
     return getLinkHistory({ leadId: this.recordId })
       .then((rows) => {
-        this.linkHistory = (rows || []).map((row) => ({
-          id: row.id,
-          type: row.type || "-",
-          projectName: row.projectName || "-",
-          status: row.status || "-",
-          url: row.url || "",
-          createdAt: row.createdAt
-            ? new Date(row.createdAt).toLocaleString()
-            : "-"
-        }));
+        this.linkHistory = (rows || []).map((row) => {
+          const url = row.url || "";
+          const linkKey = this.extractLinkKey(url);
+          return {
+            id: row.id,
+            type: row.type || "-",
+            projectName: row.projectName || "-",
+            status: row.status || "-",
+            url,
+            linkKey,
+            insightsDisabled: !linkKey,
+            createdAt: row.createdAt
+              ? new Date(row.createdAt).toLocaleString()
+              : "-"
+          };
+        });
+        // Default insights to the latest shared link.
+        this.selectedLinkKey = this.linkHistory[0]?.linkKey || "";
+        this.bumpIframeCache();
       })
       .catch(() => {
         this.linkHistory = [];
+        this.selectedLinkKey = "";
       });
   }
 
@@ -407,9 +435,13 @@ export default class PropfocusLeadLinkGen extends LightningElement {
 
   get iframeSrc() {
     if (!this.buyerInsightsEmbedUrl) return "";
-    const ts = this.iframeBust || Date.now();
+    const params = new URLSearchParams();
+    if (this.selectedLinkKey) {
+      params.set("linkUrl", this.selectedLinkKey);
+    }
+    params.set("_pf", String(this.iframeBust || Date.now()));
     const separator = this.buyerInsightsEmbedUrl.includes("?") ? "&" : "?";
-    return `${this.buyerInsightsEmbedUrl}${separator}_pf=${ts}`;
+    return `${this.buyerInsightsEmbedUrl}${separator}${params.toString()}`;
   }
 
   get embedFrameClass() {
@@ -468,10 +500,17 @@ export default class PropfocusLeadLinkGen extends LightningElement {
   }
 
   get visibleHistory() {
-    if (this.historyExpanded || this.linkHistory.length <= 2) {
-      return this.linkHistory;
-    }
-    return this.linkHistory.slice(0, 2);
+    const rows =
+      this.historyExpanded || this.linkHistory.length <= 2
+        ? this.linkHistory
+        : this.linkHistory.slice(0, 2);
+    return rows.map((item) => ({
+      ...item,
+      itemClass:
+        item.linkKey && item.linkKey === this.selectedLinkKey
+          ? "pf-history-item pf-history-item_selected"
+          : "pf-history-item"
+    }));
   }
 
   get showHistoryToggle() {
@@ -487,6 +526,15 @@ export default class PropfocusLeadLinkGen extends LightningElement {
 
   toggleHistoryExpanded() {
     this.historyExpanded = !this.historyExpanded;
+  }
+
+  handleViewInsights(event) {
+    const linkKey = event.currentTarget?.dataset?.linkKey || "";
+    if (!linkKey || linkKey === this.selectedLinkKey) {
+      return;
+    }
+    this.selectedLinkKey = linkKey;
+    this.bumpIframeCache();
   }
 
   togglePreviewExpanded() {
@@ -787,12 +835,19 @@ export default class PropfocusLeadLinkGen extends LightningElement {
     }
     this.isLoading = true;
     const finishDeferredCopy = beginDeferredClipboardCopy();
-    generateSiteVisitWithProjectAndDateTime({
+    generatePropfocusTemplate({
       leadId: this.recordId,
-      buyerName,
-      projectName: this.siteVisitProject,
-      visitDateTime: chosenDateTime.toISOString(),
-      siteVisitManagerId: this.siteVisitManager || null
+      communicationType: COMM_TYPE_SITE_VISIT,
+      contextJson: JSON.stringify({
+        buyerName,
+        projectName: this.siteVisitProject,
+        visitDateTime: chosenDateTime.toISOString(),
+        visitDate: chosenDateTime.toISOString().slice(0, 10),
+        visitTime: `${String(chosenDateTime.getHours()).padStart(2, "0")}:${String(chosenDateTime.getMinutes()).padStart(2, "0")}`,
+        siteVisitManager: this.siteVisitManager
+          ? { id: this.siteVisitManager }
+          : undefined
+      })
     })
       .then(async (result) => {
         await this.presentSuccessWithCopy(
@@ -831,12 +886,14 @@ export default class PropfocusLeadLinkGen extends LightningElement {
 
     this.isLoading = true;
     const finishDeferredCopy = beginDeferredClipboardCopy();
-    generatePostVisitWithProjectAndConfiguration({
+    generatePropfocusTemplate({
       leadId: this.recordId,
-      buyerName,
-      projectName: this.postVisitProject,
-      visitedConfiguration,
-      visitConductedAt: null
+      communicationType: COMM_TYPE_POST_VISIT,
+      contextJson: JSON.stringify({
+        buyerName,
+        projectName: this.postVisitProject,
+        visitedConfiguration
+      })
     })
       .then(async (result) => {
         await this.presentSuccessWithCopy(
@@ -888,12 +945,20 @@ export default class PropfocusLeadLinkGen extends LightningElement {
       this.selectedConfigurations?.length > 0
         ? this.selectedConfigurations.join(", ")
         : "";
-    generateMicrositeLink({
+    generatePropfocusTemplate({
       leadId: this.recordId,
-      clientName,
-      listProj: this.selectedProjects,
-      leadType: this.micrositeLeadType,
-      configurationFilter
+      communicationType: COMM_TYPE_MICROSITE,
+      contextJson: JSON.stringify({
+        buyerName: clientName,
+        clientName,
+        projects: this.selectedProjects,
+        projectName:
+          this.selectedProjects?.length === 1
+            ? this.selectedProjects[0]
+            : undefined,
+        leadType: this.micrositeLeadType,
+        configurationFilter
+      })
     })
       .then(async (result) => {
         await this.presentSuccessWithCopy(
@@ -964,7 +1029,10 @@ export default class PropfocusLeadLinkGen extends LightningElement {
   resolveWhatsappMessageText(result) {
     const apiMessage =
       result && typeof result === "object"
-        ? result.whatsappMessage || result.WhatsAppMessage
+        ? result.whatsappMessage ||
+          result.WhatsAppMessage ||
+          result.template ||
+          result.Template
         : null;
     if (apiMessage && String(apiMessage).trim()) {
       return String(apiMessage).trim();
@@ -972,7 +1040,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
     const url =
       typeof result === "string"
         ? result.trim()
-        : String(result?.url || result?.Url || "").trim();
+        : String(result?.url || result?.Url || result?.link || "").trim();
     if (!url) {
       return "";
     }

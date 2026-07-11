@@ -52,7 +52,11 @@ public class PropfocusTestUtil {
   public static String buyerIdFor(Lead ld) {
     Lead refreshed = reloadLead(ld.Id);
     String buyerField = PropfocusConfigService.getConfig().buyerIdField;
-    if (String.isBlank(buyerField) || buyerField == 'Email') {
+    if (
+      String.isBlank(buyerField) ||
+      buyerField == 'Email' ||
+      !Schema.SObjectType.Lead.fields.getMap().containsKey(buyerField)
+    ) {
       return refreshed.Email;
     }
     Object value = refreshed.get(buyerField);

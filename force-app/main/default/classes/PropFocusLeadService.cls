@@ -46,6 +46,41 @@ public class PropFocusLeadService {
     public String whatsappMessage;
   }
 
+  public class PropfocusTemplateResult {
+    @AuraEnabled
+    @InvocableVariable
+    public String url;
+    @AuraEnabled
+    @InvocableVariable
+    public String whatsappMessage;
+    @AuraEnabled
+    @InvocableVariable
+    public String mediaUrl;
+    @AuraEnabled
+    @InvocableVariable
+    public String communicationType;
+  }
+
+  public class GenerateTemplateRequest {
+    @InvocableVariable(required=true label='Lead Id')
+    public Id leadId;
+    @InvocableVariable(
+      required=true
+      label='Communication Type'
+      description='microsite | site_visit | post_visit'
+    )
+    public String communicationType;
+    @InvocableVariable(
+      label='Context JSON'
+      description='Optional JSON object with type-specific fields (projects, visitDate, etc.)'
+    )
+    public String contextJson;
+  }
+
+  public static final String COMM_TYPE_MICROSITE = 'microsite';
+  public static final String COMM_TYPE_SITE_VISIT = 'site_visit';
+  public static final String COMM_TYPE_POST_VISIT = 'post_visit';
+
   @TestVisible
   private static final String CUSTOMER_SUPPORT_MESSAGE =
     'Something went wrong. Please contact the Propfocus support team.';
@@ -294,6 +329,70 @@ public class PropFocusLeadService {
     return base + '/' + EncodingUtil.urlEncode(embedKey, 'UTF-8');
   }
 
+  /**
+   * Unified PropFocus communication generator.
+   * Calls POST /api/v1/generate-communication and returns WhatsApp-ready
+   * template + link + mediaUrl. Reusable from LWC, Flow, and Apex.
+   *
+   * @param leadId Salesforce Lead Id
+   * @param communicationType microsite | site_visit | post_visit
+   * @param contextJson Optional JSON object with type-specific fields
+   */
+  @AuraEnabled
+  public static PropfocusTemplateResult generatePropfocusTemplate(
+    Id leadId,
+    String communicationType,
+    String contextJson
+  ) {
+    if (leadId == null) {
+      throw new AuraHandledException('Lead Id is required');
+    }
+    String normalizedType = normalizeCommunicationType(communicationType);
+    if (String.isBlank(normalizedType)) {
+      throw new AuraHandledException(
+        'communicationType is required (microsite, site_visit, or post_visit)'
+      );
+    }
+    if (
+      normalizedType != COMM_TYPE_MICROSITE &&
+      normalizedType != COMM_TYPE_SITE_VISIT &&
+      normalizedType != COMM_TYPE_POST_VISIT
+    ) {
+      throw new AuraHandledException(
+        'Unsupported communicationType: ' + communicationType
+      );
+    }
+
+    Map<String, Object> context = parseContextJson(contextJson);
+    return generatePropfocusTemplateInternal(leadId, normalizedType, context);
+  }
+
+  @InvocableMethod(
+    label='Generate Propfocus Template'
+    description='Generates a PropFocus communication (microsite, site visit, or post visit) and returns WhatsApp template + link.'
+  )
+  public static List<PropfocusTemplateResult> generatePropfocusTemplateInvocable(
+    List<GenerateTemplateRequest> requests
+  ) {
+    List<PropfocusTemplateResult> results = new List<PropfocusTemplateResult>();
+    if (requests == null) {
+      return results;
+    }
+    for (GenerateTemplateRequest req : requests) {
+      if (req == null) {
+        continue;
+      }
+      results.add(
+        generatePropfocusTemplate(
+          req.leadId,
+          req.communicationType,
+          req.contextJson
+        )
+      );
+    }
+    return results;
+  }
+
   @AuraEnabled
   public static PropfocusLinkResult generateMicrositeLink(
     Id leadId,
@@ -302,127 +401,27 @@ public class PropFocusLeadService {
     String leadType,
     String configurationFilter
   ) {
-    if (leadId == null) {
-      throw new AuraHandledException('Lead Id is required');
+    Map<String, Object> context = new Map<String, Object>();
+    if (!String.isBlank(clientName)) {
+      context.put('buyerName', clientName.trim());
+      context.put('clientName', clientName.trim());
     }
-
-    String buyerIdFieldApiName = requireLeadFieldApiName(
-      PropfocusConfigService.requireBuyerIdField(),
-      'Buyer_Id_Field__c'
-    );
-    String leadStatusFieldApiName = requireLeadFieldApiName(
-      PropfocusConfigService.requireLeadStatusField(),
-      'Lead_Status_Field__c'
-    );
-    String preSalesRepSourceFieldApiName = getPreSalesRepSourceFieldApiName();
-    List<String> leadFieldApiNames = new List<String>{
-      'Owner.Name',
-      'Owner.Phone',
-      'Propfocus_Link__c',
-      'Propfocus_Buyer_Insights_Available__c',
-      buyerIdFieldApiName,
-      leadStatusFieldApiName
-    };
-    if (!String.isBlank(preSalesRepSourceFieldApiName)) {
-      leadFieldApiNames.add(preSalesRepSourceFieldApiName);
+    if (listProj != null && !listProj.isEmpty()) {
+      context.put('projects', listProj);
+      if (listProj.size() == 1) {
+        context.put('projectName', listProj[0]);
+      }
     }
-    SObject ld = queryLeadById(leadId, leadFieldApiNames);
-
-    String organizationId = PropfocusConfigService.requireOrganizationId();
-    HttpRequest req = new HttpRequest();
-    req.setEndpoint(
-      PropfocusConfigService.apiEndpoint('/api/broker-microsite/create')
-    );
-    req.setMethod('POST');
-    req.setHeader('Content-Type', 'application/json');
-    Map<String, Object> body = new Map<String, Object>{
-      'clientName' => clientName,
-      'projects' => listProj,
-      API_LEAD_STATUS_KEY => ld.get(leadStatusFieldApiName),
-      'buyer_id' => ld.get(buyerIdFieldApiName),
-      'salesforce_lead_id' => String.valueOf(leadId)
-    };
-    putBrokerIdentification(
-      body,
-      ld,
-      preSalesRepSourceFieldApiName,
-      organizationId
-    );
-    List<String> leadTypesForApi = resolveMicrositeLeadTypesForApi(leadType);
-    if (!leadTypesForApi.isEmpty()) {
-      body.put('lead_types', leadTypesForApi);
+    if (!String.isBlank(leadType)) {
+      context.put('leadType', leadType.trim());
     }
-    body.put(
+    context.put(
       'configurationFilter',
       String.isBlank(configurationFilter) ? '' : configurationFilter.trim()
     );
-
-    req.setBody(JSON.serialize(body));
-    req.setHeader(
-      'Idempotency-Key',
-      buildIdempotencyKey('microsite-create', leadId, body)
+    return toLinkResult(
+      generatePropfocusTemplateInternal(leadId, COMM_TYPE_MICROSITE, context)
     );
-
-    HttpResponse res = PropfocusHttpService.send(req);
-
-    if (res.getStatusCode() != 200) {
-      throwCustomerFacingHttpException('generateMicrositeLink', res);
-    }
-
-    Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(
-      res.getBody()
-    );
-
-    if (asBoolean(response.get('success')) == false) {
-      throwCustomerFacingApiException(
-        'generateMicrositeLink',
-        extractApiErrorMessage(response)
-      );
-    }
-
-    String micrositeUrl = firstNonBlank(
-      response,
-      new List<String>{ 'micrositeUrl', 'microsite_url' }
-    );
-    if (String.isBlank(micrositeUrl)) {
-      micrositeUrl = firstNonBlank(
-        asMap(response.get('data')),
-        new List<String>{ 'micrositeUrl', 'microsite_url' }
-      );
-    }
-    if (String.isBlank(micrositeUrl)) {
-      throwCustomerFacingApiException(
-        'generateMicrositeLink',
-        'Microsite URL not returned by Propfocus'
-      );
-    }
-    ld.put('Propfocus_Link__c', micrositeUrl);
-    ld.put('Propfocus_Buyer_Insights_Available__c', true);
-    update ld;
-    String historyStatus =
-      asBoolean(response.get('reused')) == true ? 'Reused' : 'Generated';
-    createPropfocusLinkHistory(
-      ld.Id,
-      'Microsite Generation',
-      (listProj == null || listProj.isEmpty())
-        ? null
-        : String.join(listProj, ', '),
-      micrositeUrl,
-      historyStatus
-    );
-
-    PropfocusLinkResult result = new PropfocusLinkResult();
-    result.url = micrositeUrl;
-    result.whatsappMessage = resolveWhatsAppMessage(
-      response,
-      buildDefaultMicrositeWhatsAppMessage(
-        clientName,
-        listProj,
-        micrositeUrl,
-        resolvePreSalesRepSource(ld, preSalesRepSourceFieldApiName)
-      )
-    );
-    return result;
   }
 
   private static Map<String, Object> fetchOrganizationAccessibleProjectsPayload() {
@@ -745,7 +744,19 @@ public class PropFocusLeadService {
         dateValue.day()
       );
     }
-    return null;
+    String text = asString(value);
+    if (String.isBlank(text)) {
+      return null;
+    }
+    try {
+      // Accept ISO-8601 (e.g. 2026-07-15T10:00:00.000Z) from LWC.
+      if (text.endsWith('Z')) {
+        return (Datetime) JSON.deserialize('"' + text + '"', Datetime.class);
+      }
+      return Datetime.valueOf(text.replace('T', ' ').left(19));
+    } catch (Exception e) {
+      return null;
+    }
   }
 
   private static String asString(Object value) {
@@ -798,6 +809,7 @@ public class PropFocusLeadService {
     String topLevel = firstNonBlank(
       response,
       new List<String>{
+        'template',
         'whatsappMessage',
         'customerWhatsAppMessage',
         'whatsapp_message'
@@ -810,6 +822,7 @@ public class PropFocusLeadService {
     return firstNonBlank(
       dataMap,
       new List<String>{
+        'template',
         'whatsappMessage',
         'customerWhatsAppMessage',
         'whatsapp_message'
@@ -982,6 +995,460 @@ public class PropFocusLeadService {
     return operation + '-' + leadPart + '-' + bodyHash;
   }
 
+  private static PropfocusTemplateResult generatePropfocusTemplateInternal(
+    Id leadId,
+    String communicationType,
+    Map<String, Object> contextInput
+  ) {
+    if (leadId == null) {
+      throw new AuraHandledException('Lead Id is required');
+    }
+
+    Map<String, Object> context = contextInput == null
+      ? new Map<String, Object>()
+      : new Map<String, Object>(contextInput);
+
+    String buyerIdFieldApiName = requireLeadFieldApiName(
+      PropfocusConfigService.requireBuyerIdField(),
+      'Buyer_Id_Field__c'
+    );
+    String buyerNameFieldApiName = requireLeadFieldApiName(
+      PropfocusConfigService.requireBuyerNameField(),
+      'Buyer_Name_Field__c'
+    );
+    String projectFieldApiName = requireLeadFieldApiName(
+      PropfocusConfigService.requireProjectField(),
+      'Project_Field__c'
+    );
+    String leadStatusFieldApiName = requireLeadFieldApiName(
+      PropfocusConfigService.requireLeadStatusField(),
+      'Lead_Status_Field__c'
+    );
+    String preSalesRepSourceFieldApiName = getPreSalesRepSourceFieldApiName();
+
+    List<String> leadFieldApiNames = new List<String>{
+      'Owner.Name',
+      'Owner.Phone',
+      'Propfocus_Link__c',
+      'Propfocus_Site_Visit__c',
+      'Propfocus_Post_Visit__c',
+      'Propfocus_Buyer_Insights_Available__c',
+      buyerIdFieldApiName,
+      buyerNameFieldApiName,
+      projectFieldApiName,
+      leadStatusFieldApiName
+    };
+    if (!String.isBlank(preSalesRepSourceFieldApiName)) {
+      leadFieldApiNames.add(preSalesRepSourceFieldApiName);
+    }
+    SObject ld = queryLeadById(leadId, leadFieldApiNames);
+
+    String buyerId = asString(ld.get(buyerIdFieldApiName));
+    String buyerName = firstContextString(
+      context,
+      new List<String>{ 'buyerName', 'clientName', 'buyer_name', 'client_name' }
+    );
+    if (String.isBlank(buyerName)) {
+      buyerName = asString(ld.get(buyerNameFieldApiName));
+    }
+    if (String.isBlank(buyerId)) {
+      throw new AuraHandledException('Buyer Id is required on the Lead');
+    }
+    if (String.isBlank(buyerName)) {
+      throw new AuraHandledException('Buyer name is required');
+    }
+
+    enrichContextFromLead(
+      context,
+      communicationType,
+      ld,
+      projectFieldApiName,
+      leadStatusFieldApiName,
+      preSalesRepSourceFieldApiName
+    );
+
+    Map<String, Object> body = new Map<String, Object>{
+      'communicationType' => communicationType,
+      'buyerId' => buyerId,
+      'leadId' => buyerId,
+      'buyerName' => buyerName,
+      'salesforce_lead_id' => String.valueOf(leadId),
+      'context' => context
+    };
+
+    HttpRequest req = new HttpRequest();
+    req.setEndpoint(
+      PropfocusConfigService.apiEndpoint('/api/v1/generate-communication')
+    );
+    req.setMethod('POST');
+    req.setHeader('Content-Type', 'application/json');
+    req.setBody(JSON.serialize(body));
+    req.setHeader(
+      'Idempotency-Key',
+      buildIdempotencyKey(
+        'generate-communication-' + communicationType,
+        leadId,
+        body
+      )
+    );
+
+    HttpResponse res = PropfocusHttpService.send(req);
+    if (res.getStatusCode() != 200) {
+      throwCustomerFacingHttpException('generatePropfocusTemplate', res);
+    }
+
+    Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(
+      res.getBody()
+    );
+    if (asBoolean(response.get('success')) == false) {
+      throwCustomerFacingApiException(
+        'generatePropfocusTemplate',
+        extractApiErrorMessage(response)
+      );
+    }
+
+    String linkUrl = extractCommunicationLink(response);
+    if (String.isBlank(linkUrl)) {
+      throwCustomerFacingApiException(
+        'generatePropfocusTemplate',
+        'Link not returned by Propfocus'
+      );
+    }
+
+    String mediaUrl = firstNonBlank(
+      response,
+      new List<String>{ 'mediaUrl', 'media_url' }
+    );
+    if (String.isBlank(mediaUrl)) {
+      mediaUrl = firstNonBlank(
+        asMap(response.get('data')),
+        new List<String>{ 'mediaUrl', 'media_url' }
+      );
+    }
+
+    String projectNameForHistory = resolveProjectNameForHistory(context);
+    applyCommunicationWriteback(
+      ld,
+      communicationType,
+      linkUrl,
+      projectNameForHistory,
+      asBoolean(response.get('reused')) == true
+    );
+
+    String fallbackMessage = buildFallbackWhatsAppMessage(
+      communicationType,
+      buyerName,
+      context,
+      linkUrl,
+      resolvePreSalesRepSource(ld, preSalesRepSourceFieldApiName)
+    );
+
+    PropfocusTemplateResult result = new PropfocusTemplateResult();
+    result.communicationType = communicationType;
+    result.url = linkUrl;
+    result.mediaUrl = mediaUrl;
+    result.whatsappMessage = resolveWhatsAppMessage(response, fallbackMessage);
+    return result;
+  }
+
+  private static void enrichContextFromLead(
+    Map<String, Object> context,
+    String communicationType,
+    SObject ld,
+    String projectFieldApiName,
+    String leadStatusFieldApiName,
+    String preSalesRepSourceFieldApiName
+  ) {
+    String projectFromLead = asString(ld.get(projectFieldApiName));
+    if (
+      String.isBlank(firstContextString(context, new List<String>{ 'projectName', 'project_name' })) &&
+      context.get('projects') == null &&
+      !String.isBlank(projectFromLead)
+    ) {
+      context.put('projectName', projectFromLead);
+    }
+
+    if (communicationType == COMM_TYPE_MICROSITE) {
+      Object projectsObj = context.get('projects');
+      if (projectsObj == null && !String.isBlank(asString(context.get('projectName')))) {
+        context.put(
+          'projects',
+          new List<String>{ asString(context.get('projectName')) }
+        );
+      }
+      if (!context.containsKey('configurationFilter')) {
+        context.put('configurationFilter', '');
+      }
+      String leadType = firstContextString(
+        context,
+        new List<String>{ 'leadType', 'lead_type' }
+      );
+      List<String> leadTypesForApi = resolveMicrositeLeadTypesForApi(leadType);
+      if (!leadTypesForApi.isEmpty()) {
+        context.put('lead_types', leadTypesForApi);
+      }
+      if (!context.containsKey(API_LEAD_STATUS_KEY)) {
+        context.put(API_LEAD_STATUS_KEY, ld.get(leadStatusFieldApiName));
+      }
+    }
+
+    if (communicationType == COMM_TYPE_SITE_VISIT) {
+      Object visitDateTimeRaw = context.get('visitDateTime');
+      if (
+        visitDateTimeRaw != null &&
+        (String.isBlank(asString(context.get('visitDate'))) ||
+          String.isBlank(asString(context.get('visitTime'))))
+      ) {
+        Datetime parsedDt = asDatetime(visitDateTimeRaw);
+        if (parsedDt != null) {
+          String tz = UserInfo.getTimeZone().getID();
+          if (String.isBlank(asString(context.get('visitDate')))) {
+            context.put('visitDate', parsedDt.format('yyyy-MM-dd', tz));
+          }
+          if (String.isBlank(asString(context.get('visitTime')))) {
+            context.put('visitTime', parsedDt.format('HH:mm', tz));
+          }
+        }
+      }
+      if (String.isBlank(asString(context.get('visitDate')))) {
+        Datetime nowDt = System.now();
+        String tz = UserInfo.getTimeZone().getID();
+        context.put('visitDate', nowDt.format('yyyy-MM-dd', tz));
+        if (String.isBlank(asString(context.get('visitTime')))) {
+          context.put('visitTime', nowDt.format('HH:mm', tz));
+        }
+      }
+    }
+
+    String preSales = resolvePreSalesRepSource(ld, preSalesRepSourceFieldApiName);
+    if (
+      !String.isBlank(preSales) &&
+      String.isBlank(asString(context.get('preSalesPersonName')))
+    ) {
+      context.put('preSalesPersonName', preSales);
+    }
+  }
+
+  private static String extractCommunicationLink(Map<String, Object> response) {
+    String linkUrl = firstNonBlank(
+      response,
+      new List<String>{
+        'link',
+        'url',
+        'micrositeUrl',
+        'microsite_url',
+        'sv_url',
+        'siteVisitUrl',
+        'site_visit_url',
+        'post_visit_url',
+        'postVisitUrl',
+        'public_url',
+        'pv_url'
+      }
+    );
+    if (!String.isBlank(linkUrl)) {
+      return linkUrl;
+    }
+    return firstNonBlank(
+      asMap(response.get('data')),
+      new List<String>{
+        'link',
+        'url',
+        'micrositeUrl',
+        'microsite_url',
+        'sv_url',
+        'siteVisitUrl',
+        'site_visit_url',
+        'post_visit_url',
+        'postVisitUrl',
+        'public_url',
+        'pv_url'
+      }
+    );
+  }
+
+  private static void applyCommunicationWriteback(
+    SObject ld,
+    String communicationType,
+    String linkUrl,
+    String projectNameForHistory,
+    Boolean reused
+  ) {
+    if (communicationType == COMM_TYPE_MICROSITE) {
+      ld.put('Propfocus_Link__c', linkUrl);
+      ld.put('Propfocus_Buyer_Insights_Available__c', true);
+      update ld;
+      createPropfocusLinkHistory(
+        ld.Id,
+        'Microsite Generation',
+        projectNameForHistory,
+        linkUrl,
+        reused == true ? 'Reused' : 'Generated'
+      );
+      return;
+    }
+    if (communicationType == COMM_TYPE_SITE_VISIT) {
+      ld.put('Propfocus_Site_Visit__c', linkUrl);
+      update ld;
+      createPropfocusLinkHistory(
+        ld.Id,
+        'Site Visit Confirmation',
+        projectNameForHistory,
+        linkUrl,
+        reused == true ? 'Reused' : 'Confirmed'
+      );
+      return;
+    }
+    if (communicationType == COMM_TYPE_POST_VISIT) {
+      ld.put('Propfocus_Post_Visit__c', linkUrl);
+      update ld;
+      createPropfocusLinkHistory(
+        ld.Id,
+        'Post Visit Page',
+        projectNameForHistory,
+        linkUrl,
+        reused == true ? 'Reused' : 'Generated'
+      );
+    }
+  }
+
+  private static String buildFallbackWhatsAppMessage(
+    String communicationType,
+    String buyerName,
+    Map<String, Object> context,
+    String linkUrl,
+    String brokerName
+  ) {
+    if (communicationType == COMM_TYPE_MICROSITE) {
+      return buildDefaultMicrositeWhatsAppMessage(
+        buyerName,
+        resolveProjectsList(context),
+        linkUrl,
+        brokerName
+      );
+    }
+    if (communicationType == COMM_TYPE_SITE_VISIT) {
+      return buildDefaultSiteVisitWhatsAppMessage(
+        buyerName,
+        firstContextString(context, new List<String>{ 'projectName', 'project_name' }),
+        linkUrl
+      );
+    }
+    if (communicationType == COMM_TYPE_POST_VISIT) {
+      return buildDefaultPostVisitWhatsAppMessage(
+        buyerName,
+        firstContextString(context, new List<String>{ 'projectName', 'project_name' }),
+        firstContextString(
+          context,
+          new List<String>{ 'visitedConfiguration', 'visited_configuration' }
+        ),
+        linkUrl
+      );
+    }
+    return '';
+  }
+
+  private static String resolveProjectNameForHistory(Map<String, Object> context) {
+    String projectName = firstContextString(
+      context,
+      new List<String>{ 'projectName', 'project_name' }
+    );
+    if (!String.isBlank(projectName)) {
+      return projectName;
+    }
+    List<String> projects = resolveProjectsList(context);
+    return projects.isEmpty() ? null : String.join(projects, ', ');
+  }
+
+  private static List<String> resolveProjectsList(Map<String, Object> context) {
+    List<String> projects = new List<String>();
+    if (context == null) {
+      return projects;
+    }
+    Object raw = context.get('projects');
+    if (raw instanceof List<Object>) {
+      for (Object item : (List<Object>) raw) {
+        String value = asString(item);
+        if (!String.isBlank(value)) {
+          projects.add(value.trim());
+        }
+      }
+    } else if (raw instanceof List<String>) {
+      for (String value : (List<String>) raw) {
+        if (!String.isBlank(value)) {
+          projects.add(value.trim());
+        }
+      }
+    }
+    if (projects.isEmpty()) {
+      String single = firstContextString(
+        context,
+        new List<String>{ 'projectName', 'project_name' }
+      );
+      if (!String.isBlank(single)) {
+        projects.add(single);
+      }
+    }
+    return projects;
+  }
+
+  private static String firstContextString(
+    Map<String, Object> context,
+    List<String> keys
+  ) {
+    if (context == null || keys == null) {
+      return null;
+    }
+    for (String key : keys) {
+      String value = asString(context.get(key));
+      if (!String.isBlank(value)) {
+        return value.trim();
+      }
+    }
+    return null;
+  }
+
+  @TestVisible
+  private static String normalizeCommunicationType(String communicationType) {
+    if (String.isBlank(communicationType)) {
+      return null;
+    }
+    String normalized = communicationType.trim().toLowerCase().replace(' ', '_');
+    if (normalized == 'sitevisit') {
+      return COMM_TYPE_SITE_VISIT;
+    }
+    if (normalized == 'postvisit') {
+      return COMM_TYPE_POST_VISIT;
+    }
+    return normalized;
+  }
+
+  @TestVisible
+  private static Map<String, Object> parseContextJson(String contextJson) {
+    if (String.isBlank(contextJson)) {
+      return new Map<String, Object>();
+    }
+    try {
+      Object parsed = JSON.deserializeUntyped(contextJson);
+      Map<String, Object> asObject = asMap(parsed);
+      return asObject == null
+        ? new Map<String, Object>()
+        : new Map<String, Object>(asObject);
+    } catch (Exception e) {
+      throw new AuraHandledException('contextJson must be a valid JSON object');
+    }
+  }
+
+  private static PropfocusLinkResult toLinkResult(PropfocusTemplateResult templateResult) {
+    PropfocusLinkResult result = new PropfocusLinkResult();
+    if (templateResult == null) {
+      return result;
+    }
+    result.url = templateResult.url;
+    result.whatsappMessage = templateResult.whatsappMessage;
+    return result;
+  }
+
   private static String resolveBrokerNumber(SObject leadRecord) {
     SObject ownerRecord = leadRecord.getSObject('Owner');
     if (ownerRecord == null) {
@@ -1031,150 +1498,34 @@ public class PropFocusLeadService {
     Datetime requestedVisitDateTime,
     String siteVisitManagerId
   ) {
-    if (leadId == null) {
-      throw new AuraHandledException('Lead Id is required');
+    Map<String, Object> context = new Map<String, Object>();
+    if (!String.isBlank(buyerName)) {
+      context.put('buyerName', buyerName.trim());
     }
-
-    String buyerIdFieldApiName = requireLeadFieldApiName(
-      PropfocusConfigService.requireBuyerIdField(),
-      'Buyer_Id_Field__c'
-    );
-    String buyerNameFieldApiName = requireLeadFieldApiName(
-      PropfocusConfigService.requireBuyerNameField(),
-      'Buyer_Name_Field__c'
-    );
-    String projectFieldApiName = requireLeadFieldApiName(
-      PropfocusConfigService.requireProjectField(),
-      'Project_Field__c'
-    );
-    String preSalesRepSourceFieldApiName = getPreSalesRepSourceFieldApiName();
-    List<String> leadFieldApiNames = new List<String>{
-      'Owner.Name',
-      'Owner.Phone',
-      'Propfocus_Site_Visit__c',
-      buyerIdFieldApiName,
-      buyerNameFieldApiName,
-      projectFieldApiName
-    };
-    if (!String.isBlank(preSalesRepSourceFieldApiName)) {
-      leadFieldApiNames.add(preSalesRepSourceFieldApiName);
+    if (!String.isBlank(projectName)) {
+      context.put('projectName', projectName.trim());
     }
-    SObject ld = queryLeadById(leadId, leadFieldApiNames);
-
-    Datetime effectiveVisitDateTime;
-    if (requestedVisitDateTime != null) {
-      effectiveVisitDateTime = requestedVisitDateTime;
-    } else {
-      effectiveVisitDateTime = System.now();
-    }
-
+    Datetime effectiveVisitDateTime = requestedVisitDateTime != null
+      ? requestedVisitDateTime
+      : System.now();
     String userTimeZoneId = UserInfo.getTimeZone().getID();
-    String visitDate = effectiveVisitDateTime.format(
-      'dd/MM/yyyy',
-      userTimeZoneId
+    context.put(
+      'visitDate',
+      effectiveVisitDateTime.format('yyyy-MM-dd', userTimeZoneId)
     );
-    String visitTime = effectiveVisitDateTime.format('HH:mm', userTimeZoneId);
-
-    String organizationId = PropfocusConfigService.requireOrganizationId();
-
-    HttpRequest req = new HttpRequest();
-    req.setEndpoint(
-      PropfocusConfigService.apiEndpoint('/api/site-visit/create-sv')
-    );
-    req.setMethod('POST');
-    req.setHeader('Content-Type', 'application/json');
-
-    String resolvedProjectName = String.isBlank(projectName)
-      ? asString(ld.get(projectFieldApiName))
-      : projectName;
-    String resolvedBuyerName = String.isBlank(buyerName)
-      ? asString(ld.get(buyerNameFieldApiName))
-      : buyerName;
-
-    Map<String, Object> body = new Map<String, Object>{
-      'buyer_id' => ld.get(buyerIdFieldApiName),
-      'project_name' => resolvedProjectName,
-      'visit_date' => visitDate,
-      'visit_time' => visitTime,
-      'buyer_name' => resolvedBuyerName,
-      'salesforce_lead_id' => String.valueOf(leadId)
-    };
-    putBrokerIdentification(
-      body,
-      ld,
-      preSalesRepSourceFieldApiName,
-      organizationId
+    context.put(
+      'visitTime',
+      effectiveVisitDateTime.format('HH:mm', userTimeZoneId)
     );
     if (!String.isBlank(siteVisitManagerId)) {
-      body.put(
+      context.put(
         'siteVisitManager',
         new Map<String, Object>{ 'id' => siteVisitManagerId }
       );
     }
-
-    req.setBody(JSON.serialize(body));
-    req.setHeader(
-      'Idempotency-Key',
-      buildIdempotencyKey('site-visit-create', leadId, body)
+    return toLinkResult(
+      generatePropfocusTemplateInternal(leadId, COMM_TYPE_SITE_VISIT, context)
     );
-
-    HttpResponse res = PropfocusHttpService.send(req);
-
-    if (res.getStatusCode() != 200) {
-      throwCustomerFacingHttpException('generateSiteVisit', res);
-    }
-
-    Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(
-      res.getBody()
-    );
-
-    if (asBoolean(response.get('success')) == false) {
-      throwCustomerFacingApiException(
-        'generateSiteVisit',
-        extractApiErrorMessage(response)
-      );
-    }
-
-    String siteVisitUrl = firstNonBlank(
-      response,
-      new List<String>{ 'sv_url', 'siteVisitUrl', 'site_visit_url' }
-    );
-    if (String.isBlank(siteVisitUrl)) {
-      siteVisitUrl = firstNonBlank(
-        asMap(response.get('data')),
-        new List<String>{ 'sv_url', 'siteVisitUrl', 'site_visit_url' }
-      );
-    }
-    if (String.isBlank(siteVisitUrl)) {
-      throwCustomerFacingApiException(
-        'generateSiteVisit',
-        'Site Visit URL not returned by Propfocus'
-      );
-    }
-
-    ld.put('Propfocus_Site_Visit__c', siteVisitUrl);
-    update ld;
-    String historyStatus =
-      asBoolean(response.get('reused')) == true ? 'Reused' : 'Confirmed';
-    createPropfocusLinkHistory(
-      ld.Id,
-      'Site Visit Confirmation',
-      resolvedProjectName,
-      siteVisitUrl,
-      historyStatus
-    );
-
-    PropfocusLinkResult result = new PropfocusLinkResult();
-    result.url = siteVisitUrl;
-    result.whatsappMessage = resolveWhatsAppMessage(
-      response,
-      buildDefaultSiteVisitWhatsAppMessage(
-        resolvedBuyerName,
-        resolvedProjectName,
-        siteVisitUrl
-      )
-    );
-    return result;
   }
 
   @AuraEnabled
@@ -1247,145 +1598,28 @@ public class PropFocusLeadService {
     String visitedConfiguration,
     Date visitConductedAt
   ) {
-    if (leadId == null) {
-      throw new AuraHandledException('Lead Id is required');
-    }
-
-    String buyerIdFieldApiName = requireLeadFieldApiName(
-      PropfocusConfigService.requireBuyerIdField(),
-      'Buyer_Id_Field__c'
-    );
-    String buyerNameFieldApiName = requireLeadFieldApiName(
-      PropfocusConfigService.requireBuyerNameField(),
-      'Buyer_Name_Field__c'
-    );
-    String projectFieldApiName = requireLeadFieldApiName(
-      PropfocusConfigService.requireProjectField(),
-      'Project_Field__c'
-    );
-    String preSalesRepSourceFieldApiName = getPreSalesRepSourceFieldApiName();
-    List<String> leadFieldApiNames = new List<String>{
-      'Owner.Name',
-      'Owner.Phone',
-      'Propfocus_Post_Visit__c',
-      buyerIdFieldApiName,
-      buyerNameFieldApiName,
-      projectFieldApiName
-    };
-    if (!String.isBlank(preSalesRepSourceFieldApiName)) {
-      leadFieldApiNames.add(preSalesRepSourceFieldApiName);
-    }
-    SObject ld = queryLeadById(leadId, leadFieldApiNames);
-
-    String resolvedProjectName = String.isBlank(projectName)
-      ? asString(ld.get(projectFieldApiName))
-      : projectName;
-    String resolvedBuyerName = String.isBlank(buyerName)
-      ? asString(ld.get(buyerNameFieldApiName))
-      : buyerName;
     String resolvedVisitedConfiguration = String.isBlank(visitedConfiguration)
       ? null
       : visitedConfiguration.trim();
     if (String.isBlank(resolvedVisitedConfiguration)) {
       throw new AuraHandledException('Visited configuration is required');
     }
-    Date resolvedVisitDate = visitConductedAt == null ? Date.today() : visitConductedAt;
 
-    String organizationId = PropfocusConfigService.requireOrganizationId();
-    HttpRequest req = new HttpRequest();
-    req.setEndpoint(
-      PropfocusConfigService.apiEndpoint('/api/post-visit/create-pv')
-    );
-    req.setMethod('POST');
-    req.setHeader('Content-Type', 'application/json');
-
-    Map<String, Object> body = new Map<String, Object>{
-      'buyer_id' => ld.get(buyerIdFieldApiName),
-      'buyer_name' => resolvedBuyerName,
-      'project_name' => resolvedProjectName,
-      'visited_configuration' => resolvedVisitedConfiguration,
-      'visit_conducted_at' => String.valueOf(resolvedVisitDate),
-      'salesforce_lead_id' => String.valueOf(leadId)
-    };
-    putBrokerIdentification(
-      body,
-      ld,
-      preSalesRepSourceFieldApiName,
-      organizationId
-    );
-
-    req.setBody(JSON.serialize(body));
-    req.setHeader(
-      'Idempotency-Key',
-      buildIdempotencyKey('post-visit-create', leadId, body)
-    );
-
-    HttpResponse res = PropfocusHttpService.send(req);
-    if (res.getStatusCode() != 200) {
-      throwCustomerFacingHttpException('generatePostVisit', res);
+    Map<String, Object> context = new Map<String, Object>();
+    if (!String.isBlank(buyerName)) {
+      context.put('buyerName', buyerName.trim());
     }
-
-    Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(
-      res.getBody()
-    );
-    if (asBoolean(response.get('success')) == false) {
-      throwCustomerFacingApiException(
-        'generatePostVisit',
-        extractApiErrorMessage(response)
-      );
+    if (!String.isBlank(projectName)) {
+      context.put('projectName', projectName.trim());
     }
-
-    String postVisitUrl = firstNonBlank(
-      response,
-      new List<String>{
-        'post_visit_url',
-        'postVisitUrl',
-        'public_url',
-        'pv_url'
-      }
+    context.put('visitedConfiguration', resolvedVisitedConfiguration);
+    Date resolvedVisitDate = visitConductedAt == null
+      ? Date.today()
+      : visitConductedAt;
+    context.put('visitConductedAt', String.valueOf(resolvedVisitDate));
+    return toLinkResult(
+      generatePropfocusTemplateInternal(leadId, COMM_TYPE_POST_VISIT, context)
     );
-    if (String.isBlank(postVisitUrl)) {
-      postVisitUrl = firstNonBlank(
-        asMap(response.get('data')),
-        new List<String>{
-          'post_visit_url',
-          'postVisitUrl',
-          'public_url',
-          'pv_url'
-        }
-      );
-    }
-    if (String.isBlank(postVisitUrl)) {
-      throwCustomerFacingApiException(
-        'generatePostVisit',
-        'Post Visit URL not returned by Propfocus'
-      );
-    }
-
-    ld.put('Propfocus_Post_Visit__c', postVisitUrl);
-    update ld;
-    String historyStatus =
-      asBoolean(response.get('reused')) == true ? 'Reused' : 'Generated';
-    createPropfocusLinkHistory(
-      ld.Id,
-      'Post Visit Page',
-      resolvedProjectName,
-      postVisitUrl,
-      historyStatus
-    );
-
-    PropfocusLinkResult result = new PropfocusLinkResult();
-    result.url = postVisitUrl;
-    result.whatsappMessage = resolveWhatsAppMessage(
-      response,
-      buildDefaultPostVisitWhatsAppMessage(
-        resolvedBuyerName,
-        resolvedProjectName,
-        resolvedVisitedConfiguration,
-        postVisitUrl
-      )
-    );
-    return result;
   }
 
   @AuraEnabled

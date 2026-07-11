@@ -10,7 +10,7 @@ Short reference below. The setup guide has navigation paths, field values, pass/
 
 | Item                    | Value                                                                                          |
 | ----------------------- | ---------------------------------------------------------------------------------------------- |
-| **Install link**        | `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000dKWjQAM` (v0.4.0-1) |
+| **Install link**        | `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000iXWXQA2` (v0.5.0-1) |
 | **Hosachiguru sandbox** | `https://hosachiguru--consultefy.sandbox.my.salesforce.com`                                    |
 | **Organization Id**     | _(from Propfocus team)_                                                                        |
 | **API base (dev)**      | `https://dev.propfocus.in`                                                                     |

@@ -28,19 +28,27 @@
             </template>
             <template lwc:if={hasHistory}>
                 <div class="pf-history">
-                    <h3 class="pf-history-title">History</h3>
+                    <h3 class="pf-history-title">LEAD History</h3>
                     <div class="pf-history-list">
                         <template for:each={visibleHistory} for:item="item">
-                            <div key={item.id} class="pf-history-item">
+                            <div key={item.id} class={item.itemClass}>
                                 <div class="pf-history-item-head">
                                     <span class="pf-history-type">{item.type}</span>
                                     <span class="pf-history-date">{item.createdAt}</span>
                                 </div>
-                                <div class="pf-history-meta">
-                                    <span>{item.status}</span>
-                                    <span>{item.projectName}</span>
+                                <div class="pf-history-item-foot">
+                                    <div class="pf-history-meta">
+                                        <span>{item.status}</span>
+                                        <span>{item.projectName}</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        class="pf-history-insights-btn"
+                                        data-link-key={item.linkKey}
+                                        onclick={handleViewInsights}
+                                        disabled={item.insightsDisabled}
+                                    >View insights</button>
                                 </div>
-                                <a class="pf-history-link" href={item.url} target="_blank" rel="noopener noreferrer">{item.url}</a>
                             </div>
                         </template>
                     </div>
@@ -52,7 +60,7 @@
             <template lwc:if={showBuyerInsightsEmbed}>
                 <div class="pf-preview-section">
                     <div class="pf-preview-head">
-                        <span class="pf-preview-title">Buyer Insights</span>
+                        <span class="pf-preview-title">Lead Insights</span>
                         <button type="button" class="pf-toggle" onclick={togglePreviewExpanded} aria-expanded={previewExpanded}>
                             <lightning-icon icon-name={previewToggleIconName} size="x-small" alternative-text={previewToggleLabel}></lightning-icon>
                             {previewToggleLabel}

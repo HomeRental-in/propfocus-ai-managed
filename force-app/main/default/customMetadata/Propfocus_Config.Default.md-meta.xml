@@ -16,7 +16,7 @@
       xsi:type="xsd:string"
       xmlns:xsd="http://www.w3.org/2001/XMLSchema"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    >Enquiry_Ref_No__c</value>
+    />
     </values>
     <values>
         <field>Buyer_Name_Field__c</field>
@@ -24,7 +24,7 @@
       xsi:type="xsd:string"
       xmlns:xsd="http://www.w3.org/2001/XMLSchema"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    >Full_Name__c</value>
+    />
     </values>
     <values>
         <field>Embed_Base_Url__c</field>
@@ -120,7 +120,7 @@
       xsi:type="xsd:string"
       xmlns:xsd="http://www.w3.org/2001/XMLSchema"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    >Presales_Owner__c</value>
+    />
     </values>
     <values>
         <field>Pre_Sales_Rep_Source_Field__c</field>
@@ -128,7 +128,7 @@
       xsi:type="xsd:string"
       xmlns:xsd="http://www.w3.org/2001/XMLSchema"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    >Presales_Owner__c</value>
+    />
     </values>
     <values>
         <field>Project_Field__c</field>
@@ -136,7 +136,7 @@
       xsi:type="xsd:string"
       xmlns:xsd="http://www.w3.org/2001/XMLSchema"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    >Project_Interested__c</value>
+    />
     </values>
     <values>
         <field>Sales_Owner_Name_Field__c</field>
@@ -144,7 +144,7 @@
       xsi:type="xsd:string"
       xmlns:xsd="http://www.w3.org/2001/XMLSchema"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    >Sales_Person__c</value>
+    />
     </values>
     <values>
         <field>Sales_Owner_Phone_Field__c</field>
@@ -152,7 +152,7 @@
       xsi:type="xsd:string"
       xmlns:xsd="http://www.w3.org/2001/XMLSchema"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    >Mobile_Phone__c</value>
+    />
     </values>
     <values>
         <field>Site_Visit_Datetime_Field__c</field>
@@ -160,7 +160,7 @@
       xsi:type="xsd:string"
       xmlns:xsd="http://www.w3.org/2001/XMLSchema"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    >Site_Visit_Date__c</value>
+    />
     </values>
     <values>
         <field>Site_Visit_Object__c</field>
@@ -176,7 +176,7 @@
       xsi:type="xsd:string"
       xmlns:xsd="http://www.w3.org/2001/XMLSchema"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    >Project_Interested__c</value>
+    />
     </values>
     <values>
         <field>Site_Visit_Status_Field__c</field>
@@ -192,7 +192,7 @@
       xsi:type="xsd:string"
       xmlns:xsd="http://www.w3.org/2001/XMLSchema"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    >Sv_Team__c</value>
+    />
     </values>
     <values>
         <field>Site_Visit_Type_Field__c</field>
@@ -200,6 +200,6 @@
       xsi:type="xsd:string"
       xmlns:xsd="http://www.w3.org/2001/XMLSchema"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    >sv_type__c</value>
+    />
     </values>
 </CustomMetadata>
