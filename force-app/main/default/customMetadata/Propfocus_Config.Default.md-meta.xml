@@ -32,7 +32,7 @@
       xsi:type="xsd:string"
       xmlns:xsd="http://www.w3.org/2001/XMLSchema"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    >https://dev.propfocus.in/embed/salesforce</value>
+    >https://propfocus.in/embed/salesforce</value>
     </values>
     <values>
         <field>Embed_Uses_Salesforce_Lead_Id__c</field>
@@ -73,38 +73,6 @@
       xmlns:xsd="http://www.w3.org/2001/XMLSchema"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     >Status</value>
-    </values>
-    <values>
-        <field>OAuth_Client_Id__c</field>
-        <value
-      xsi:type="xsd:string"
-      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    >418e4991-c8fc-44da-95b2-740df8215205</value>
-    </values>
-    <values>
-        <field>OAuth_Client_Secret__c</field>
-        <value
-      xsi:type="xsd:string"
-      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    >d660874930a3210dffc6fb3530e21a1188a86543cdd0c67bb143f8be1749acba</value>
-    </values>
-    <values>
-        <field>OAuth_Grant_Type__c</field>
-        <value
-      xsi:type="xsd:string"
-      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    >client_credentials</value>
-    </values>
-    <values>
-        <field>OAuth_Token_Url__c</field>
-        <value
-      xsi:type="xsd:string"
-      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    >https://dev.propfocus.in/api/oauth2/token</value>
     </values>
     <values>
         <field>Organization_Id__c</field>

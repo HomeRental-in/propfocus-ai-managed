@@ -121,6 +121,10 @@
         <object>Lead</object>
         <viewAllRecords>false</viewAllRecords>
     </objectPermissions>
+    <externalCredentialPrincipalAccesses>
+        <enabled>true</enabled>
+        <externalCredentialPrincipal>Propfocus_API_External-Propfocus_Principal</externalCredentialPrincipal>
+    </externalCredentialPrincipalAccesses>
     <userPermissions>
         <enabled>true</enabled>
         <name>SendCustomNotifications</name>

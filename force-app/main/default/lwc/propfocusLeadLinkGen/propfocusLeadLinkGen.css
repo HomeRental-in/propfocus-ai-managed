@@ -60,6 +60,20 @@
     color: var(--pf-text-muted);
     font-size: 0.75rem;
 }
+.pf-status {
+    font-weight: 600;
+}
+.pf-status-engaged,
+.pf-status-confirmed {
+    color: #15803d;
+}
+.pf-status-not-engaged,
+.pf-status-pending {
+    color: #dc2626;
+}
+.pf-status-rescheduled {
+    color: #ea580c;
+}
 .pf-history-insights-btn {
     flex-shrink: 0;
     min-height: 1.75rem;

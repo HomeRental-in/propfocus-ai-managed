@@ -45,7 +45,7 @@ Deploy and test (development only — subscribers use the managed package):
 ```powershell
 sf project deploy start --source-dir force-app --target-org hosachiguru-sandbox
 sf apex run test --target-org hosachiguru-sandbox `
-  --class-names PropFocusLeadServiceTest,PropfocusConfigServiceTest,PropfocusInboundServiceTest,PropfocusInboundWritebackServiceTest,PropfocusLeadEventServiceTest,PropfocusLeadTrackingServiceTest,PropfocusOAuthServiceTest `
+  --class-names PropFocusLeadServiceTest,PropfocusConfigServiceTest,PropfocusInboundServiceTest,PropfocusInboundWritebackServiceTest,PropfocusLeadEventServiceTest,PropfocusLeadTrackingServiceTest `
   --code-coverage --result-format human --wait 30
 ```
 
@@ -95,8 +95,8 @@ See [DEV_HUB_SETUP.md](./DEV_HUB_SETUP.md) for detailed Dev Hub steps (namespace
 
 | Area         | Requirement                                              |
 | ------------ | -------------------------------------------------------- |
-| **Deploy**   | Code deploys; 43/43 Propfocus tests pass                 |
-| **Config**   | Propfocus Config, permission sets, CSP, Named Credential |
+| **Deploy**   | Code deploys; Propfocus Apex tests pass (see test run in CI/org) |
+| **Config**   | Propfocus Config, permission sets, CSP, External Credential + Named Credential |
 | **Features** | All 5 capabilities + write-back verified                 |
 | **Package**  | v0.5.0-1 Released; install link works in fresh org       |
 | **Handoff**  | SETUP_GUIDE.md, FAQ.txt, INBOUND.md shared               |
@@ -121,14 +121,29 @@ Feature testing: Partial — verify with subscriber + Propfocus backend
 | 0.3 | Package installed (0.5.0-1)                          |
 | 1.x | Permission sets assigned                             |
 | 2.x | Propfocus Config configured (see FIELDS.md)          |
-| 3.x | CSP + Named Credential verified                      |
-| 4.x | Lead component on page                               |
+| 3.x | External Credential principal + Named Credential verified |
+| 4.x | CSP + Lead component on page                         |
 | 5.x | Test Connection + all feature tests (SETUP_GUIDE.md) |
 | 6.x | Propfocus backend: Platform Events + inbound REST    |
+
+---
+
+## Packaging notes (External Credential)
+
+The package ships:
+
+- `externalCredentials/Propfocus_API_External` — OAuth client credentials skeleton (token URL in metadata; Client Id/Secret entered post-install in subscriber org)
+- `namedCredentials/Propfocus_API` — SecuredEndpoint linked to External Credential
+- Permission sets with `externalCredentialPrincipalAccesses` for **Propfocus User** and **Propfocus AI Admin**
+
+Subscribers populate Client Id/Secret via Setup UI after install. See [Salesforce Named Credentials packaging guide](https://developer.salesforce.com/docs/platform/named-credentials/guide/nc-populate-external-credentials.html).
+
+Removed in this release: `PropfocusOAuthService`, OAuth CMDT fields (`OAuth_Token_Url__c`, etc.).
 
 ---
 
 ## Security
 
 - Never commit passwords, OAuth secrets, JWT keys, or access tokens.
+- Do not put Client Id/Secret in Custom Metadata or packaged `Propfocus_Config.Default` values.
 - Internal templates live in `docs/internal/` (gitignored).

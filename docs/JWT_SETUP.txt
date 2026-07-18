@@ -10,13 +10,30 @@ No password. No security token. Uses certificate + integration user.
 OVERVIEW
 ================================================================================
 
-  1. Create integration user in Salesforce
-  2. Generate RSA certificate (private key + public cert)
-  3. Create External Client App + upload certificate
-  4. Pre-authorize integration user on the app
-  5. Build signed JWT in your code
-  6. POST JWT to Salesforce token URL -> get access_token
-  7. POST inbound REST with Bearer access_token
+  1. Create integration user in Salesforce          (customer admin)
+  2. Generate RSA key pair                          (Propfocus only)
+  3. Send server.crt to customer; they upload it    (never send server.key)
+  4. Create External Client App + upload server.crt (customer admin)
+  5. Pre-authorize integration user on the app      (customer admin)
+  6. Build signed JWT with server.key               (Propfocus backend)
+  7. POST JWT to Salesforce token URL -> access_token
+  8. POST inbound REST with Bearer access_token
+  9. Rotate certificate before 365-day expiry
+
+KEY OWNERSHIP (READ THIS FIRST)
+--------------------------------------------------------------------------------
+  Propfocus generates the key pair and stores server.key in secrets manager.
+  Propfocus sends the customer ONLY server.crt (public certificate).
+  The customer uploads server.crt to the External Client App.
+
+  NEVER email, Slack, git, or otherwise transmit server.key.
+  If the customer generates and keeps the only private key, Propfocus cannot
+  sign JWTs and has no inbound access to that org.
+
+  Optional sandbox-only exception: a customer may generate a separate local
+  key pair for propfocus-sf-jwt / Postman testing. That key is not production
+  inbound and must never be sent to Propfocus as a substitute for the
+  Propfocus-held production key.
 
 ================================================================================
 STEP 1 — CREATE INTEGRATION USER (SALESFORCE ADMIN)
@@ -42,39 +59,49 @@ WRITE DOWN:
   integration_username = propfocus.integration@yourcompany.com
 
 ================================================================================
-STEP 2 — GENERATE RSA KEY PAIR (ON YOUR SERVER / DEV MACHINE)
+STEP 2 — GENERATE RSA KEY PAIR (PROPFOCUS ONLY)
 ================================================================================
 
-Requires OpenSSL (Mac/Linux built-in; Windows: Git Bash or OpenSSL install)
+Done by Propfocus DevOps / backend — NOT by the Salesforce customer admin.
+Requires OpenSSL (Mac/Linux built-in; Windows: Git Bash or OpenSSL install).
 
-2.1  Open terminal. Create a folder for keys (keep private — never commit to git):
+2.1  On a Propfocus-controlled machine (or secrets pipeline), create a private folder:
 
-       mkdir propfocus-sf-jwt
-       cd propfocus-sf-jwt
+       mkdir propfocus-sf-jwt-<customer-org>
+       cd propfocus-sf-jwt-<customer-org>
 
 2.2  Generate private key (2048-bit RSA):
 
        openssl genrsa -out server.key 2048
 
-2.3  Generate self-signed certificate (valid 1 year):
+2.3  Generate self-signed certificate (VALIDITY: 365 DAYS):
 
        openssl req -new -x509 -key server.key -out server.crt -days 365
 
        When prompted:
          Country, Org, etc. — any values OK
-         Common Name: propfocus-integration  (or your company name)
+         Common Name: propfocus-integration  (or customer org name)
+
+       Record the expiry date: today + 365 days.
+       Set a calendar reminder ~30 days before expiry (see Step 10).
 
 2.4  You now have two files:
-       server.key  = PRIVATE KEY  (keep secret — Propfocus backend only)
-       server.crt  = PUBLIC CERT   (upload to Salesforce)
+       server.key  = PRIVATE KEY  — store in Propfocus secrets manager ONLY
+       server.crt  = PUBLIC CERT  — send to customer for Salesforce upload
 
-NEVER share server.key in email, git, or Slack.
+2.5  Hand off to customer:
+       Send ONLY server.crt (plus setup pointers to this doc / E2E Phase 6).
+       Do NOT send server.key. Ever.
+
+2.6  Store server.key in secrets manager keyed to this Salesforce org.
+       Never commit keys to git.
 
 ================================================================================
 STEP 3 — CREATE EXTERNAL CLIENT APP (SALESFORCE ADMIN)
 ================================================================================
 
 Do this in the SAME org as the integration user (e.g. your sandbox or production org).
+Customer admin receives server.crt from Propfocus first (Step 2.5).
 
 3.1  Setup -> App Manager -> New External Client App
 
@@ -89,9 +116,11 @@ Do this in the SAME org as the integration user (e.g. your sandbox or production
        Callback URL (required field — placeholder OK for JWT):
          https://login.salesforce.com/services/oauth2/callback
 
-       OAuth Scopes — add:
+       OAuth Scopes — add only:
          Manage user data via APIs (api)
-         Perform requests at any time (refresh_token, offline_access)
+
+       Do NOT add refresh_token / offline_access — JWT Bearer
+       does not use refresh tokens.
 
 3.4  Enable JWT Bearer + upload certificate (CRITICAL):
 
@@ -100,7 +129,7 @@ Do this in the SAME org as the integration user (e.g. your sandbox or production
        [x] Enable JWT Bearer Flow
 
        After you check it, a  Certificate Upload  area appears below.
-       Click Upload / Choose File -> select  server.crt  (from Step 2.3)
+       Click Upload / Choose File -> select  server.crt  (from Propfocus)
 
        IF YOU STILL DON'T SEE "Enable JWT Bearer Flow":
        - Scroll the whole create/edit form — it is below OAuth Scopes
@@ -141,11 +170,11 @@ The integration user must be allowed to use this app.
 4.1  Open External Client App -> Policies (or Manage -> Policies)
 
 4.2  Permitted Users:
-       Choose ONE:
-         - "All users may self-authorize"  (easiest for testing)
-         OR
-         - "Admin approved users are pre-authorized"
-           then add integration user's Profile or Permission Set
+       "Admin approved users are pre-authorized" only
+       then add the Propfocus Integration permission set
+
+       Do NOT use "All users may self-authorize" — apps with the
+       api scope that allow self-authorize are struck/flagged.
 
 4.3  Save
 
@@ -203,7 +232,7 @@ STEP 6 — REQUEST access_token (YOUR CODE)
 6.3  Success response (200):
        {
          "access_token": "00Dxxxxx!AR8AQ...",
-         "scope": "api refresh_token",
+         "scope": "api",
          "instance_url": "https://orgfarm-fe4cf9447a-dev-ed.develop.my.salesforce.com",
          "id": "https://login.salesforce.com/id/00D.../005...",
          "token_type": "Bearer"
@@ -223,13 +252,15 @@ STEP 6 — REQUEST access_token (YOUR CODE)
          -> Wrong iss (Consumer Key) or app not propagated yet (wait 10 min)
 
        invalid assertion
-         -> Wrong signature, expired exp, wrong aud, or wrong private key
+         -> Wrong signature, expired JWT exp claim, wrong aud, wrong private key,
+            or EXPIRED / mismatched certificate on the External Client App
+            (self-signed cert validity is 365 days — see Step 10)
 
        user invalid
          -> sub username wrong or user inactive in this org
 
 ================================================================================
-STEP 7 — CODE EXAMPLES
+STEP 7 — CODE EXAMPLES (PROPFOCUS BACKEND — uses server.key)
 ================================================================================
 
 --------------------------------------------------------------------------------
@@ -341,15 +372,50 @@ STEP 9 — PRODUCTION CHECKLIST
 
 [ ]  Integration user created (not admin)
 [ ]  Propfocus Integration permission set assigned
-[ ]  RSA key pair generated; private key in secrets manager
+[ ]  Propfocus generated RSA key pair; server.key in Propfocus secrets manager
+[ ]  Customer received ONLY server.crt (never server.key)
 [ ]  External Client App created IN SAME ORG as integration user
-[ ]  server.crt uploaded to app; digital signatures enabled
+[ ]  server.crt uploaded; JWT Bearer Flow enabled
 [ ]  Consumer Key (3MVG9...) stored as SF_CLIENT_ID
-[ ]  Integration user pre-authorized on app policies
+[ ]  Integration user pre-authorized (Admin approved + permission set)
 [ ]  JWT uses correct aud (login vs test.salesforce.com)
 [ ]  Token exchange returns access_token
 [ ]  Inbound POST returns success: true
-[ ]  Private key NOT in git / email / setup guide
+[ ]  Cert expiry date recorded; 30-day rotation reminder set
+[ ]  Private key NOT in git / email / Slack / customer hands
+
+================================================================================
+STEP 10 — CERTIFICATE EXPIRY AND ROTATION
+================================================================================
+
+Validity: self-signed certs from Step 2.3 expire after 365 days (-days 365).
+
+When the cert expires, JWT token exchange fails (typically invalid_grant or
+invalid assertion). Inbound write-back / notifications stop until rotated.
+There is no automatic Salesforce warning to the customer — treat this as a
+Propfocus-owned ops deadline.
+
+ROTATION RUNBOOK (start ~30 days before expiry):
+
+  10.1  Propfocus generates a NEW key pair (new server.key + server.crt).
+        Keep the old key until cutover succeeds (overlap window).
+
+  10.2  Send the customer ONLY the new server.crt.
+
+  10.3  Customer admin: External Client App -> replace / re-upload the
+        certificate for JWT Bearer Flow -> Save.
+        Wait 2-10 minutes for propagation.
+
+  10.4  Propfocus switches signing to the new server.key in secrets manager.
+
+  10.5  Confirm: token exchange returns access_token; inbound POST succeeds.
+
+  10.6  Destroy the old private key; record the new expiry (today + 365 days);
+        set the next 30-day reminder.
+
+Check current cert dates (on the machine that holds the .crt):
+
+       openssl x509 -in server.crt -noout -dates
 
 ================================================================================
 JWT vs PASSWORD FLOW
@@ -363,5 +429,6 @@ JWT vs PASSWORD FLOW
   JWT Bearer flow:
     - No password, no security token
     - Recommended for Propfocus production backend
-    - Needs one-time certificate setup
+    - Propfocus holds server.key; customer uploads server.crt only
+    - Certificate must be rotated before 365-day expiry
 

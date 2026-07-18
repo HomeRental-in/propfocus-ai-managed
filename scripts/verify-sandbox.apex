@@ -2,7 +2,7 @@
 PropfocusConfigService.Config cfg = PropfocusConfigService.getUiConfiguration();
 System.debug('ORG_ID=' + cfg.organizationId);
 System.debug('BUYER_ID_FIELD=' + cfg.buyerIdField);
-System.debug('OAUTH_CONFIGURED=' + cfg.oauthConfigured);
+System.debug('API_NAMED_CREDENTIAL=' + cfg.apiNamedCredential);
 System.debug('EMBED_URL=' + cfg.embedBaseUrl);
 System.debug('INBOUND=' + PropfocusConfigService.getInboundEndpoint());
 

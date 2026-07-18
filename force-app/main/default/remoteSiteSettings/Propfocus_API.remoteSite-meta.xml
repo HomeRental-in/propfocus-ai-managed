@@ -3,5 +3,5 @@
     <description>Remote site for Propfocus outbound API requests.</description>
     <disableProtocolSecurity>false</disableProtocolSecurity>
     <isActive>true</isActive>
-    <url>https://dev.propfocus.in</url>
+    <url>https://propfocus.in</url>
 </RemoteSiteSetting>

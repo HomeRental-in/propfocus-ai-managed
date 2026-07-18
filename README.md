@@ -11,8 +11,10 @@ Second-generation managed package (`PropfocusAI` namespace) connecting Salesforc
 
 | Role                  | Start here                                              |
 | --------------------- | ------------------------------------------------------- |
+| **New org install**   | [docs/E2E_INSTALLATION.md](docs/E2E_INSTALLATION.md)    |
 | **Salesforce admin**  | [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md)              |
-| **Package upgrade**   | [docs/FAQ.txt](docs/FAQ.txt) (Package Upgrades section) |
+| **Package upgrade**   | [docs/E2E_INSTALLATION.md](docs/E2E_INSTALLATION.md#upgrade-from-05x) · [docs/FAQ.txt](docs/FAQ.txt) |
+| **Outbound / privacy**| [docs/OUTBOUND.md](docs/OUTBOUND.md)                    |
 | **Propfocus backend** | [docs/INBOUND.md](docs/INBOUND.md)                      |
 | **Developers (2GP)**  | [docs/DEV_GUIDE.md](docs/DEV_GUIDE.md)                  |
 | **All documentation** | [docs/README.md](docs/README.md)                        |
@@ -34,13 +36,32 @@ sfdx-project.json         2GP package definition
 
 ## Configure in subscriber org
 
-Edit **Setup → Custom Metadata Types → Propfocus Config → Default**:
+### Propfocus Config (Custom Metadata)
 
-- `Api_Named_Credential__c` = `Propfocus_API`
-- `Organization_Id__c`, OAuth fields, Embed URL — from Propfocus team
-- Field mappings — see [docs/FIELDS.md](docs/FIELDS.md)
+**Setup → Custom Metadata Types → Propfocus Config → Default**
 
-Post-install: permission sets, Lead page component, CSP Trusted Site, Named Credential.
+| Field | Value |
+| ----- | ----- |
+| `Api_Named_Credential__c` | `Propfocus_API` |
+| `Organization_Id__c` | From Propfocus team |
+| Embed URL + field mappings | See [docs/FIELDS.md](docs/FIELDS.md) |
+
+### Outbound auth (External Credential — not in Config)
+
+**Setup → Named Credentials → External Credentials → Propfocus API**
+
+1. Token endpoint: `https://propfocus.in/api/oauth2/token`
+2. **Propfocus Principal** → Client Id + Client Secret from Propfocus team
+
+**Setup → Named Credentials → Propfocus API** → URL `https://propfocus.in`, Generate Authorization Header enabled.
+
+**Sandboxes:** override URLs to `https://dev.propfocus.in` — see [docs/E2E_INSTALLATION.md](docs/E2E_INSTALLATION.md#sandbox--uat--point-at-dev).
+
+Permission sets **Propfocus User** and **Propfocus AI Admin** include External Credential principal access (packaged).
+
+### Other post-install
+
+Permission sets, Lead page component (`propfocusLeadLinkGen`), CSP Trusted Site.
 
 ---
 

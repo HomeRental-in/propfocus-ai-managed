@@ -59,12 +59,6 @@ public with sharing class PropfocusConfigService {
     public Boolean embedUsesSalesforceLeadId;
     @AuraEnabled
     public Boolean showCopyModal;
-    @AuraEnabled
-    public String oauthTokenUrl;
-    @AuraEnabled
-    public String oauthGrantType;
-    @AuraEnabled
-    public Boolean oauthConfigured;
   }
   public class ConnectionCheckResult {
     @AuraEnabled
@@ -118,13 +112,6 @@ public with sharing class PropfocusConfigService {
       cfg.embedUsesSalesforceLeadId =
         configured.Embed_Uses_Salesforce_Lead_Id__c == true;
       cfg.showCopyModal = configured.Show_Copy_Modal__c == true;
-      cfg.oauthTokenUrl = configured.OAuth_Token_Url__c;
-      cfg.oauthGrantType = configured.OAuth_Grant_Type__c;
-      cfg.oauthConfigured = PropfocusOAuthService.isOAuthConfigured();
-    }
-
-    if (cfg.oauthConfigured != true) {
-      cfg.oauthConfigured = false;
     }
 
     cfg.logoUrl = LOGO_URL;
@@ -156,8 +143,6 @@ public with sharing class PropfocusConfigService {
       }
       cfg.embedUsesSalesforceLeadId = true;
       cfg.showCopyModal = false;
-      cfg.oauthTokenUrl = 'https://test.oauth.local/token';
-      cfg.oauthGrantType = 'client_credentials';
     }
 
     cachedConfig = cfg;

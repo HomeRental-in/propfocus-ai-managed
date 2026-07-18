@@ -7,8 +7,14 @@
             <template lwc:else>
                 <p class="slds-text-body_small slds-m-bottom_medium">
                     Update the <strong>Propfocus Config</strong> custom metadata record named
-                    <strong>Default</strong> in Setup. This panel helps you verify the current
-                    values and test connectivity.
+                    <strong>Default</strong> in Setup for org id, embed URL, and field mappings.
+                    <strong>Embed Base URL</strong> is subscriber-editable in
+                    <strong>Setup → Custom Metadata Types → Propfocus Config → Default</strong>
+                    (production default: <code>https://propfocus.in/embed/salesforce</code>;
+                    sandboxes: use <code>https://dev.propfocus.in/embed/salesforce</code>).
+                    Outbound API auth (Client Id / Secret) is configured under
+                    <strong>Setup → Named Credentials → Propfocus API → External Credential</strong>.
+                    This panel helps you verify config values and test connectivity.
                 </p>
                 <lightning-input label="API Named Credential" value={apiNamedCredential} disabled></lightning-input>
                 <lightning-input class="slds-m-top_small" label="Embed Base URL" value={embedBaseUrl} disabled></lightning-input>

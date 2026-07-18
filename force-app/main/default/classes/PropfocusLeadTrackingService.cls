@@ -10,12 +10,9 @@ public class PropfocusLeadTrackingService {
       WHERE Id = :leadId
       LIMIT 1
     ];
-    w.history = [
-      SELECT Field, OldValue, NewValue, CreatedDate
-      FROM LeadHistory
-      WHERE LeadId = :leadId
-      ORDER BY CreatedDate ASC
-    ];
+    // Do not query LeadHistory: a compile-time or SOQL reference creates a
+    // packaging dependency on Lead.FieldHistoryTracking in subscriber orgs.
+    w.history = new List<SObject>();
     w.activities = [
       SELECT Subject, Status, ActivityDate, Description, CreatedDate
       FROM Task

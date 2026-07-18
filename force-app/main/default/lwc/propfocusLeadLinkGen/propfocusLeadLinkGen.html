@@ -38,16 +38,17 @@
                                 </div>
                                 <div class="pf-history-item-foot">
                                     <div class="pf-history-meta">
-                                        <span>{item.status}</span>
+                                        <span class={item.statusClass}>{item.displayStatus}</span>
                                         <span>{item.projectName}</span>
                                     </div>
-                                    <button
-                                        type="button"
-                                        class="pf-history-insights-btn"
-                                        data-link-key={item.linkKey}
-                                        onclick={handleViewInsights}
-                                        disabled={item.insightsDisabled}
-                                    >View insights</button>
+                                    <template lwc:if={item.showInsightsButton}>
+                                        <button
+                                            type="button"
+                                            class="pf-history-insights-btn"
+                                            data-link-key={item.linkKey}
+                                            onclick={handleViewInsights}
+                                        >View insights</button>
+                                    </template>
                                 </div>
                             </div>
                         </template>

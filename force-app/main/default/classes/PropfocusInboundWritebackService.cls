@@ -338,6 +338,22 @@ public class PropfocusInboundWritebackService {
       managerEmail
     );
 
+    String projectName = asString(
+      firstPresent(
+        siteVisit,
+        new List<String>{
+          'primary_project_name',
+          'project_name',
+          'projectName'
+        }
+      )
+    );
+    PropFocusLeadService.syncLinkHistoryStatusFromSiteVisit(
+      leadId,
+      projectName,
+      siteVisitStatus
+    );
+
     return result;
   }
 

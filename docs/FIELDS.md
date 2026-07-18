@@ -48,6 +48,22 @@ Enter API names in **Setup → Custom Metadata Types → Propfocus Config → De
 
 ---
 
+## Outbound auth (External Credential — not in Config)
+
+These values are **not** Propfocus Config fields. Configure after package install:
+
+| Setting | Where | Production (package default) | Sandbox override |
+| ------- | ----- | -------------------------- | ---------------- |
+| Token endpoint | Setup → External Credentials → **Propfocus API** | `https://propfocus.in/api/oauth2/token` | `https://dev.propfocus.in/api/oauth2/token` |
+| Client Id + Secret | Same → **Propfocus Principal** (Named Principal) | From Propfocus team | Dev credentials from Propfocus team |
+| API base URL | Setup → Named Credentials → **Propfocus API** | `https://propfocus.in` | `https://dev.propfocus.in` |
+| Embed Base URL | Propfocus Config → **Embed Base Url** (subscriber-editable) | `https://propfocus.in/embed/salesforce` | `https://dev.propfocus.in/embed/salesforce` |
+| Named Credential in Config | Propfocus Config → **API Named Credential** | `Propfocus_API` | `Propfocus_API` |
+
+Salesforce performs the OAuth `client_credentials` token exchange automatically; Apex never reads the client secret.
+
+---
+
 ## Hosachiguru sandbox mappings
 
 Pulled from org `hosachiguru-sandbox`. Use when configuring **Propfocus Config → Default**.
@@ -97,10 +113,10 @@ Pulled from org `hosachiguru-sandbox`. Use when configuring **Propfocus Config �
 | Site Visit Datetime Field  | `Site_Visit_Date__c`                        |
 | Site Visit Team Field      | `Sv_Team__c`                                |
 | API Named Credential       | `Propfocus_API`                             |
-| Embed Base URL             | `https://dev.propfocus.in/embed/salesforce` |
-| OAuth Token URL            | `https://dev.propfocus.in/api/oauth2/token` |
-| OAuth Grant Type           | `client_credentials`                        |
+| Embed Base URL             | `https://dev.propfocus.in/embed/salesforce` _(Hosachiguru sandbox; production default is `https://propfocus.in/embed/salesforce`)_ |
 | Organization Id            | _(from Propfocus team)_                     |
+
+Outbound OAuth (Client Id/Secret, token URL): see **Outbound auth** section above — configured in External Credential, not Config.
 
 ### Package Lead fields (already in org)
 

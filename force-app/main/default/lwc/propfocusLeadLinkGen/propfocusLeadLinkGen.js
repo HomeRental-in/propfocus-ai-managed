@@ -35,6 +35,21 @@ const MICROSITE_LEAD_TYPE_OPTIONS = [
 ];
 const ALL_CONFIG_OPTION_VALUE = "__ALL_CONFIGS__";
 const ALL_CONFIG_API_VALUE = "all";
+const FULL_NAME_REGEX = /^[A-Za-z\s.]+$/;
+
+function validateFullName(name) {
+  const trimmed = (name || "").trim();
+  if (!trimmed) {
+    return { valid: false, message: "Full Name cannot be empty" };
+  }
+  if (!FULL_NAME_REGEX.test(trimmed)) {
+    return {
+      valid: false,
+      message: "Full Name should contain only letters, spaces, and periods"
+    };
+  }
+  return { valid: true, value: trimmed };
+}
 
 function buildMicrositeWhatsAppMessage(clientName, projectNames, micrositeUrl) {
   if (!micrositeUrl) return "";
@@ -129,6 +144,74 @@ function beginDeferredClipboardCopy() {
   }
 
   return (text) => resolveCopyText(String(text || ""));
+}
+
+function normalizeStatusToken(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ");
+}
+
+function resolveHistoryStatus(type, rawStatus) {
+  const status = normalizeStatusToken(rawStatus);
+  const historyType = String(type || "").trim().toLowerCase();
+
+  const engaged = {
+    label: "Engaged",
+    statusClass: "pf-status pf-status-engaged"
+  };
+  const notEngaged = {
+    label: "Not engaged",
+    statusClass: "pf-status pf-status-not-engaged"
+  };
+  const pending = {
+    label: "Pending",
+    statusClass: "pf-status pf-status-pending"
+  };
+  const confirmed = {
+    label: "Confirmed",
+    statusClass: "pf-status pf-status-confirmed"
+  };
+  const rescheduled = {
+    label: "Rescheduled",
+    statusClass: "pf-status pf-status-rescheduled"
+  };
+
+  if (historyType.includes("site visit")) {
+    if (
+      status === "confirmed" ||
+      status === "completed" ||
+      status === "done" ||
+      status === "visited"
+    ) {
+      return confirmed;
+    }
+    if (status === "rescheduled" || status === "reschedule") {
+      return rescheduled;
+    }
+    if (
+      status === "pending" ||
+      status === "scheduled" ||
+      status === "open" ||
+      status === "generated"
+    ) {
+      return pending;
+    }
+    return pending;
+  }
+
+  if (status === "engaged") {
+    return engaged;
+  }
+  if (
+    status === "not engaged" ||
+    status === "generated" ||
+    status === "unengaged"
+  ) {
+    return notEngaged;
+  }
+  return notEngaged;
 }
 
 function resolveDefaultMicrositeLeadType(leadStatus) {
@@ -409,7 +492,6 @@ export default class PropfocusLeadLinkGen extends LightningElement {
             status: row.status || "-",
             url,
             linkKey,
-            insightsDisabled: !linkKey,
             createdAt: row.createdAt
               ? new Date(row.createdAt).toLocaleString()
               : "-"
@@ -504,13 +586,22 @@ export default class PropfocusLeadLinkGen extends LightningElement {
       this.historyExpanded || this.linkHistory.length <= 2
         ? this.linkHistory
         : this.linkHistory.slice(0, 2);
-    return rows.map((item) => ({
-      ...item,
-      itemClass:
-        item.linkKey && item.linkKey === this.selectedLinkKey
+    const selectedKey = this.selectedLinkKey;
+    const insightsOpen = this.showBuyerInsightsEmbed;
+    return rows.map((item) => {
+      const isSelected = Boolean(item.linkKey && item.linkKey === selectedKey);
+      const statusDisplay = resolveHistoryStatus(item.type, item.status);
+      return {
+        ...item,
+        displayStatus: statusDisplay.label,
+        statusClass: statusDisplay.statusClass,
+        itemClass: isSelected
           ? "pf-history-item pf-history-item_selected"
-          : "pf-history-item"
-    }));
+          : "pf-history-item",
+        showInsightsButton:
+          Boolean(item.linkKey) && !(insightsOpen && isSelected)
+      };
+    });
   }
 
   get showHistoryToggle() {
@@ -814,11 +905,12 @@ export default class PropfocusLeadLinkGen extends LightningElement {
   }
 
   submitSiteVisit() {
-    const buyerName = this.clientName?.trim();
-    if (!buyerName) {
-      this.showToast("Error", "Full Name cannot be empty", "error");
+    const nameValidation = validateFullName(this.clientName);
+    if (!nameValidation.valid) {
+      this.showToast("Error", nameValidation.message, "error");
       return;
     }
+    const buyerName = nameValidation.value;
     if (!this.siteVisitProject) {
       this.showToast("Error", "Select a project", "error");
       return;
@@ -867,11 +959,12 @@ export default class PropfocusLeadLinkGen extends LightningElement {
   }
 
   submitPostVisit() {
-    const buyerName = this.clientName?.trim();
-    if (!buyerName) {
-      this.showToast("Error", "Full Name cannot be empty", "error");
+    const nameValidation = validateFullName(this.clientName);
+    if (!nameValidation.valid) {
+      this.showToast("Error", nameValidation.message, "error");
       return;
     }
+    const buyerName = nameValidation.value;
     if (!this.postVisitProject) {
       this.showToast("Error", "Select a project", "error");
       return;
@@ -921,20 +1014,12 @@ export default class PropfocusLeadLinkGen extends LightningElement {
       this.submitPostVisit();
       return;
     }
-    const clientName = this.clientName?.trim();
-    if (!clientName) {
-      this.showToast("Error", "Full Name cannot be empty", "error");
+    const nameValidation = validateFullName(this.clientName);
+    if (!nameValidation.valid) {
+      this.showToast("Error", nameValidation.message, "error");
       return;
     }
-    const nameRegex = /^[A-Za-z\s]+$/;
-    if (!nameRegex.test(clientName)) {
-      this.showToast(
-        "Error",
-        "Full Name should contain only letters and spaces",
-        "error"
-      );
-      return;
-    }
+    const clientName = nameValidation.value;
     if (!this.selectedProjects.length) {
       this.showToast("Error", "Select at least one project", "error");
       return;

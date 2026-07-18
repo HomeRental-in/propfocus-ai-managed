@@ -27,7 +27,6 @@ private class PropfocusConfigServiceTest {
 
   @IsTest
   static void testConnection_Success() {
-    PropfocusOAuthService.clearCacheForTests();
     PropfocusHttpCalloutMock mock = new PropfocusHttpCalloutMock();
     mock.apiStatusCode = 200;
     mock.apiBody = '{"success":true}';
@@ -64,7 +63,6 @@ private class PropfocusConfigServiceTest {
 
   @IsTest
   static void testConnection_FailureStatus() {
-    PropfocusOAuthService.clearCacheForTests();
     PropfocusHttpCalloutMock mock = new PropfocusHttpCalloutMock();
     mock.apiStatusCode = 503;
     mock.apiBody = '{"success":false}';

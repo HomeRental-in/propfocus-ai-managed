@@ -33,10 +33,6 @@
         <enabled>true</enabled>
     </classAccesses>
     <classAccesses>
-        <apexClass>PropfocusOAuthService</apexClass>
-        <enabled>true</enabled>
-    </classAccesses>
-    <classAccesses>
         <apexClass>PropfocusHttpService</apexClass>
         <enabled>true</enabled>
     </classAccesses>
@@ -206,26 +202,6 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>Propfocus_Config__mdt.OAuth_Token_Url__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>Propfocus_Config__mdt.OAuth_Grant_Type__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>Propfocus_Config__mdt.OAuth_Client_Id__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>Propfocus_Config__mdt.OAuth_Client_Secret__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
         <field>Propfocus_Config__mdt.Embed_Uses_Salesforce_Lead_Id__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -308,6 +284,10 @@
         <object>Propfocus_Site_Visit_Sync__c</object>
         <viewAllRecords>false</viewAllRecords>
     </objectPermissions>
+    <externalCredentialPrincipalAccesses>
+        <enabled>true</enabled>
+        <externalCredentialPrincipal>Propfocus_API_External-Propfocus_Principal</externalCredentialPrincipal>
+    </externalCredentialPrincipalAccesses>
     <applicationVisibilities>
         <application>Propfocus_AI</application>
         <visible>true</visible>

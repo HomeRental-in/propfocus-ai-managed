@@ -46,8 +46,20 @@ A: No — that is packaging for the dev team only. You install from the URL abov
 
 Q: Before install?
 A: 1. Enable Lead field history  2. Install package  3. Assign permission sets
-   4. Configure Propfocus Config  5. CSP Trusted Site  6. Add Lead component
-   Full steps: SETUP_GUIDE.md
+   4. Configure Propfocus Config (Org Id + field maps)
+   5. Configure External Credential (outbound Client Id/Secret)
+   6. CSP Trusted Site  7. Add Lead component
+   Full steps: SETUP_GUIDE.md or E2E_INSTALLATION.md
+
+Q: Where do outbound OAuth Client Id and Secret go?
+A: Setup -> Named Credentials -> External Credentials -> Propfocus API
+   -> Propfocus Principal. NOT in Propfocus Config Custom Metadata.
+   Salesforce stores them encrypted; Apex never reads the secret.
+
+Q: Why not store the client secret in Custom Metadata?
+A: CMDT is visible to admins, included in metadata exports/change sets,
+   and not encrypted. External Credential is the Salesforce-recommended
+   pattern for packaged integrations.
 
 ================================================================================
 PACKAGE UPGRADES
@@ -61,8 +73,10 @@ A: Dev team publishes a NEW version. You UPGRADE — changes do not appear autom
      2. Click Upgrade (Setup -> Installed Packages -> Upgrade)
      3. Re-test after upgrade
 
-   What is kept: Propfocus Config, permission sets, Lead data, Named Credential, CSP.
-   What changes: Package code (Apex, LWC, REST API).
+   What is kept: Propfocus Config, permission sets, Lead data, Named Credential,
+   External Credential skeleton, CSP, External Credential principal values (post-install).
+   What changes: Package code (Apex, LWC, REST API); OAuth CMDT fields removed in
+   release after 0.5.0-1 (migrate secrets to External Credential first).
 
 Q: When do we NOT need an upgrade?
 A: Field mappings, Organization Id, Embed URL, permission sets, Postman payload fixes.
@@ -74,9 +88,24 @@ A:  1. Dev team shares new install URL + version + release notes
     4. Verify version under Installed Packages
     5. Smoke test: Lead buttons, Test Connection, one inbound POST
 
+Q: Upgrading from a version that stored OAuth in Propfocus Config?
+A: Copy OAuth Client Id and Client Secret from Config -> Setup -> External Credentials
+   -> Propfocus API -> Propfocus Principal BEFORE upgrading. After upgrade, OAuth CMDT
+   fields are removed; auth lives only in the External Credential.
+
 Q: Upgrade not offered?
-A: Beta install -> uninstall, install Released version (note OAuth values first).
+A: Beta install -> uninstall, install Released version (note External Credential Client Id/Secret first).
    Wrong org -> log out, log into target org, retry.
+
+Q: Upgrade from 0.5.x checklist?
+A: See E2E_INSTALLATION.md "Upgrade from 0.5.x". Critical: migrate Client Id/Secret
+   into External Credential Principal BEFORE upgrading past OAuth-in-Config builds.
+
+Q: How do we uninstall or roll back?
+A: Prefer disable (remove LWC, unassign perm sets, revoke External Client App) over
+   uninstall. Before uninstall, note External Credential secrets, Config mappings,
+   and JWT Consumer Key. After uninstall, ask Propfocus to disable the Organization Id.
+   Full steps: E2E_INSTALLATION.md "Uninstall / rollback".
 
 ================================================================================
 REPO vs ORG
@@ -97,14 +126,14 @@ A: https://<your-org-host>/services/apexrest/PropfocusAI/propfocus/events/
    Copy from propfocusAI Admin Setup tab.
 
 Q: How to test SF -> Propfocus?
-A: Configure OAuth in Config -> Test Connection -> change Lead -> Propfocus confirms event.
+A: Configure External Credential Client Id/Secret -> Test Connection -> change Lead -> Propfocus confirms event.
 
 Q: How to test Propfocus -> SF?
 A: Integration user + Connected App -> POST JSON with Bearer token.
    See INBOUND.md for payload format.
 
 Q: What does Test Connection test?
-A: Outbound only (OAuth to dev.propfocus.in). Does not test inbound REST.
+A: Outbound only (OAuth to propfocus.in). Does not test inbound REST. Sandboxes use dev.propfocus.in after override.
 
 ================================================================================
 SECURITY & PERMISSION SETS
@@ -114,19 +143,23 @@ Q: Permission sets included?
 A: Propfocus User (sales), Propfocus AI Admin (config), Propfocus Integration (API user).
 
 Q: What does Propfocus need from us?
-A: Organization Id, Inbound REST URL, OAuth Client Id/Secret (outbound),
+A: Organization Id, Inbound REST URL, outbound Client Id/Secret (External Credential principal),
    Connected App for inbound. NOT admin username/password.
 
 Q: Sandbox first?
 A: Yes — recommended for UAT. Use test.salesforce.com for sandbox installs.
+
+Q: Sales user gets error on Generate Microsite but admin works?
+A: Assign Propfocus User permission set. It includes External Credential
+   principal access so the running user can authenticate callouts.
 
 ================================================================================
 TROUBLESHOOTING
 ================================================================================
 
 Install fails — Apex Classes missing     -> Wrong org edition
-Install fails — Lead.FieldHistoryTracking -> Enable Lead history first
-Test Connection fails                    -> OAuth Client Id/Secret, Organization Id
+Test Connection fails                    -> External Credential Client Id/Secret, Organization Id
+Generate Microsite unauthorized          -> Propfocus User + External Credential principal access
 Blank iframe                             -> CSP Trusted Site frame-src + hard refresh
 History shows dashes                     -> Upgrade to 0.5.0-1+
 Two-way sync not working                 -> Outbound: Test Connection + event subscription
@@ -136,9 +169,11 @@ Two-way sync not working                 -> Outbound: Test Connection + event su
 RELATED DOCUMENTS
 ================================================================================
 
-SETUP_GUIDE.md    Install, configure, test
-INBOUND.md        REST API, auth, Postman fixes
-FIELDS.md         Field API names
-DEV_GUIDE.md      Dev Hub, CLI, package build
+SETUP_GUIDE.md         Install, configure, test
+E2E_INSTALLATION.md    Full e2e, upgrade from 0.5.x, uninstall
+OUTBOUND.md            Salesforce -> Propfocus payloads, PII, residency
+INBOUND.md             REST API, auth, Postman fixes
+FIELDS.md              Field API names
+DEV_GUIDE.md           Dev Hub, CLI, package build
 
 ================================================================================

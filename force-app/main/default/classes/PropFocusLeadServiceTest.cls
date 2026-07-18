@@ -9,7 +9,6 @@ private class PropFocusLeadServiceTest {
   }
 
   private static void setApiMock(Integer statusCode, String responseBody) {
-    PropfocusOAuthService.clearCacheForTests();
     apiMock = new PropfocusHttpCalloutMock();
     apiMock.apiStatusCode = statusCode;
     apiMock.apiBody = responseBody;
@@ -68,7 +67,7 @@ private class PropFocusLeadServiceTest {
     System.assertEquals('Microsite Generation', historyRows[0].Type__c);
     System.assertEquals('Project A, Project B', historyRows[0].Project_Name__c);
     System.assertEquals('https://example.test/micro', historyRows[0].URL__c);
-    System.assertEquals('Generated', historyRows[0].Status__c);
+    System.assertEquals('Not engaged', historyRows[0].Status__c);
 
     Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
       capturedBody
@@ -77,7 +76,7 @@ private class PropFocusLeadServiceTest {
       String.valueOf(ld.Id),
       requestBody.get('salesforce_lead_id')
     );
-    System.assertEquals('microsite', requestBody.get('communicationType'));
+    System.assertEquals('Client 1', requestBody.get('clientName'));
     System.assert(
       !String.isBlank(capturedIdempotencyKey),
       'Expected Idempotency-Key header for microsite create'
@@ -199,16 +198,20 @@ private class PropFocusLeadServiceTest {
     Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
       capturedBody
     );
-    System.assertEquals('microsite', requestBody.get('communicationType'));
-    System.assertEquals('Client 1', requestBody.get('buyerName'));
+    System.assertEquals('Client 1', requestBody.get('clientName'));
+    System.assertEquals(
+      String.valueOf(ld.get('Email')),
+      String.valueOf(requestBody.get('buyer_id'))
+    );
     System.assert(
       capturedEndpoint != null &&
-      capturedEndpoint.contains('/api/v1/generate-communication'),
+      capturedEndpoint.contains('/api/broker-microsite/create'),
       'Unexpected endpoint: ' + capturedEndpoint
     );
-    Map<String, Object> context = (Map<String, Object>) requestBody.get('context');
-    System.assertNotEquals(null, context);
-    System.assertEquals('Project A', context.get('projectName'));
+    List<Object> projects = (List<Object>) requestBody.get('projects');
+    System.assertNotEquals(null, projects);
+    System.assertEquals(1, projects.size());
+    System.assertEquals('Project A', String.valueOf(projects[0]));
   }
 
   @IsTest
@@ -254,13 +257,11 @@ private class PropFocusLeadServiceTest {
     Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
       capturedBody
     );
-    Map<String, Object> context = (Map<String, Object>) requestBody.get('context');
-    System.assertNotEquals(null, context);
-    List<Object> leadTypes = (List<Object>) context.get('lead_types');
+    List<Object> leadTypes = (List<Object>) requestBody.get('lead_types');
     System.assertNotEquals(null, leadTypes);
     System.assertEquals(1, leadTypes.size());
     System.assertEquals('Open', String.valueOf(leadTypes[0]));
-    System.assertEquals('2 BHK, 3 BHK', context.get('configurationFilter'));
+    System.assertEquals('2 BHK, 3 BHK', requestBody.get('configurationFilter'));
   }
 
   @IsTest
@@ -379,7 +380,7 @@ private class PropFocusLeadServiceTest {
     System.assertEquals('Site Visit Confirmation', historyRows[0].Type__c);
     System.assertEquals('Project Override', historyRows[0].Project_Name__c);
     System.assertEquals('https://example.test/sv', historyRows[0].URL__c);
-    System.assertEquals('Confirmed', historyRows[0].Status__c);
+    System.assertEquals('Pending', historyRows[0].Status__c);
     System.assert(
       !String.isBlank(capturedIdempotencyKey),
       'Expected Idempotency-Key header for site visit create'
@@ -408,10 +409,7 @@ private class PropFocusLeadServiceTest {
     Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
       capturedBody
     );
-    System.assertEquals('site_visit', requestBody.get('communicationType'));
-    Map<String, Object> context = (Map<String, Object>) requestBody.get('context');
-    System.assertNotEquals(null, context);
-    Map<String, Object> siteVisitManager = (Map<String, Object>) context.get(
+    Map<String, Object> siteVisitManager = (Map<String, Object>) requestBody.get(
       'siteVisitManager'
     );
     System.assertNotEquals(null, siteVisitManager);
@@ -488,16 +486,13 @@ private class PropFocusLeadServiceTest {
     System.assertEquals('Post Visit Page', historyRows[0].Type__c);
     System.assertEquals('Project Post', historyRows[0].Project_Name__c);
     System.assertEquals('https://example.test/pv', historyRows[0].URL__c);
-    System.assertEquals('Generated', historyRows[0].Status__c);
+    System.assertEquals('Not engaged', historyRows[0].Status__c);
 
     Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
       capturedBody
     );
-    System.assertEquals('post_visit', requestBody.get('communicationType'));
-    Map<String, Object> context = (Map<String, Object>) requestBody.get('context');
-    System.assertNotEquals(null, context);
-    System.assertEquals('3 BHK', context.get('visitedConfiguration'));
-    System.assertEquals(String.valueOf(visitDate), context.get('visitConductedAt'));
+    System.assertEquals('3 BHK', requestBody.get('visited_configuration'));
+    System.assertEquals(String.valueOf(visitDate), requestBody.get('visit_conducted_at'));
     System.assertEquals(String.valueOf(ld.Id), requestBody.get('salesforce_lead_id'));
     System.assert(
       !String.isBlank(capturedIdempotencyKey),
@@ -953,9 +948,9 @@ private class PropFocusLeadServiceTest {
   @IsTest
   static void buildEmbedUrl_trimsTrailingSlash() {
     System.assertEquals(
-      'https://dev.propfocus.in/embed/salesforce/00Q123',
+      'https://propfocus.in/embed/salesforce/00Q123',
       PropFocusLeadService.buildEmbedUrl(
-        'https://dev.propfocus.in/embed/salesforce/',
+        'https://propfocus.in/embed/salesforce/',
         '00Q123'
       )
     );
@@ -992,15 +987,15 @@ private class PropFocusLeadServiceTest {
     System.assertEquals('https://example.test/m.jpg', result.mediaUrl);
     System.assert(
       capturedEndpoint != null &&
-      capturedEndpoint.contains('/api/v1/generate-communication'),
+      capturedEndpoint.contains('/api/broker-microsite/create'),
       'Unexpected endpoint: ' + capturedEndpoint
     );
 
     Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
       capturedBody
     );
-    System.assertEquals('microsite', requestBody.get('communicationType'));
-    System.assertEquals('Priya Sharma', requestBody.get('buyerName'));
+    System.assertEquals('Priya Sharma', requestBody.get('clientName'));
+    System.assertEquals('2 BHK', requestBody.get('configurationFilter'));
     Lead updated = [
       SELECT Propfocus_Link__c, Propfocus_Buyer_Insights_Available__c
       FROM Lead
@@ -1048,9 +1043,13 @@ private class PropFocusLeadServiceTest {
     Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
       capturedBody
     );
-    Map<String, Object> context = (Map<String, Object>) requestBody.get('context');
-    System.assertEquals('2026-07-15', context.get('visitDate'));
-    System.assertEquals('10:00', context.get('visitTime'));
+    System.assertEquals('Skyline Residences', requestBody.get('project_name'));
+    System.assertEquals('15/07/2026', requestBody.get('visit_date'));
+    System.assertEquals('10:00', requestBody.get('visit_time'));
+    System.assertEquals(
+      'mgr-1',
+      String.valueOf(((Map<String, Object>) requestBody.get('siteVisitManager')).get('id'))
+    );
   }
 
   @IsTest

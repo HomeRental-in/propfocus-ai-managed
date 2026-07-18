@@ -149,6 +149,119 @@ public class PropFocusLeadService {
     return typeValue;
   }
 
+  @TestVisible
+  private static String normalizeSiteVisitHistoryStatus(String rawStatus) {
+    String normalized = rawStatus == null ? '' : rawStatus.trim().toLowerCase();
+    if (String.isBlank(normalized)) {
+      return 'Pending';
+    }
+    if (normalized.contains('resched')) {
+      return 'Rescheduled';
+    }
+    if (
+      normalized.contains('confirm') ||
+      normalized.contains('complete') ||
+      normalized.contains('visited') ||
+      normalized.contains('done')
+    ) {
+      return 'Confirmed';
+    }
+    return 'Pending';
+  }
+
+  @TestVisible
+  private static String normalizeEngagementHistoryStatus(String rawStatus) {
+    String normalized = rawStatus == null ? '' : rawStatus.trim().toLowerCase();
+    if (normalized == 'engaged') {
+      return 'Engaged';
+    }
+    return 'Not engaged';
+  }
+
+  public static void syncLinkHistoryStatusFromSiteVisit(
+    Id leadId,
+    String projectName,
+    String siteVisitStatus
+  ) {
+    if (leadId == null || String.isBlank(projectName)) {
+      return;
+    }
+    String mappedStatus = normalizeSiteVisitHistoryStatus(siteVisitStatus);
+    List<Propfocus_Link__c> rows = [
+      SELECT Id, Status__c
+      FROM Propfocus_Link__c
+      WHERE Lead__c = :leadId
+        AND Type__c IN ('Site Visit Confirmation', 'Site Visit')
+        AND Project_Name__c = :projectName
+        AND Status__c != 'Reused'
+      ORDER BY Created_At__c DESC
+      LIMIT 1
+    ];
+    if (rows.isEmpty() || rows[0].Status__c == mappedStatus) {
+      return;
+    }
+    rows[0].Status__c = mappedStatus;
+    update rows;
+  }
+
+  private static Map<String, String> resolveSiteVisitStatusByProject(Id leadId) {
+    Map<String, String> byProject = new Map<String, String>();
+    PropfocusConfigService.Config cfg = PropfocusConfigService.getConfig();
+    if (
+      String.isBlank(cfg.siteVisitObject) ||
+      String.isBlank(cfg.siteVisitProjectField) ||
+      String.isBlank(cfg.siteVisitStatusField)
+    ) {
+      return byProject;
+    }
+    String projectFieldApiName = cfg.siteVisitProjectField;
+    String statusFieldApiName = cfg.siteVisitStatusField;
+    for (SObject row : queryLatestSiteVisits(leadId, 50)) {
+      String projectName = asString(row.get(projectFieldApiName));
+      String rawStatus = asString(row.get(statusFieldApiName));
+      if (String.isBlank(projectName)) {
+        continue;
+      }
+      String key = normalizeProjectKey(projectName);
+      if (!byProject.containsKey(key)) {
+        byProject.put(key, normalizeSiteVisitHistoryStatus(rawStatus));
+      }
+    }
+    return byProject;
+  }
+
+  private static List<LinkHistoryItem> enrichLinkHistoryStatuses(
+    Id leadId,
+    List<LinkHistoryItem> items
+  ) {
+    if (items.isEmpty()) {
+      return items;
+    }
+    Map<String, String> siteVisitByProject = resolveSiteVisitStatusByProject(
+      leadId
+    );
+    for (LinkHistoryItem item : items) {
+      if (item == null || String.isBlank(item.type)) {
+        continue;
+      }
+      String typeLower = item.type.toLowerCase();
+      if (typeLower.contains('site visit')) {
+        String projectKey = normalizeProjectKey(item.projectName);
+        if (siteVisitByProject.containsKey(projectKey)) {
+          item.status = siteVisitByProject.get(projectKey);
+        } else {
+          item.status = normalizeSiteVisitHistoryStatus(item.status);
+        }
+      } else if (
+        typeLower.contains('microsite') ||
+        typeLower.contains('post visit')
+      ) {
+        item.status = normalizeEngagementHistoryStatus(item.status);
+      }
+    }
+    return items;
+  }
+
   private static String requireLeadFieldApiName(
     String value,
     String configFieldApiName
@@ -331,7 +444,8 @@ public class PropFocusLeadService {
 
   /**
    * Unified PropFocus communication generator.
-   * Calls POST /api/v1/generate-communication and returns WhatsApp-ready
+   * Routes to the Propfocus API via Named Credential (OAuth client credentials).
+   * (microsite / site visit / post visit) and returns WhatsApp-ready
    * template + link + mediaUrl. Reusable from LWC, Flow, and Apex.
    *
    * @param leadId Salesforce Lead Id
@@ -1067,29 +1181,67 @@ public class PropFocusLeadService {
       preSalesRepSourceFieldApiName
     );
 
-    Map<String, Object> body = new Map<String, Object>{
-      'communicationType' => communicationType,
-      'buyerId' => buyerId,
-      'leadId' => buyerId,
-      'buyerName' => buyerName,
-      'salesforce_lead_id' => String.valueOf(leadId),
-      'context' => context
-    };
+    if (communicationType == COMM_TYPE_POST_VISIT) {
+      String visitedConfiguration = firstContextString(
+        context,
+        new List<String>{ 'visitedConfiguration', 'visited_configuration' }
+      );
+      if (String.isBlank(visitedConfiguration)) {
+        throw new AuraHandledException('Visited configuration is required');
+      }
+    }
+
+    String organizationId = PropfocusConfigService.requireOrganizationId();
+    String endpointPath;
+    String idempotencyOperation;
+    Map<String, Object> body;
+    if (communicationType == COMM_TYPE_MICROSITE) {
+      endpointPath = '/api/broker-microsite/create';
+      idempotencyOperation = 'microsite-create';
+      body = buildLegacyMicrositeBody(
+        leadId,
+        buyerId,
+        buyerName,
+        context,
+        ld,
+        leadStatusFieldApiName,
+        preSalesRepSourceFieldApiName,
+        organizationId
+      );
+    } else if (communicationType == COMM_TYPE_SITE_VISIT) {
+      endpointPath = '/api/site-visit/create-sv';
+      idempotencyOperation = 'site-visit-create';
+      body = buildLegacySiteVisitBody(
+        leadId,
+        buyerId,
+        buyerName,
+        context,
+        ld,
+        preSalesRepSourceFieldApiName,
+        organizationId
+      );
+    } else {
+      endpointPath = '/api/post-visit/create-pv';
+      idempotencyOperation = 'post-visit-create';
+      body = buildLegacyPostVisitBody(
+        leadId,
+        buyerId,
+        buyerName,
+        context,
+        ld,
+        preSalesRepSourceFieldApiName,
+        organizationId
+      );
+    }
 
     HttpRequest req = new HttpRequest();
-    req.setEndpoint(
-      PropfocusConfigService.apiEndpoint('/api/v1/generate-communication')
-    );
+    req.setEndpoint(PropfocusConfigService.apiEndpoint(endpointPath));
     req.setMethod('POST');
     req.setHeader('Content-Type', 'application/json');
     req.setBody(JSON.serialize(body));
     req.setHeader(
       'Idempotency-Key',
-      buildIdempotencyKey(
-        'generate-communication-' + communicationType,
-        leadId,
-        body
-      )
+      buildIdempotencyKey(idempotencyOperation, leadId, body)
     );
 
     HttpResponse res = PropfocusHttpService.send(req);
@@ -1149,6 +1301,151 @@ public class PropFocusLeadService {
     result.mediaUrl = mediaUrl;
     result.whatsappMessage = resolveWhatsAppMessage(response, fallbackMessage);
     return result;
+  }
+
+  private static Map<String, Object> buildLegacyMicrositeBody(
+    Id leadId,
+    String buyerId,
+    String buyerName,
+    Map<String, Object> context,
+    SObject ld,
+    String leadStatusFieldApiName,
+    String preSalesRepSourceFieldApiName,
+    String organizationId
+  ) {
+    List<String> projects = resolveProjectsList(context);
+    Map<String, Object> body = new Map<String, Object>{
+      'clientName' => buyerName,
+      'projects' => projects,
+      API_LEAD_STATUS_KEY => context.containsKey(API_LEAD_STATUS_KEY)
+        ? context.get(API_LEAD_STATUS_KEY)
+        : ld.get(leadStatusFieldApiName),
+      'buyer_id' => buyerId,
+      'salesforce_lead_id' => String.valueOf(leadId)
+    };
+    putBrokerIdentification(
+      body,
+      ld,
+      preSalesRepSourceFieldApiName,
+      organizationId
+    );
+      Object leadTypes = context.get('lead_types');
+    if (leadTypes != null) {
+      body.put('lead_types', leadTypes);
+    } else {
+      List<String> leadTypesForApi = resolveMicrositeLeadTypesForApi(
+        firstContextString(context, new List<String>{ 'leadType', 'lead_type' })
+      );
+      if (!leadTypesForApi.isEmpty()) {
+        body.put('lead_types', leadTypesForApi);
+      }
+    }
+    String configurationFilter = firstContextString(
+      context,
+      new List<String>{ 'configurationFilter', 'configuration_filter' }
+    );
+    body.put(
+      'configurationFilter',
+      String.isBlank(configurationFilter) ? '' : configurationFilter.trim()
+    );
+    return body;
+  }
+
+  private static Map<String, Object> buildLegacySiteVisitBody(
+    Id leadId,
+    String buyerId,
+    String buyerName,
+    Map<String, Object> context,
+    SObject ld,
+    String preSalesRepSourceFieldApiName,
+    String organizationId
+  ) {
+    String projectName = firstContextString(
+      context,
+      new List<String>{ 'projectName', 'project_name' }
+    );
+    String visitDate = firstContextString(
+      context,
+      new List<String>{ 'visitDate', 'visit_date' }
+    );
+    String visitTime = firstContextString(
+      context,
+      new List<String>{ 'visitTime', 'visit_time' }
+    );
+    // Legacy create-sv expects dd/MM/yyyy; context enrichment stores yyyy-MM-dd.
+    visitDate = toLegacyVisitDate(visitDate);
+
+    Map<String, Object> body = new Map<String, Object>{
+      'buyer_id' => buyerId,
+      'project_name' => projectName,
+      'visit_date' => visitDate,
+      'visit_time' => visitTime,
+      'buyer_name' => buyerName,
+      'salesforce_lead_id' => String.valueOf(leadId)
+    };
+    putBrokerIdentification(
+      body,
+      ld,
+      preSalesRepSourceFieldApiName,
+      organizationId
+    );
+    Object siteVisitManager = context.get('siteVisitManager');
+    if (siteVisitManager != null) {
+      body.put('siteVisitManager', siteVisitManager);
+    }
+    return body;
+  }
+
+  private static Map<String, Object> buildLegacyPostVisitBody(
+    Id leadId,
+    String buyerId,
+    String buyerName,
+    Map<String, Object> context,
+    SObject ld,
+    String preSalesRepSourceFieldApiName,
+    String organizationId
+  ) {
+    Map<String, Object> body = new Map<String, Object>{
+      'buyer_id' => buyerId,
+      'buyer_name' => buyerName,
+      'project_name' => firstContextString(
+        context,
+        new List<String>{ 'projectName', 'project_name' }
+      ),
+      'visited_configuration' => firstContextString(
+        context,
+        new List<String>{ 'visitedConfiguration', 'visited_configuration' }
+      ),
+      'visit_conducted_at' => firstContextString(
+        context,
+        new List<String>{ 'visitConductedAt', 'visit_conducted_at' }
+      ),
+      'salesforce_lead_id' => String.valueOf(leadId)
+    };
+    putBrokerIdentification(
+      body,
+      ld,
+      preSalesRepSourceFieldApiName,
+      organizationId
+    );
+    return body;
+  }
+
+  @TestVisible
+  private static String toLegacyVisitDate(String visitDate) {
+    if (String.isBlank(visitDate)) {
+      return visitDate;
+    }
+    String trimmed = visitDate.trim();
+    // yyyy-MM-dd -> dd/MM/yyyy
+    if (Pattern.matches('^\\d{4}-\\d{2}-\\d{2}$', trimmed)) {
+      return trimmed.substring(8, 10) +
+        '/' +
+        trimmed.substring(5, 7) +
+        '/' +
+        trimmed.substring(0, 4);
+    }
+    return trimmed;
   }
 
   private static void enrichContextFromLead(
@@ -1283,7 +1580,7 @@ public class PropFocusLeadService {
         'Microsite Generation',
         projectNameForHistory,
         linkUrl,
-        reused == true ? 'Reused' : 'Generated'
+        reused == true ? 'Reused' : 'Not engaged'
       );
       return;
     }
@@ -1295,7 +1592,7 @@ public class PropFocusLeadService {
         'Site Visit Confirmation',
         projectNameForHistory,
         linkUrl,
-        reused == true ? 'Reused' : 'Confirmed'
+        reused == true ? 'Reused' : 'Pending'
       );
       return;
     }
@@ -1307,7 +1604,7 @@ public class PropFocusLeadService {
         'Post Visit Page',
         projectNameForHistory,
         linkUrl,
-        reused == true ? 'Reused' : 'Generated'
+        reused == true ? 'Reused' : 'Not engaged'
       );
     }
   }
@@ -1684,6 +1981,6 @@ public class PropFocusLeadService {
       item.createdAt = row.Created_At__c;
       items.add(item);
     }
-    return items;
+    return enrichLinkHistoryStatuses(leadId, items);
   }
 }

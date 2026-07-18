@@ -17,6 +17,8 @@ private class PropfocusLeadTrackingServiceTest {
     System.assertNotEquals(null, wrapper);
     System.assertEquals(true, wrapper.success);
     System.assertEquals(ld.Id, wrapper.lead.Id);
+    System.assertNotEquals(null, wrapper.history);
+    System.assertEquals(0, wrapper.history.size());
   }
 
   @IsTest

@@ -10,14 +10,14 @@ Covers architecture, authentication, API payloads, and Postman troubleshooting.
 ┌─────────────────────────────────────────────────────────────────┐
 │                        SALESFORCE                                │
 │  Lead changes ──► Platform Event (Propfocus_Lead_Event__e)      │
-│  Outbound API ──► PropfocusHttpService + OAuth Bearer token     │
+│  Outbound API ──► PropfocusHttpService + Named Credential (OAuth client_credentials) │
 │  Inbound REST ◄── POST .../PropfocusAI/propfocus/events/        │
 └─────────────────────────────────────────────────────────────────┘
          │                                    ▲
          │ Platform Events                    │ REST + OAuth
          ▼                                    │
 ┌─────────────────────────────────────────────────────────────────┐
-│                     PROPFOCUS (dev.propfocus.in)                 │
+│                     PROPFOCUS (propfocus.in)                     │
 │  Subscribe to Platform Events · POST write-back · Issue OAuth   │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -27,10 +27,23 @@ Covers architecture, authentication, API payloads, and Postman troubleshooting.
 | Mechanism                               | Package support              |
 | --------------------------------------- | ---------------------------- |
 | Button callouts (microsite, site visit) | ✅                           |
-| OAuth `client_credentials`              | ✅ (`PropfocusOAuthService`) |
+| OAuth `client_credentials`              | ✅ (External Credential + Named Credential) |
 | Platform Events on Lead changes         | ✅                           |
 
-Configure: OAuth Client Id/Secret + Organization Id in Propfocus Config; Named Credential URL = `https://dev.propfocus.in`.
+**Payload / PII / residency contract:** [OUTBOUND.md](./OUTBOUND.md).
+
+Configure: Client Id/Secret in **External Credential → Propfocus Principal** + Organization Id in Propfocus Config; Named Credential URL = `https://propfocus.in` (sandboxes: `https://dev.propfocus.in`).
+
+#### Outbound auth setup (Salesforce admin)
+
+| Step | Action |
+| ---- | ------ |
+| 1 | Setup → External Credentials → **Propfocus API** — confirm token endpoint for your environment |
+| 2 | Open **Propfocus Principal** → enter Client Id + Client Secret from Propfocus team |
+| 3 | Setup → Named Credentials → **Propfocus API** — confirm API URL and Generate Authorization Header |
+| 4 | Assign **Propfocus User** (sales) and **Propfocus AI Admin** — both include External Credential principal access |
+
+Verify: **propfocusAI Admin Setup → Test Connection**.
 
 ### Propfocus → Salesforce (inbound)
 
@@ -40,7 +53,7 @@ Configure: OAuth Client Id/Secret + Organization Id in Propfocus Config; Named C
 | Lead field write-back                 | ✅              |
 | Call logs / history / site visit sync | ✅              |
 
-Authenticate via Connected App (JWT Bearer recommended) and POST to the inbound REST endpoint.
+Authenticate via External Client App (JWT Bearer recommended) and POST to the inbound REST endpoint.
 
 ---
 
@@ -59,20 +72,10 @@ Content-Type: application/json
 
 | Direction      | Token from                                           | Used by                  |
 | -------------- | ---------------------------------------------------- | ------------------------ |
-| SF → Propfocus | `https://dev.propfocus.in/api/oauth2/token`          | Buttons, Test Connection |
+| SF → Propfocus | `https://propfocus.in/api/oauth2/token` (sandbox: `https://dev.propfocus.in/api/oauth2/token`) | Buttons, Test Connection |
 | Propfocus → SF | `https://login.salesforce.com/services/oauth2/token` | Inbound REST POST        |
 
----
-
-## Authentication setup (Salesforce admin)
-
-1. Create integration user (Minimum Access, not System Administrator).
-2. Assign **Propfocus Integration** permission set.
-3. Grant Read + Edit on mapped Lead fields.
-4. Create Connected App with OAuth; note Consumer Key and Secret.
-5. Copy inbound REST URL from Admin Setup tab.
-
-Send Propfocus backend: org host, Connected App credentials, integration username, Organization Id, inbound REST URL.
+## Inbound authentication
 
 ### Get `access_token`
 
@@ -92,6 +95,17 @@ grant_type=password
 Sandboxes: use `https://test.salesforce.com/services/oauth2/token`.
 
 **Option B — JWT Bearer** (production): see [JWT_SETUP.txt](./JWT_SETUP.txt).
+
+### Inbound auth setup (Salesforce admin)
+
+1. Create integration user (Minimum Access, not System Administrator).
+2. Assign **Propfocus Integration** permission set.
+3. Grant Read + Edit on mapped Lead fields.
+4. Receive **`server.crt` only** from Propfocus (Propfocus generates the key pair and keeps `server.key` — never share or request the private key).
+5. Create **External Client App** with JWT Bearer flow; upload `server.crt`; scope **api** only; **Admin approved** + permission set; note Consumer Key.
+6. Copy inbound REST URL from Admin Setup tab.
+
+Send Propfocus backend: org host, Consumer Key, integration username, Organization Id, inbound REST URL. **Do not** send admin password or any private key. Cert is valid **365 days** — Propfocus rotates and sends a new `server.crt` before expiry (see [JWT_SETUP.txt](./JWT_SETUP.txt) Step 10).
 
 ---
 

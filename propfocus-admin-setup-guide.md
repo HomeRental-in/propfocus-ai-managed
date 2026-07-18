@@ -1,8 +1,11 @@
 # Propfocus Salesforce Setup Guide
 
+**New org (complete e2e):** [docs/E2E_INSTALLATION.md](docs/E2E_INSTALLATION.md)  
 **Full walkthrough:** [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md)
 
 Short reference below. The setup guide has navigation paths, field values, pass/fail checks, and troubleshooting.
+
+> **Security:** Outbound Client Id/Secret go in **External Credential** (encrypted), not Propfocus Config or change sets.
 
 ---
 
@@ -13,7 +16,8 @@ Short reference below. The setup guide has navigation paths, field values, pass/
 | **Install link**        | `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000iXWXQA2` (v0.5.0-1) |
 | **Hosachiguru sandbox** | `https://hosachiguru--consultefy.sandbox.my.salesforce.com`                                    |
 | **Organization Id**     | _(from Propfocus team)_                                                                        |
-| **API base (dev)**      | `https://dev.propfocus.in`                                                                     |
+| **API base (production)** | `https://propfocus.in`                                                                         |
+| **API base (sandbox)**    | `https://dev.propfocus.in`                                                                     |
 
 ---
 
@@ -41,7 +45,8 @@ Short reference below. The setup guide has navigation paths, field values, pass/
 
 **Setup → Custom Metadata Types → Propfocus Config → Manage → Default → Edit**
 
-Field values: [docs/FIELDS.md](docs/FIELDS.md) or [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) section 2.2.
+Field values: [docs/FIELDS.md](docs/FIELDS.md) or [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) section 2.2.  
+OAuth credentials are **not** Config fields — see step 6.
 
 > Integration user needs **Read/Edit** on all mapped Lead fields.
 
@@ -49,25 +54,24 @@ Field values: [docs/FIELDS.md](docs/FIELDS.md) or [docs/SETUP_GUIDE.md](docs/SET
 
 ## 5) CSP Trusted Site
 
-**Setup → CSP Trusted Sites → New** → URL `https://dev.propfocus.in`
+**Setup → CSP Trusted Sites** → confirm `https://propfocus.in` (production default). Sandboxes: change to `https://dev.propfocus.in`.
 
 ---
 
-## 6) Named Credential
+## 6) Outbound API auth (External Credential)
 
-**Setup → Named Credentials → Propfocus API** → URL `https://dev.propfocus.in`
+**Setup → Named Credentials → External Credentials → Propfocus API**
 
----
-
-## 7) OAuth (outbound API)
-
-In **Propfocus Config → Default**: Token URL, Grant Type `client_credentials`, Client Id/Secret from Propfocus team.
+1. Confirm token endpoint: `https://propfocus.in/api/oauth2/token` (sandbox: `https://dev.propfocus.in/api/oauth2/token`)
+2. Open **Propfocus Principal** → enter Client Id + Client Secret from Propfocus team → Save
+3. **Setup → Named Credentials → Propfocus API** → confirm URL `https://propfocus.in` (sandbox: `https://dev.propfocus.in`) and **Generate Authorization Header** enabled
+4. Confirm **Propfocus User** and **Propfocus AI Admin** permission sets include External Credential principal access (packaged)
 
 **Check:** Admin Setup → **Test Connection** succeeds.
 
 ---
 
-## 8) Permission sets
+## 7) Permission sets
 
 | Permission set            | Who                             |
 | ------------------------- | ------------------------------- |
@@ -77,7 +81,7 @@ In **Propfocus Config → Default**: Token URL, Grant Type `client_credentials`,
 
 ---
 
-## 9) Test
+## 8) Test
 
 1. Admin Setup → **Test Connection**
 2. Lead → **Generate Microsite** / **Confirm Site Visit**
