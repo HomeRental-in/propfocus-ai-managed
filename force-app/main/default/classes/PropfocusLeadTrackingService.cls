@@ -31,14 +31,14 @@ public class PropfocusLeadTrackingService {
     Map<String, Object> notif
   ) {
     if (String.isBlank(leadIdStr)) {
-      throw new IllegalArgumentException('Lead Id is required');
+      throw new IllegalArgumentException('Record Id is required');
     }
 
-    Id leadId;
+    Id recordId;
     try {
-      leadId = (Id) leadIdStr;
+      recordId = (Id) leadIdStr;
     } catch (Exception e) {
-      throw new IllegalArgumentException('Invalid Lead Id');
+      throw new IllegalArgumentException('Invalid Record Id');
     }
 
     String title = (String) notif.get('title');
@@ -50,18 +50,33 @@ public class PropfocusLeadTrackingService {
       );
     }
 
-    Lead l = [
-      SELECT Id, OwnerId
-      FROM Lead
-      WHERE Id = :leadId
-      LIMIT 1
-    ];
+    Id ownerId;
+    Id targetId;
+    if (recordId.getSObjectType() == Opportunity.SObjectType) {
+      Opportunity opp = [
+        SELECT Id, OwnerId
+        FROM Opportunity
+        WHERE Id = :recordId
+        LIMIT 1
+      ];
+      ownerId = opp.OwnerId;
+      targetId = opp.Id;
+    } else {
+      Lead l = [
+        SELECT Id, OwnerId
+        FROM Lead
+        WHERE Id = :recordId
+        LIMIT 1
+      ];
+      ownerId = l.OwnerId;
+      targetId = l.Id;
+    }
 
     CustomNotificationType cnt = resolveNotificationType();
 
     if (cnt == null) {
       if (Test.isRunningTest()) {
-        return l.OwnerId;
+        return ownerId;
       }
       throw new PropFocusServiceException(
         'Custom notification type ' +
@@ -73,9 +88,9 @@ public class PropfocusLeadTrackingService {
     notification.setTitle(title);
     notification.setBody(message);
     notification.setNotificationTypeId(cnt.Id);
-    notification.setTargetId(l.Id);
+    notification.setTargetId(targetId);
 
-    Set<String> recipients = new Set<String>{ l.OwnerId };
+    Set<String> recipients = new Set<String>{ ownerId };
 
     try {
       notification.send(recipients);
@@ -85,7 +100,7 @@ public class PropfocusLeadTrackingService {
       );
     }
 
-    return l.OwnerId;
+    return ownerId;
   }
 
   private static CustomNotificationType resolveNotificationType() {

@@ -61,6 +61,11 @@ export default class PropfocusAdminSetup extends LightningElement {
     get buyerNameField() { return this.config?.buyerNameField || ''; }
     get leadStatusField() { return this.config?.leadStatusField || ''; }
     get projectField() { return this.config?.projectField || ''; }
+    get opportunityBuyerIdField() { return this.config?.opportunityBuyerIdField || ''; }
+    get opportunityBuyerNameField() { return this.config?.opportunityBuyerNameField || ''; }
+    get opportunityStatusField() { return this.config?.opportunityStatusField || ''; }
+    get opportunityProjectField() { return this.config?.opportunityProjectField || ''; }
+    get siteVisitOpportunityLookupField() { return this.config?.siteVisitOpportunityLookupField || ''; }
     get copyEndpointLabel() { return this.endpointCopied ? 'Copied!' : 'Copy'; }
     get resultClass() {
         return this.testVariant === 'success' ? 'result result_success' : 'result result_error';

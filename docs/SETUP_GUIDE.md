@@ -15,7 +15,7 @@
 | Salesforce admin login                        | Your IT / Salesforce admin          |
 | Propfocus **Organization Id**                 | Propfocus team                      |
 | Outbound **Client Id** + **Client Secret**    | Propfocus team — **External Credential** (Part 2.4), not Config |
-| A Lead record with **Enquiry Ref No.** filled | Your sandbox data                   |
+| A Lead (and/or Opportunity) with buyer id filled | Your sandbox data                   |
 | Sales test user login                         | Admin creates or uses existing user |
 
 ### Two paths
@@ -81,17 +81,24 @@ If Edit shows only Label/Name, add a **Page Layout** first (Page Layouts → New
 | Sales Owner Phone Field       | `Mobile_Phone__c`                           |
 | Site Visit Object             | `Site_Visit__c`                             |
 | Lead Lookup Field             | `Lead__c`                                   |
+| Opportunity Lookup Field      | `Opportunity__c`                            |
+| Opportunity Buyer Name Field  | `Name`                                      |
+| Opportunity Status Field      | `StageName`                                 |
+| Opportunity Buyer Id Field    | _(org-specific buyer / enquiry ref)_        |
+| Opportunity Project Field     | _(org-specific project field)_              |
+| Embed Uses Salesforce Opportunity Id | **Checked**                          |
 | Site Visit Status Field       | `Status__c`                                 |
 | Site Visit Project Field      | `Project_Interested__c`                     |
 | Site Visit Type Field         | `sv_type__c`                                |
 | Site Visit Datetime Field     | `Site_Visit_Date__c`                        |
 | Site Visit Team Field         | `Sv_Team__c`                                |
 
-> **Other orgs:** See [FIELDS.md](./FIELDS.md) for field API names.
+> **Other orgs:** See [FIELDS.md](./FIELDS.md) for Lead and Opportunity field API names.
 
 ### 2.3 Integration user field access
 
-Grant **Read + Edit** on every mapped Lead field to the integration user (Permission Set → Object Settings → Lead).
+Grant **Read + Edit** on every mapped Lead field to the integration user (Permission Set → Object Settings → Lead).  
+If using Opportunity site visits / write-back, also grant **Read + Edit** on mapped **Opportunity** fields.
 
 ### 2.4 Outbound auth (External Credential + Named Credential)
 
@@ -114,9 +121,16 @@ Setup → **CSP Trusted Sites** → confirm `https://propfocus.in` is Active wit
 
 Setup → **App Manager** → your app → Edit → add **propfocusAI Admin Setup** to navigation.
 
-### 2.7 Lead record page
+### 2.7 Lead / Opportunity record page
 
-Lead record → gear → **Edit Page** → add **propfocusLeadLinkGen** → Save → Activate.
+The same LWC (`propfocusLeadLinkGen`) is used on both objects.
+
+| Step | Action |
+| ---- | ------ |
+| 2.7a | Lead record → gear → **Edit Page** → add **propfocusLeadLinkGen** → Save → Activate |
+| 2.7b | Opportunity record → gear → **Edit Page** → add **propfocusLeadLinkGen** → Save → Activate |
+
+Ensure Opportunity Config mappings from section 2.2 are filled before testing on Opportunity.
 
 ---
 
@@ -129,6 +143,7 @@ App → **propfocusAI Admin Setup**
 | 3.1  | Page loads                   | ☐     |
 | 3.2  | Inbound REST URL shown       | ☐     |
 | 3.3  | **Test Connection** succeeds | ☐     |
+| 3.4  | Opportunity field mappings shown | ☐     |
 
 Copy the Inbound REST URL for the Propfocus backend team.
 
@@ -136,18 +151,20 @@ Copy the Inbound REST URL for the Propfocus backend team.
 
 ## Part 4 — Feature tests (sales user)
 
-Use a Lead with **Enquiry Ref No.** populated. Mark Pass / Fail.
+Use a Lead with buyer id populated, then repeat site-visit tests on an Opportunity with Opportunity buyer id populated. Mark Pass / Fail.
 
 | #   | Test                      | Do                                 | Check                                   | Pass? |
 | --- | ------------------------- | ---------------------------------- | --------------------------------------- | ----- |
-| 1   | Generate Microsite        | Click button → select project      | `Propfocus_Link__c` populated; no error | ☐     |
+| 1   | Generate Microsite (Lead) | Lead → Generate Microsite          | `Propfocus_Link__c` populated; no error | ☐     |
 | 2   | Buyer Insights iframe     | After microsite                    | Iframe loads (not blank)                | ☐     |
-| 3   | Confirm Site Visit        | Click button                       | `Propfocus_Site_Visit__c` has URL       | ☐     |
-| 4   | Notification              | Propfocus POSTs to inbound REST    | Lead owner bell notification            | ☐     |
-| 5   | SF → Propfocus sync       | Change Lead Status → Save          | Propfocus receives Platform Event       | ☐     |
-| 6   | Propfocus → SF write-back | Propfocus POSTs write-back payload | Lead + child records update             | ☐     |
+| 3   | Confirm Site Visit (Lead) | Lead → Confirm Site Visit          | Lead `Propfocus_Site_Visit__c` has URL  | ☐     |
+| 4   | Confirm Site Visit (Opp)  | Opportunity → Confirm Site Visit   | Opp `Propfocus_Site_Visit__c` has URL; history on Opportunity | ☐     |
+| 5   | Notification              | Propfocus POSTs to inbound REST    | Lead or Opportunity owner bell notification | ☐     |
+| 6   | SF → Propfocus sync       | Change Lead Status → Save          | Propfocus receives Platform Event       | ☐     |
+| 7   | Propfocus → SF write-back | Propfocus POSTs write-back payload | Parent + child records update (Lead or Opportunity) | ☐     |
 
-Payload format: [INBOUND.md](./INBOUND.md)
+Payload format: [INBOUND.md](./INBOUND.md)  
+Outbound identity: Lead sends `salesforce_lead_id`; Opportunity sends `salesforce_opportunity_id` — see [OUTBOUND.md](./OUTBOUND.md).
 
 ---
 
@@ -168,12 +185,13 @@ Payload format: [INBOUND.md](./INBOUND.md)
 | #   | Test                      | Pass / Fail | Notes |
 | --- | ------------------------- | ----------- | ----- |
 | 1   | Admin — Test Connection   |             |       |
-| 2   | Generate Microsite        |             |       |
+| 2   | Generate Microsite (Lead) |             |       |
 | 3   | Buyer Insights iframe     |             |       |
-| 4   | Confirm Site Visit        |             |       |
-| 5   | Notification              |             |       |
-| 6   | SF → Propfocus sync       |             |       |
-| 7   | Propfocus → SF write-back |             |       |
+| 4   | Confirm Site Visit (Lead) |             |       |
+| 5   | Confirm Site Visit (Opp)  |             |       |
+| 6   | Notification              |             |       |
+| 7   | SF → Propfocus sync       |             |       |
+| 8   | Propfocus → SF write-back |             |       |
 
 **Tested by:** ******\_\_\_****** **Date:** ******\_\_\_******
 
@@ -183,12 +201,13 @@ Payload format: [INBOUND.md](./INBOUND.md)
 
 | Symptom                      | Fix                                                        |
 | ---------------------------- | ---------------------------------------------------------- |
-| Buttons not visible          | Part 2.7 — add `propfocusLeadLinkGen`                      |
+| Buttons not visible          | Part 2.7 — add `propfocusLeadLinkGen` on Lead **and** Opportunity pages |
 | Insufficient privileges      | Part 2.1 — permission sets                                 |
 | API / OAuth errors           | Part 2.2, 2.4; verify External Credential Client Id/Secret |
 | Iframe blank                 | Part 2.5 CSP + Embed Base Url                              |
-| Write-back fails             | Part 2.3 integration user FLS                              |
-| No Lead found for buyer_id   | `buyer_id` must match Buyer Id Field on Lead               |
+| Write-back fails             | Part 2.3 integration user FLS (Lead and/or Opportunity)   |
+| No Lead/Opportunity for buyer_id | `buyer_id` must match mapped Buyer Id on Lead or Opportunity |
+| Opportunity buttons fail     | Part 2.2 Opportunity mappings + buyer id populated         |
 | 403 Organization ID mismatch | Organization Id in Config                                  |
 | Outbound auth not configured | Part 2.4 — External Credential → Propfocus Principal |
 | Callout unauthorized for sales user | Part 2.1a + 2.4d — **Propfocus User** + principal access |

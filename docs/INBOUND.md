@@ -26,7 +26,7 @@ Covers architecture, authentication, API payloads, and Postman troubleshooting.
 
 | Mechanism                               | Package support              |
 | --------------------------------------- | ---------------------------- |
-| Button callouts (microsite, site visit) | ✅                           |
+| Button callouts (microsite, site visit) from Lead or Opportunity | ✅ |
 | OAuth `client_credentials`              | ✅ (External Credential + Named Credential) |
 | Platform Events on Lead changes         | ✅                           |
 
@@ -50,8 +50,8 @@ Verify: **propfocusAI Admin Setup → Test Connection**.
 | Mechanism                             | Package support |
 | ------------------------------------- | --------------- |
 | REST notifications                    | ✅              |
-| Lead field write-back                 | ✅              |
-| Call logs / history / site visit sync | ✅              |
+| Lead / Opportunity field write-back   | ✅              |
+| Call logs / history / site visit sync (Lead or Opportunity parent) | ✅ |
 
 Authenticate via External Client App (JWT Bearer recommended) and POST to the inbound REST endpoint.
 
@@ -100,7 +100,7 @@ Sandboxes: use `https://test.salesforce.com/services/oauth2/token`.
 
 1. Create integration user (Minimum Access, not System Administrator).
 2. Assign **Propfocus Integration** permission set.
-3. Grant Read + Edit on mapped Lead fields.
+3. Grant Read + Edit on mapped Lead fields (and Opportunity fields if using Opp write-back).
 4. Receive **`server.crt` only** from Propfocus (Propfocus generates the key pair and keeps `server.key` — never share or request the private key).
 5. Create **External Client App** with JWT Bearer flow; upload `server.crt`; scope **api** only; **Admin approved** + permission set; note Consumer Key.
 6. Copy inbound REST URL from Admin Setup tab.
@@ -128,7 +128,7 @@ Send Propfocus backend: org host, Consumer Key, integration username, Organizati
 }
 ```
 
-### Write-back example
+### Write-back example (Lead)
 
 ```json
 {
@@ -139,7 +139,8 @@ Send Propfocus backend: org host, Consumer Key, integration username, Organizati
     "buyer_name": "John Doe",
     "current_lead_status": "Working",
     "lead_source": "Website",
-    "primary_project_name": "Project Alpha"
+    "primary_project_name": "Project Alpha",
+    "salesforce_lead_id": "00Qxxxxxxxxxxxx"
   },
   "call_logs": [
     {
@@ -167,40 +168,69 @@ Send Propfocus backend: org host, Consumer Key, integration username, Organizati
 }
 ```
 
+### Write-back example (Opportunity)
+
+Same payload shape. Prefer explicit Opportunity identity when known:
+
+```json
+{
+  "event_type": "lead_sync",
+  "buyer_id": "BUYER-UUID-123",
+  "organization_id": "<from Propfocus Config>",
+  "lead_data": {
+    "buyer_name": "John Doe",
+    "current_lead_status": "Qualification",
+    "primary_project_name": "Project Alpha",
+    "salesforce_opportunity_id": "006xxxxxxxxxxxx"
+  },
+  "site_visit": {
+    "site_visit_number": "SV-1001",
+    "site_visit_status": "Scheduled",
+    "project_name": "Project Alpha"
+  }
+}
+```
+
 ### Field mapping (`lead_data` → Salesforce)
 
-Mappings come from **Propfocus Config → Default**. Only configured fields are written.
+Mappings come from **Propfocus Config → Default**. Only configured fields are written.  
+When the resolved parent is a **Lead**, Lead Config fields are used. When it is an **Opportunity**, Opportunity Config fields are used (same payload keys).
 
-| Payload key                          | Config field               |
-| ------------------------------------ | -------------------------- |
-| `buyer_name`                         | Buyer Name Field           |
-| `pre_sales_owner_name`               | Pre-Sales Owner Name Field |
-| `sales_owner_name`                   | Sales Owner Name Field     |
-| `uuid`, `buyer_id`                   | Buyer Id Field             |
-| `current_lead_status`, `lead_status` | Lead Status Field          |
-| `lead_source`                        | Lead Source Field          |
-| `primary_project_name`               | Project Field              |
+| Payload key                          | Lead Config field          | Opportunity Config field |
+| ------------------------------------ | -------------------------- | ------------------------ |
+| `buyer_name`                         | Buyer Name Field           | Opportunity Buyer Name Field |
+| `pre_sales_owner_name`               | Pre-Sales Owner Name Field | Opportunity Pre-Sales Owner Name Field |
+| `sales_owner_name`                   | Sales Owner Name Field     | Opportunity Sales Owner Name Field |
+| `uuid`, `buyer_id`                   | Buyer Id Field             | Opportunity Buyer Id Field |
+| `current_lead_status`, `lead_status` | Lead Status Field          | Opportunity Status Field |
+| `lead_source`                        | Lead Source Field          | Opportunity Lead Source Field |
+| `primary_project_name`               | Project Field              | Opportunity Project Field |
+| `salesforce_lead_id`                 | Must match resolved Lead   | — |
+| `salesforce_opportunity_id`          | —                          | Must match resolved Opportunity |
 
 ### Child records
 
-| Payload section | Stored in                                                   |
-| --------------- | ----------------------------------------------------------- |
-| `call_logs`     | `Propfocus_Call_Log__c`                                     |
-| `lead_history`  | `Propfocus_Sync_History__c`                                 |
-| `site_visit`    | `Propfocus_Site_Visit_Sync__c` (+ optional `Site_Visit__c`) |
+| Payload section | Stored in                                                   | Parent lookup |
+| --------------- | ----------------------------------------------------------- | ------------- |
+| `call_logs`     | `Propfocus_Call_Log__c`                                     | `Lead__c` or `Opportunity__c` |
+| `lead_history`  | `Propfocus_Sync_History__c`                                 | `Lead__c` or `Opportunity__c` |
+| `site_visit`    | `Propfocus_Site_Visit_Sync__c` (+ optional `Site_Visit__c`) | Same parent; client SV uses Lead Lookup Field or Opportunity Lookup Field |
 
 ### Response & errors
 
-Success: `{ "success": true, "lead_id": "00Q...", "lead_updated": true, ... }`
+Success (Lead): `{ "success": true, "lead_id": "00Q...", "record_id": "00Q...", "record_type": "Lead", "lead_updated": true, ... }`  
+Success (Opportunity): `{ "success": true, "opportunity_id": "006...", "record_id": "006...", "record_type": "Opportunity", "lead_updated": true, ... }`
+
+Resolution order: explicit `salesforce_opportunity_id` / `salesforce_lead_id` (root or `lead_data`) → Lead by `buyer_id` → Opportunity by `buyer_id`.
 
 | HTTP | Meaning                        |
 | ---- | ------------------------------ |
 | 400  | Missing/invalid payload        |
 | 403  | Organization ID mismatch       |
-| 404  | No Lead found for `buyer_id`   |
+| 404  | No Lead or Opportunity found for `buyer_id` |
 | 500  | Config missing or server error |
 
-**Rules:** `buyer_id` and `organization_id` always required. Lead lookup uses Buyer Id Field; only unconverted Leads match.
+**Rules:** `buyer_id` and `organization_id` always required. Lead lookup uses Buyer Id Field and only **unconverted** Leads. Opportunity lookup uses Opportunity Buyer Id Field.
 
 ---
 

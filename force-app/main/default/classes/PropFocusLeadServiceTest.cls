@@ -1156,4 +1156,98 @@ private class PropFocusLeadServiceTest {
       PropFocusLeadService.normalizeCommunicationType('postvisit')
     );
   }
+
+  @IsTest
+  static void getLeadDetails_opportunity_returnsMappedFields() {
+    Opportunity opp = PropfocusTestUtil.createOpportunity('Opp Details Buyer');
+
+    Test.startTest();
+    Map<String, Object> details = PropFocusLeadService.getLeadDetails(opp.Id);
+    Test.stopTest();
+
+    System.assertEquals(opp.Id, details.get('Id'));
+    System.assertEquals(true, details.get('isOpportunity'));
+    System.assertEquals(opp.Name, details.get('buyerName'));
+    System.assertEquals(opp.NextStep, details.get('projectName'));
+    System.assertEquals(opp.StageName, details.get('leadStatus'));
+  }
+
+  @IsTest
+  static void generatePropfocusTemplate_opportunity_siteVisit_success() {
+    Opportunity opp = PropfocusTestUtil.createOpportunity('Opp Site Visit Buyer');
+    setApiMock(
+      200,
+      '{"success":true,"link":"https://example.test/opp-sv","template":"Visit ready"}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.PropfocusTemplateResult result = PropFocusLeadService.generatePropfocusTemplate(
+      opp.Id,
+      'site_visit',
+      JSON.serialize(
+        new Map<String, Object>{
+          'buyerName' => 'Opp Buyer',
+          'projectName' => 'Skyline Residences',
+          'visitDate' => '2026-07-15',
+          'visitTime' => '10:00'
+        }
+      )
+    );
+    String capturedBody = apiMock.lastApiRequestBody;
+    Test.stopTest();
+
+    System.assertEquals('https://example.test/opp-sv', result.url);
+    Opportunity updated = [
+      SELECT Propfocus_Site_Visit__c
+      FROM Opportunity
+      WHERE Id = :opp.Id
+    ];
+    System.assertEquals(
+      'https://example.test/opp-sv',
+      updated.Propfocus_Site_Visit__c
+    );
+
+    Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
+      capturedBody
+    );
+    System.assertEquals(
+      String.valueOf(opp.Id),
+      requestBody.get('salesforce_opportunity_id')
+    );
+    System.assertEquals(null, requestBody.get('salesforce_lead_id'));
+
+    List<Propfocus_Link__c> history = [
+      SELECT Opportunity__c, Lead__c, Type__c
+      FROM Propfocus_Link__c
+      WHERE Opportunity__c = :opp.Id
+    ];
+    System.assertEquals(1, history.size());
+    System.assertEquals(null, history[0].Lead__c);
+    System.assert(
+      history[0].Type__c.contains('Site Visit'),
+      'Expected site visit history type'
+    );
+  }
+
+  @IsTest
+  static void getLinkHistory_opportunity_filtersByOpportunity() {
+    Opportunity opp = PropfocusTestUtil.createOpportunity('Opp History Buyer');
+    insert new Propfocus_Link__c(
+      Opportunity__c = opp.Id,
+      Type__c = 'Microsite Generation',
+      Project_Name__c = 'Tower A',
+      URL__c = 'https://example.test/opp-micro',
+      Created_At__c = System.now(),
+      Status__c = 'Not engaged'
+    );
+
+    Test.startTest();
+    List<PropFocusLeadService.LinkHistoryItem> items = PropFocusLeadService.getLinkHistory(
+      opp.Id
+    );
+    Test.stopTest();
+
+    System.assertEquals(1, items.size());
+    System.assertEquals('https://example.test/opp-micro', items[0].url);
+  }
 }

@@ -13,36 +13,46 @@ public class PropfocusInboundWritebackService {
   }
 
   public static WritebackResult applyWriteback(
-    Id leadId,
+    Id recordId,
     Map<String, Object> payloadRoot
   ) {
     WritebackResult result = new WritebackResult();
-    if (leadId == null || payloadRoot == null || payloadRoot.isEmpty()) {
+    if (recordId == null || payloadRoot == null || payloadRoot.isEmpty()) {
       return result;
     }
 
     PropfocusConfigService.Config cfg = PropfocusConfigService.getConfig();
+    Boolean isOpportunity = recordId.getSObjectType() == Opportunity.SObjectType;
 
     Map<String, Object> leadData = asMap(payloadRoot.get('lead_data'));
     if (leadData != null && !leadData.isEmpty()) {
-      result.leadUpdated = applyLeadData(leadId, leadData, cfg);
+      result.leadUpdated = applyParentData(recordId, leadData, cfg, isOpportunity);
     }
 
     List<Object> callLogs = asList(payloadRoot.get('call_logs'));
     if (callLogs != null && !callLogs.isEmpty()) {
-      result.callLogsCreated = insertCallLogs(leadId, callLogs);
+      result.callLogsCreated = insertCallLogs(recordId, callLogs, isOpportunity);
     }
 
     Map<String, Object> siteVisit = asMap(payloadRoot.get('site_visit'));
     if (siteVisit != null && !siteVisit.isEmpty()) {
-      SiteVisitSyncResult svResult = syncSiteVisit(leadId, siteVisit, cfg);
+      SiteVisitSyncResult svResult = syncSiteVisit(
+        recordId,
+        siteVisit,
+        cfg,
+        isOpportunity
+      );
       result.siteVisitSynced = svResult.packageSynced;
       result.clientSiteVisitUpdated = svResult.clientSynced;
     }
 
     List<Object> leadHistory = asList(payloadRoot.get('lead_history'));
     if (leadHistory != null && !leadHistory.isEmpty()) {
-      result.historyRowsCreated = insertSyncHistory(leadId, leadHistory);
+      result.historyRowsCreated = insertSyncHistory(
+        recordId,
+        leadHistory,
+        isOpportunity
+      );
     }
 
     return result;
@@ -62,99 +72,153 @@ public class PropfocusInboundWritebackService {
       (leadHistory != null && !leadHistory.isEmpty());
   }
 
-  private static Boolean applyLeadData(
-    Id leadId,
+  private static Boolean applyParentData(
+    Id recordId,
     Map<String, Object> leadData,
-    PropfocusConfigService.Config cfg
+    PropfocusConfigService.Config cfg,
+    Boolean isOpportunity
   ) {
-    String providedLeadId = asString(
-      firstPresent(
-        leadData,
-        new List<String>{ 'salesforce_lead_id', 'salesforceLeadId' }
-      )
-    );
-    if (
-      !String.isBlank(providedLeadId) &&
-      providedLeadId != String.valueOf(leadId)
-    ) {
-      throw new PropFocusServiceException(
-        'salesforce_lead_id does not match resolved Lead'
+    if (isOpportunity) {
+      String providedOppId = asString(
+        firstPresent(
+          leadData,
+          new List<String>{
+            'salesforce_opportunity_id',
+            'salesforceOpportunityId'
+          }
+        )
       );
+      if (
+        !String.isBlank(providedOppId) &&
+        providedOppId != String.valueOf(recordId)
+      ) {
+        throw new PropFocusServiceException(
+          'salesforce_opportunity_id does not match resolved Opportunity'
+        );
+      }
+    } else {
+      String providedLeadId = asString(
+        firstPresent(
+          leadData,
+          new List<String>{ 'salesforce_lead_id', 'salesforceLeadId' }
+        )
+      );
+      if (
+        !String.isBlank(providedLeadId) &&
+        providedLeadId != String.valueOf(recordId)
+      ) {
+        throw new PropFocusServiceException(
+          'salesforce_lead_id does not match resolved Lead'
+        );
+      }
     }
 
-    Lead ld = new Lead(Id = leadId);
+    SObject parent = isOpportunity
+      ? (SObject) new Opportunity(Id = recordId)
+      : (SObject) new Lead(Id = recordId);
     Boolean hasUpdates = false;
 
+    String buyerNameField = isOpportunity
+      ? cfg.opportunityBuyerNameField
+      : cfg.buyerNameField;
+    String preSalesOwnerNameField = isOpportunity
+      ? cfg.opportunityPreSalesOwnerNameField
+      : cfg.preSalesOwnerNameField;
+    String preSalesOwnerPhoneField = isOpportunity
+      ? cfg.opportunityPreSalesOwnerPhoneField
+      : cfg.preSalesOwnerPhoneField;
+    String salesOwnerNameField = isOpportunity
+      ? cfg.opportunitySalesOwnerNameField
+      : cfg.salesOwnerNameField;
+    String salesOwnerPhoneField = isOpportunity
+      ? cfg.opportunitySalesOwnerPhoneField
+      : cfg.salesOwnerPhoneField;
+    String buyerIdField = isOpportunity
+      ? cfg.opportunityBuyerIdField
+      : cfg.buyerIdField;
+    String statusField = isOpportunity
+      ? cfg.opportunityStatusField
+      : cfg.leadStatusField;
+    String leadSourceField = isOpportunity
+      ? cfg.opportunityLeadSourceField
+      : cfg.leadSourceField;
+    String projectField = isOpportunity
+      ? cfg.opportunityProjectField
+      : cfg.projectField;
+    String relatedDateSourceField = isOpportunity
+      ? cfg.opportunityRelatedDateSourceField
+      : cfg.relatedDateSourceField;
+
     hasUpdates =
-      putMappedLeadField(
-        ld,
-        cfg.buyerNameField,
+      putMappedParentField(
+        parent,
+        buyerNameField,
         firstPresent(leadData, new List<String>{ 'buyer_name', 'buyerName' })
       ) || hasUpdates;
     hasUpdates =
-      putMappedLeadField(
-        ld,
-        cfg.preSalesOwnerNameField,
+      putMappedParentField(
+        parent,
+        preSalesOwnerNameField,
         firstPresent(
           leadData,
           new List<String>{ 'pre_sales_owner_name', 'preSalesOwnerName' }
         )
       ) || hasUpdates;
     hasUpdates =
-      putMappedLeadField(
-        ld,
-        cfg.preSalesOwnerPhoneField,
+      putMappedParentField(
+        parent,
+        preSalesOwnerPhoneField,
         firstPresent(
           leadData,
           new List<String>{ 'pre_sales_owner_phone', 'preSalesOwnerPhone' }
         )
       ) || hasUpdates;
     hasUpdates =
-      putMappedLeadField(
-        ld,
-        cfg.salesOwnerNameField,
+      putMappedParentField(
+        parent,
+        salesOwnerNameField,
         firstPresent(
           leadData,
           new List<String>{ 'sales_owner_name', 'salesOwnerName' }
         )
       ) || hasUpdates;
     hasUpdates =
-      putMappedLeadField(
-        ld,
-        cfg.salesOwnerPhoneField,
+      putMappedParentField(
+        parent,
+        salesOwnerPhoneField,
         firstPresent(
           leadData,
           new List<String>{ 'sales_owner_phone', 'salesOwnerPhone' }
         )
       ) || hasUpdates;
     hasUpdates =
-      putMappedLeadField(
-        ld,
-        cfg.buyerIdField,
+      putMappedParentField(
+        parent,
+        buyerIdField,
         firstPresent(
           leadData,
           new List<String>{ 'uuid', 'buyer_id', 'buyer_ref_no', 'buyerRefNo' }
         )
       ) || hasUpdates;
     hasUpdates =
-      putMappedLeadField(
-        ld,
-        cfg.leadStatusField,
+      putMappedParentField(
+        parent,
+        statusField,
         firstPresent(
           leadData,
           new List<String>{ 'current_lead_status', 'lead_status', 'leadStatus' }
         )
       ) || hasUpdates;
     hasUpdates =
-      putMappedLeadField(
-        ld,
-        cfg.leadSourceField,
+      putMappedParentField(
+        parent,
+        leadSourceField,
         firstPresent(leadData, new List<String>{ 'lead_source', 'leadSource' })
       ) || hasUpdates;
     hasUpdates =
-      putMappedLeadField(
-        ld,
-        cfg.projectField,
+      putMappedParentField(
+        parent,
+        projectField,
         firstPresent(
           leadData,
           new List<String>{
@@ -165,9 +229,9 @@ public class PropfocusInboundWritebackService {
         )
       ) || hasUpdates;
     hasUpdates =
-      putMappedLeadField(
-        ld,
-        cfg.relatedDateSourceField,
+      putMappedParentField(
+        parent,
+        relatedDateSourceField,
         firstPresent(
           leadData,
           new List<String>{
@@ -181,11 +245,15 @@ public class PropfocusInboundWritebackService {
       return false;
     }
 
-    update ld;
+    update parent;
     return true;
   }
 
-  private static Integer insertCallLogs(Id leadId, List<Object> callLogs) {
+  private static Integer insertCallLogs(
+    Id recordId,
+    List<Object> callLogs,
+    Boolean isOpportunity
+  ) {
     List<Propfocus_Call_Log__c> rows = new List<Propfocus_Call_Log__c>();
     for (Object item : callLogs) {
       Map<String, Object> entry = asMap(item);
@@ -193,7 +261,6 @@ public class PropfocusInboundWritebackService {
         continue;
       }
       Propfocus_Call_Log__c row = new Propfocus_Call_Log__c(
-        Lead__c = leadId,
         Duration__c = asString(
           firstPresent(entry, new List<String>{ 'duration' })
         ),
@@ -210,6 +277,11 @@ public class PropfocusInboundWritebackService {
           )
         )
       );
+      if (isOpportunity) {
+        row.Opportunity__c = recordId;
+      } else {
+        row.Lead__c = recordId;
+      }
       rows.add(row);
     }
     if (rows.isEmpty()) {
@@ -220,8 +292,9 @@ public class PropfocusInboundWritebackService {
   }
 
   private static Integer insertSyncHistory(
-    Id leadId,
-    List<Object> leadHistory
+    Id recordId,
+    List<Object> leadHistory,
+    Boolean isOpportunity
   ) {
     List<Propfocus_Sync_History__c> rows = new List<Propfocus_Sync_History__c>();
     for (Object item : leadHistory) {
@@ -230,7 +303,6 @@ public class PropfocusInboundWritebackService {
         continue;
       }
       Propfocus_Sync_History__c row = new Propfocus_Sync_History__c(
-        Lead__c = leadId,
         Field_Changed__c = asString(
           firstPresent(
             entry,
@@ -250,6 +322,11 @@ public class PropfocusInboundWritebackService {
           firstPresent(entry, new List<String>{ 'changed_by', 'changedBy' })
         )
       );
+      if (isOpportunity) {
+        row.Opportunity__c = recordId;
+      } else {
+        row.Lead__c = recordId;
+      }
       rows.add(row);
     }
     if (rows.isEmpty()) {
@@ -260,9 +337,10 @@ public class PropfocusInboundWritebackService {
   }
 
   private static SiteVisitSyncResult syncSiteVisit(
-    Id leadId,
+    Id recordId,
     Map<String, Object> siteVisit,
-    PropfocusConfigService.Config cfg
+    PropfocusConfigService.Config cfg,
+    Boolean isOpportunity
   ) {
     SiteVisitSyncResult result = new SiteVisitSyncResult();
 
@@ -306,10 +384,17 @@ public class PropfocusInboundWritebackService {
       : asString(firstPresent(manager, new List<String>{ 'email' }));
 
     Propfocus_Site_Visit_Sync__c packageRow = findOrCreatePackageSiteVisit(
-      leadId,
-      siteVisitNumber
+      recordId,
+      siteVisitNumber,
+      isOpportunity
     );
-    packageRow.Lead__c = leadId;
+    if (isOpportunity) {
+      packageRow.Opportunity__c = recordId;
+      packageRow.Lead__c = null;
+    } else {
+      packageRow.Lead__c = recordId;
+      packageRow.Opportunity__c = null;
+    }
     packageRow.Site_Visit_Type__c = siteVisitType;
     packageRow.Site_Visit_Status__c = siteVisitStatus;
     packageRow.Site_Visit_Datetime__c = siteVisitDatetime;
@@ -325,9 +410,10 @@ public class PropfocusInboundWritebackService {
     result.packageSynced = true;
 
     result.clientSynced = upsertClientSiteVisit(
-      leadId,
+      recordId,
       siteVisit,
       cfg,
+      isOpportunity,
       siteVisitNumber,
       siteVisitType,
       siteVisitStatus,
@@ -349,7 +435,7 @@ public class PropfocusInboundWritebackService {
       )
     );
     PropFocusLeadService.syncLinkHistoryStatusFromSiteVisit(
-      leadId,
+      recordId,
       projectName,
       siteVisitStatus
     );
@@ -358,33 +444,46 @@ public class PropfocusInboundWritebackService {
   }
 
   private static Propfocus_Site_Visit_Sync__c findOrCreatePackageSiteVisit(
-    Id leadId,
-    String siteVisitNumber
+    Id recordId,
+    String siteVisitNumber,
+    Boolean isOpportunity
   ) {
     if (!String.isBlank(siteVisitNumber)) {
       List<Propfocus_Site_Visit_Sync__c> existing = [
-        SELECT Id, Lead__c, Site_Visit_Number__c
+        SELECT Id, Lead__c, Opportunity__c, Site_Visit_Number__c
         FROM Propfocus_Site_Visit_Sync__c
         WHERE Site_Visit_Number__c = :siteVisitNumber
         LIMIT 1
       ];
       if (!existing.isEmpty()) {
         Propfocus_Site_Visit_Sync__c row = existing[0];
-        row.Lead__c = leadId;
+        if (isOpportunity) {
+          row.Opportunity__c = recordId;
+          row.Lead__c = null;
+        } else {
+          row.Lead__c = recordId;
+          row.Opportunity__c = null;
+        }
         return row;
       }
     }
 
-    return new Propfocus_Site_Visit_Sync__c(
-      Lead__c = leadId,
+    Propfocus_Site_Visit_Sync__c created = new Propfocus_Site_Visit_Sync__c(
       Site_Visit_Number__c = siteVisitNumber
     );
+    if (isOpportunity) {
+      created.Opportunity__c = recordId;
+    } else {
+      created.Lead__c = recordId;
+    }
+    return created;
   }
 
   private static Boolean upsertClientSiteVisit(
-    Id leadId,
+    Id recordId,
     Map<String, Object> siteVisit,
     PropfocusConfigService.Config cfg,
+    Boolean isOpportunity,
     String siteVisitNumber,
     String siteVisitType,
     String siteVisitStatus,
@@ -406,11 +505,10 @@ public class PropfocusInboundWritebackService {
 
     SObject row = objectType.newSObject();
     Integer mappedFieldCount = 0;
-    mappedFieldCount += putIfConfigured(
-        row,
-        cfg.siteVisitLeadLookupField,
-        leadId
-      )
+    String parentLookupField = isOpportunity
+      ? cfg.siteVisitOpportunityLookupField
+      : cfg.siteVisitLeadLookupField;
+    mappedFieldCount += putIfConfigured(row, parentLookupField, recordId)
       ? 1
       : 0;
     mappedFieldCount += putIfConfigured(
@@ -492,25 +590,27 @@ public class PropfocusInboundWritebackService {
     }
   }
 
-  private static Boolean putMappedLeadField(
-    Lead ld,
+  private static Boolean putMappedParentField(
+    SObject parent,
     String fieldApiName,
     Object value
   ) {
-    if (String.isBlank(fieldApiName) || value == null) {
+    if (parent == null || String.isBlank(fieldApiName) || value == null) {
       return false;
     }
     if (!isSafeApiName(fieldApiName)) {
       return false;
     }
-    Map<String, Schema.SObjectField> leadFields = Schema.SObjectType.Lead.fields.getMap();
-    if (!leadFields.containsKey(fieldApiName)) {
+    Map<String, Schema.SObjectField> parentFields = parent.getSObjectType()
+      .getDescribe()
+      .fields.getMap();
+    if (!parentFields.containsKey(fieldApiName)) {
       return false;
     }
-    if (!leadFields.get(fieldApiName).getDescribe().isUpdateable()) {
+    if (!parentFields.get(fieldApiName).getDescribe().isUpdateable()) {
       return false;
     }
-    ld.put(fieldApiName, value);
+    parent.put(fieldApiName, value);
     return true;
   }
 

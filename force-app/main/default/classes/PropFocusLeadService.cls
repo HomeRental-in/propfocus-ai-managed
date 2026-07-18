@@ -62,7 +62,7 @@ public class PropFocusLeadService {
   }
 
   public class GenerateTemplateRequest {
-    @InvocableVariable(required=true label='Lead Id')
+    @InvocableVariable(required=true label='Record Id' description='Lead or Opportunity Id')
     public Id leadId;
     @InvocableVariable(
       required=true
@@ -84,6 +84,97 @@ public class PropFocusLeadService {
   @TestVisible
   private static final String CUSTOMER_SUPPORT_MESSAGE =
     'Something went wrong. Please contact the Propfocus support team.';
+
+  private class ParentFields {
+    Id recordId;
+    Boolean isOpportunity;
+    String buyerIdField;
+    String buyerNameField;
+    String projectField;
+    String statusField;
+    String preSalesRepSourceField;
+    Boolean embedUsesSalesforceId;
+  }
+
+  private static Boolean isOpportunityRecord(Id recordId) {
+    return recordId != null &&
+      recordId.getSObjectType() == Opportunity.SObjectType;
+  }
+
+  private static ParentFields resolveParentFields(Id recordId) {
+    if (recordId == null) {
+      throw new AuraHandledException('Record Id is required');
+    }
+    ParentFields fields = new ParentFields();
+    fields.recordId = recordId;
+    fields.isOpportunity = isOpportunityRecord(recordId);
+    if (fields.isOpportunity) {
+      fields.buyerIdField = requireParentFieldApiName(
+        Opportunity.SObjectType,
+        PropfocusConfigService.requireOpportunityBuyerIdField(),
+        'Opportunity_Buyer_Id_Field__c'
+      );
+      fields.buyerNameField = requireParentFieldApiName(
+        Opportunity.SObjectType,
+        PropfocusConfigService.requireOpportunityBuyerNameField(),
+        'Opportunity_Buyer_Name_Field__c'
+      );
+      fields.projectField = requireParentFieldApiName(
+        Opportunity.SObjectType,
+        PropfocusConfigService.requireOpportunityProjectField(),
+        'Opportunity_Project_Field__c'
+      );
+      fields.statusField = requireParentFieldApiName(
+        Opportunity.SObjectType,
+        PropfocusConfigService.requireOpportunityStatusField(),
+        'Opportunity_Status_Field__c'
+      );
+      fields.preSalesRepSourceField = getOpportunityPreSalesRepSourceFieldApiName();
+      fields.embedUsesSalesforceId =
+        PropfocusConfigService.getConfig().embedUsesSalesforceOpportunityId ==
+        true;
+    } else if (recordId.getSObjectType() == Lead.SObjectType) {
+      fields.buyerIdField = requireParentFieldApiName(
+        Lead.SObjectType,
+        PropfocusConfigService.requireBuyerIdField(),
+        'Buyer_Id_Field__c'
+      );
+      fields.buyerNameField = requireParentFieldApiName(
+        Lead.SObjectType,
+        PropfocusConfigService.requireBuyerNameField(),
+        'Buyer_Name_Field__c'
+      );
+      fields.projectField = requireParentFieldApiName(
+        Lead.SObjectType,
+        PropfocusConfigService.requireProjectField(),
+        'Project_Field__c'
+      );
+      fields.statusField = requireParentFieldApiName(
+        Lead.SObjectType,
+        PropfocusConfigService.requireLeadStatusField(),
+        'Lead_Status_Field__c'
+      );
+      fields.preSalesRepSourceField = getLeadPreSalesRepSourceFieldApiName();
+      fields.embedUsesSalesforceId =
+        PropfocusConfigService.getConfig().embedUsesSalesforceLeadId == true;
+    } else {
+      throw new AuraHandledException(
+        'Unsupported record type. Use Lead or Opportunity.'
+      );
+    }
+    return fields;
+  }
+
+  private static void putSalesforceIdentity(Map<String, Object> body, Id recordId) {
+    if (body == null || recordId == null) {
+      return;
+    }
+    if (isOpportunityRecord(recordId)) {
+      body.put('salesforce_opportunity_id', String.valueOf(recordId));
+    } else {
+      body.put('salesforce_lead_id', String.valueOf(recordId));
+    }
+  }
 
   @TestVisible
   private static void logPropfocusError(String operation, String technicalDetail) {
@@ -116,23 +207,27 @@ public class PropFocusLeadService {
   }
 
   private static void createPropfocusLinkHistory(
-    Id leadId,
+    Id recordId,
     String typeValue,
     String projectName,
     String urlValue,
     String statusValue
   ) {
-    if (leadId == null || String.isBlank(urlValue)) {
+    if (recordId == null || String.isBlank(urlValue)) {
       return;
     }
     Propfocus_Link__c historyRow = new Propfocus_Link__c(
-      Lead__c = leadId,
       Type__c = typeValue,
       Project_Name__c = projectName,
       URL__c = urlValue,
       Created_At__c = System.now(),
       Status__c = statusValue
     );
+    if (isOpportunityRecord(recordId)) {
+      historyRow.Opportunity__c = recordId;
+    } else {
+      historyRow.Lead__c = recordId;
+    }
     insert historyRow;
   }
 
@@ -179,24 +274,38 @@ public class PropFocusLeadService {
   }
 
   public static void syncLinkHistoryStatusFromSiteVisit(
-    Id leadId,
+    Id recordId,
     String projectName,
     String siteVisitStatus
   ) {
-    if (leadId == null || String.isBlank(projectName)) {
+    if (recordId == null || String.isBlank(projectName)) {
       return;
     }
     String mappedStatus = normalizeSiteVisitHistoryStatus(siteVisitStatus);
-    List<Propfocus_Link__c> rows = [
-      SELECT Id, Status__c
-      FROM Propfocus_Link__c
-      WHERE Lead__c = :leadId
-        AND Type__c IN ('Site Visit Confirmation', 'Site Visit')
-        AND Project_Name__c = :projectName
-        AND Status__c != 'Reused'
-      ORDER BY Created_At__c DESC
-      LIMIT 1
-    ];
+    List<Propfocus_Link__c> rows;
+    if (isOpportunityRecord(recordId)) {
+      rows = [
+        SELECT Id, Status__c
+        FROM Propfocus_Link__c
+        WHERE Opportunity__c = :recordId
+          AND Type__c IN ('Site Visit Confirmation', 'Site Visit')
+          AND Project_Name__c = :projectName
+          AND Status__c != 'Reused'
+        ORDER BY Created_At__c DESC
+        LIMIT 1
+      ];
+    } else {
+      rows = [
+        SELECT Id, Status__c
+        FROM Propfocus_Link__c
+        WHERE Lead__c = :recordId
+          AND Type__c IN ('Site Visit Confirmation', 'Site Visit')
+          AND Project_Name__c = :projectName
+          AND Status__c != 'Reused'
+        ORDER BY Created_At__c DESC
+        LIMIT 1
+      ];
+    }
     if (rows.isEmpty() || rows[0].Status__c == mappedStatus) {
       return;
     }
@@ -262,28 +371,60 @@ public class PropFocusLeadService {
     return items;
   }
 
-  private static String requireLeadFieldApiName(
+  private static String requireParentFieldApiName(
+    Schema.SObjectType objectType,
     String value,
     String configFieldApiName
   ) {
     String fieldApiName = requireSafeApiName(value, configFieldApiName);
-    if (!Schema.SObjectType.Lead.fields.getMap().containsKey(fieldApiName)) {
+    if (!objectType.getDescribe().fields.getMap().containsKey(fieldApiName)) {
       throw new AuraHandledException(
-        'Configured lead field not found: ' + fieldApiName
+        'Configured field not found on ' +
+          objectType.getDescribe().getName() +
+          ': ' +
+          fieldApiName
       );
     }
     return fieldApiName;
   }
 
-  private static String getPreSalesRepSourceFieldApiName() {
+  private static String requireLeadFieldApiName(
+    String value,
+    String configFieldApiName
+  ) {
+    return requireParentFieldApiName(
+      Lead.SObjectType,
+      value,
+      configFieldApiName
+    );
+  }
+
+  private static String getLeadPreSalesRepSourceFieldApiName() {
     String configuredFieldApiName = PropfocusConfigService.getPreSalesRepSourceField();
     if (String.isBlank(configuredFieldApiName)) {
       return null;
     }
-    return requireLeadFieldApiName(
+    return requireParentFieldApiName(
+      Lead.SObjectType,
       configuredFieldApiName,
       'Pre_Sales_Rep_Source_Field__c'
     );
+  }
+
+  private static String getOpportunityPreSalesRepSourceFieldApiName() {
+    String configuredFieldApiName = PropfocusConfigService.getOpportunityPreSalesRepSourceField();
+    if (String.isBlank(configuredFieldApiName)) {
+      return null;
+    }
+    return requireParentFieldApiName(
+      Opportunity.SObjectType,
+      configuredFieldApiName,
+      'Opportunity_Pre_Sales_Rep_Source_Field__c'
+    );
+  }
+
+  private static String getPreSalesRepSourceFieldApiName() {
+    return getLeadPreSalesRepSourceFieldApiName();
   }
 
   private static String resolvePreSalesRepSource(
@@ -328,47 +469,39 @@ public class PropFocusLeadService {
   }
 
   private static SObject queryLeadById(Id leadId, List<String> fieldApiNames) {
+    return queryParentById(leadId, fieldApiNames);
+  }
+
+  private static SObject queryParentById(Id recordId, List<String> fieldApiNames) {
     Set<String> selectedFields = new Set<String>{ 'Id' };
     for (String f : fieldApiNames) {
       if (!String.isBlank(f)) {
         selectedFields.add(f);
       }
     }
+    String objectApiName = isOpportunityRecord(recordId) ? 'Opportunity' : 'Lead';
     String soql =
       'SELECT ' +
       String.join(new List<String>(selectedFields), ', ') +
-      ' FROM Lead WHERE Id = :leadId LIMIT 1';
+      ' FROM ' +
+      objectApiName +
+      ' WHERE Id = :recordId LIMIT 1';
     return Database.query(soql);
   }
 
   @AuraEnabled(cacheable=true)
   public static Map<String, Object> getLeadDetails(Id leadId) {
-    String buyerIdFieldApiName = requireLeadFieldApiName(
-      PropfocusConfigService.requireBuyerIdField(),
-      'Buyer_Id_Field__c'
-    );
-    String buyerNameFieldApiName = requireLeadFieldApiName(
-      PropfocusConfigService.requireBuyerNameField(),
-      'Buyer_Name_Field__c'
-    );
-    String projectFieldApiName = requireLeadFieldApiName(
-      PropfocusConfigService.requireProjectField(),
-      'Project_Field__c'
-    );
-    String leadStatusFieldApiName = requireLeadFieldApiName(
-      PropfocusConfigService.requireLeadStatusField(),
-      'Lead_Status_Field__c'
-    );
-    SObject ld = queryLeadById(
+    ParentFields fields = resolveParentFields(leadId);
+    SObject ld = queryParentById(
       leadId,
       new List<String>{
         'Propfocus_Link__c',
         'Propfocus_Post_Visit__c',
         'Propfocus_Buyer_Insights_Available__c',
-        buyerIdFieldApiName,
-        buyerNameFieldApiName,
-        projectFieldApiName,
-        leadStatusFieldApiName
+        fields.buyerIdField,
+        fields.buyerNameField,
+        fields.projectField,
+        fields.statusField
       }
     );
     return new Map<String, Object>{
@@ -378,10 +511,11 @@ public class PropFocusLeadService {
       'buyerInsightsAvailable' => ld.get(
         'Propfocus_Buyer_Insights_Available__c'
       ),
-      'buyerId' => ld.get(buyerIdFieldApiName),
-      'buyerName' => ld.get(buyerNameFieldApiName),
-      'projectName' => ld.get(projectFieldApiName),
-      'leadStatus' => ld.get(leadStatusFieldApiName)
+      'buyerId' => ld.get(fields.buyerIdField),
+      'buyerName' => ld.get(fields.buyerNameField),
+      'projectName' => ld.get(fields.projectField),
+      'leadStatus' => ld.get(fields.statusField),
+      'isOpportunity' => fields.isOpportunity
     };
   }
 
@@ -390,14 +524,15 @@ public class PropFocusLeadService {
     Id leadId
   ) {
     if (leadId == null) {
-      throw new AuraHandledException('Lead Id is required');
+      throw new AuraHandledException('Record Id is required');
     }
 
     PropfocusConfigService.Config cfg = PropfocusConfigService.getConfig();
+    ParentFields fields = resolveParentFields(leadId);
     Map<String, Object> leadDetails = getLeadDetails(leadId);
 
     BuyerInsightsEmbedContext context = new BuyerInsightsEmbedContext();
-    context.usesSalesforceLeadId = cfg.embedUsesSalesforceLeadId == true;
+    context.usesSalesforceLeadId = fields.embedUsesSalesforceId == true;
     context.buyerInsightsAvailable =
       leadDetails.get('buyerInsightsAvailable') == true;
     context.embedKey = resolveEmbedKey(
@@ -448,7 +583,7 @@ public class PropFocusLeadService {
    * (microsite / site visit / post visit) and returns WhatsApp-ready
    * template + link + mediaUrl. Reusable from LWC, Flow, and Apex.
    *
-   * @param leadId Salesforce Lead Id
+   * @param leadId Salesforce Lead or Opportunity Id
    * @param communicationType microsite | site_visit | post_visit
    * @param contextJson Optional JSON object with type-specific fields
    */
@@ -459,7 +594,7 @@ public class PropFocusLeadService {
     String contextJson
   ) {
     if (leadId == null) {
-      throw new AuraHandledException('Lead Id is required');
+      throw new AuraHandledException('Record Id is required');
     }
     String normalizedType = normalizeCommunicationType(communicationType);
     if (String.isBlank(normalizedType)) {
@@ -801,10 +936,15 @@ public class PropFocusLeadService {
       PropfocusConfigService.requireSiteVisitStatusField(),
       'Site_Visit_Status_Field__c'
     );
-    String leadLookupFieldApiName = requireSafeApiName(
-      PropfocusConfigService.requireSiteVisitLeadLookupField(),
-      'Lead_Lookup_Field__c'
-    );
+    String parentLookupFieldApiName = isOpportunityRecord(leadId)
+      ? requireSafeApiName(
+          PropfocusConfigService.requireSiteVisitOpportunityLookupField(),
+          'Opportunity_Lookup_Field__c'
+        )
+      : requireSafeApiName(
+          PropfocusConfigService.requireSiteVisitLeadLookupField(),
+          'Lead_Lookup_Field__c'
+        );
     String projectFieldApiName = requireSafeApiName(
       PropfocusConfigService.requireSiteVisitProjectField(),
       'Site_Visit_Project_Field__c'
@@ -820,7 +960,7 @@ public class PropFocusLeadService {
       'Id',
       'CreatedDate',
       statusFieldApiName,
-      leadLookupFieldApiName,
+      parentLookupFieldApiName,
       projectFieldApiName
     };
     for (String fieldApiName : requiredFields) {
@@ -837,7 +977,7 @@ public class PropFocusLeadService {
       ' FROM ' +
       objectApiName +
       ' WHERE ' +
-      leadLookupFieldApiName +
+      parentLookupFieldApiName +
       ' = :leadId';
     soql += ' ORDER BY CreatedDate DESC LIMIT ' + rowLimit;
     return Database.query(soql);
@@ -1115,30 +1255,19 @@ public class PropFocusLeadService {
     Map<String, Object> contextInput
   ) {
     if (leadId == null) {
-      throw new AuraHandledException('Lead Id is required');
+      throw new AuraHandledException('Record Id is required');
     }
 
     Map<String, Object> context = contextInput == null
       ? new Map<String, Object>()
       : new Map<String, Object>(contextInput);
 
-    String buyerIdFieldApiName = requireLeadFieldApiName(
-      PropfocusConfigService.requireBuyerIdField(),
-      'Buyer_Id_Field__c'
-    );
-    String buyerNameFieldApiName = requireLeadFieldApiName(
-      PropfocusConfigService.requireBuyerNameField(),
-      'Buyer_Name_Field__c'
-    );
-    String projectFieldApiName = requireLeadFieldApiName(
-      PropfocusConfigService.requireProjectField(),
-      'Project_Field__c'
-    );
-    String leadStatusFieldApiName = requireLeadFieldApiName(
-      PropfocusConfigService.requireLeadStatusField(),
-      'Lead_Status_Field__c'
-    );
-    String preSalesRepSourceFieldApiName = getPreSalesRepSourceFieldApiName();
+    ParentFields fields = resolveParentFields(leadId);
+    String buyerIdFieldApiName = fields.buyerIdField;
+    String buyerNameFieldApiName = fields.buyerNameField;
+    String projectFieldApiName = fields.projectField;
+    String leadStatusFieldApiName = fields.statusField;
+    String preSalesRepSourceFieldApiName = fields.preSalesRepSourceField;
 
     List<String> leadFieldApiNames = new List<String>{
       'Owner.Name',
@@ -1155,7 +1284,7 @@ public class PropFocusLeadService {
     if (!String.isBlank(preSalesRepSourceFieldApiName)) {
       leadFieldApiNames.add(preSalesRepSourceFieldApiName);
     }
-    SObject ld = queryLeadById(leadId, leadFieldApiNames);
+    SObject ld = queryParentById(leadId, leadFieldApiNames);
 
     String buyerId = asString(ld.get(buyerIdFieldApiName));
     String buyerName = firstContextString(
@@ -1166,7 +1295,10 @@ public class PropFocusLeadService {
       buyerName = asString(ld.get(buyerNameFieldApiName));
     }
     if (String.isBlank(buyerId)) {
-      throw new AuraHandledException('Buyer Id is required on the Lead');
+      throw new AuraHandledException(
+        'Buyer Id is required on the ' +
+          (fields.isOpportunity ? 'Opportunity' : 'Lead')
+      );
     }
     if (String.isBlank(buyerName)) {
       throw new AuraHandledException('Buyer name is required');
@@ -1320,9 +1452,9 @@ public class PropFocusLeadService {
       API_LEAD_STATUS_KEY => context.containsKey(API_LEAD_STATUS_KEY)
         ? context.get(API_LEAD_STATUS_KEY)
         : ld.get(leadStatusFieldApiName),
-      'buyer_id' => buyerId,
-      'salesforce_lead_id' => String.valueOf(leadId)
+      'buyer_id' => buyerId
     };
+    putSalesforceIdentity(body, leadId);
     putBrokerIdentification(
       body,
       ld,
@@ -1380,9 +1512,9 @@ public class PropFocusLeadService {
       'project_name' => projectName,
       'visit_date' => visitDate,
       'visit_time' => visitTime,
-      'buyer_name' => buyerName,
-      'salesforce_lead_id' => String.valueOf(leadId)
+      'buyer_name' => buyerName
     };
+    putSalesforceIdentity(body, leadId);
     putBrokerIdentification(
       body,
       ld,
@@ -1419,9 +1551,9 @@ public class PropFocusLeadService {
       'visit_conducted_at' => firstContextString(
         context,
         new List<String>{ 'visitConductedAt', 'visit_conducted_at' }
-      ),
-      'salesforce_lead_id' => String.valueOf(leadId)
+      )
     };
+    putSalesforceIdentity(body, leadId);
     putBrokerIdentification(
       body,
       ld,
@@ -1942,6 +2074,17 @@ public class PropFocusLeadService {
       return false;
     }
 
+    if (isOpportunityRecord(leadId)) {
+      List<Opportunity> opportunities = [
+        SELECT Propfocus_Buyer_Insights_Available__c
+        FROM Opportunity
+        WHERE Id = :leadId
+        LIMIT 1
+      ];
+      return !opportunities.isEmpty() &&
+        opportunities[0].Propfocus_Buyer_Insights_Available__c == true;
+    }
+
     List<Lead> leads = [
       SELECT Propfocus_Buyer_Insights_Available__c
       FROM Lead
@@ -1961,13 +2104,25 @@ public class PropFocusLeadService {
       return items;
     }
     Set<String> seenUrls = new Set<String>();
-    for (Propfocus_Link__c row : [
-      SELECT Id, Type__c, Project_Name__c, URL__c, Created_At__c, Status__c
-      FROM Propfocus_Link__c
-      WHERE Lead__c = :leadId
-      ORDER BY Created_At__c DESC
-      LIMIT 50
-    ]) {
+    List<Propfocus_Link__c> rows;
+    if (isOpportunityRecord(leadId)) {
+      rows = [
+        SELECT Id, Type__c, Project_Name__c, URL__c, Created_At__c, Status__c
+        FROM Propfocus_Link__c
+        WHERE Opportunity__c = :leadId
+        ORDER BY Created_At__c DESC
+        LIMIT 50
+      ];
+    } else {
+      rows = [
+        SELECT Id, Type__c, Project_Name__c, URL__c, Created_At__c, Status__c
+        FROM Propfocus_Link__c
+        WHERE Lead__c = :leadId
+        ORDER BY Created_At__c DESC
+        LIMIT 50
+      ];
+    }
+    for (Propfocus_Link__c row : rows) {
       if (row.Status__c == 'Reused' || seenUrls.contains(row.URL__c)) {
         continue;
       }

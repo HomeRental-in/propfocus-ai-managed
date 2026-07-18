@@ -24,6 +24,12 @@
                 <lightning-input class="slds-m-top_small" label="Buyer Name Field" value={buyerNameField} disabled></lightning-input>
                 <lightning-input class="slds-m-top_small" label="Lead Status Field" value={leadStatusField} disabled></lightning-input>
                 <lightning-input class="slds-m-top_small" label="Project Field" value={projectField} disabled></lightning-input>
+                <h3 class="slds-text-heading_small slds-m-top_large slds-m-bottom_x-small">Opportunity field mapping</h3>
+                <lightning-input class="slds-m-top_small" label="Opportunity Buyer Id Field" value={opportunityBuyerIdField} disabled></lightning-input>
+                <lightning-input class="slds-m-top_small" label="Opportunity Buyer Name Field" value={opportunityBuyerNameField} disabled></lightning-input>
+                <lightning-input class="slds-m-top_small" label="Opportunity Status Field" value={opportunityStatusField} disabled></lightning-input>
+                <lightning-input class="slds-m-top_small" label="Opportunity Project Field" value={opportunityProjectField} disabled></lightning-input>
+                <lightning-input class="slds-m-top_small" label="Site Visit Opportunity Lookup Field" value={siteVisitOpportunityLookupField} disabled></lightning-input>
                 <div class="slds-m-top_medium">
                     <lightning-button label="Test Connection" variant="brand" onclick={handleTestConnection} disabled={isTesting}></lightning-button>
                     <template lwc:if={isTesting}>

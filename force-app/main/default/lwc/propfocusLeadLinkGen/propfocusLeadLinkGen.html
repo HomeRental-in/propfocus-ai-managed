@@ -28,7 +28,7 @@
             </template>
             <template lwc:if={hasHistory}>
                 <div class="pf-history">
-                    <h3 class="pf-history-title">LEAD History</h3>
+                    <h3 class="pf-history-title">History</h3>
                     <div class="pf-history-list">
                         <template for:each={visibleHistory} for:item="item">
                             <div key={item.id} class={item.itemClass}>
@@ -61,7 +61,7 @@
             <template lwc:if={showBuyerInsightsEmbed}>
                 <div class="pf-preview-section">
                     <div class="pf-preview-head">
-                        <span class="pf-preview-title">Lead Insights</span>
+                        <span class="pf-preview-title">Buyer Insights</span>
                         <button type="button" class="pf-toggle" onclick={togglePreviewExpanded} aria-expanded={previewExpanded}>
                             <lightning-icon icon-name={previewToggleIconName} size="x-small" alternative-text={previewToggleLabel}></lightning-icon>
                             {previewToggleLabel}
@@ -74,7 +74,7 @@
             </template>
             <template lwc:else>
                 <template lwc:if={missingRecordContext}>
-                    <div class="pf-alert" role="alert">Add this component to a Lead record page to use Propfocus actions and preview.</div>
+                    <div class="pf-alert" role="alert">Add this component to a Lead or Opportunity record page to use Propfocus actions and preview.</div>
                 </template>
             </template>
         </div>

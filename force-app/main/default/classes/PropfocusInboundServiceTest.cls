@@ -232,4 +232,80 @@ private class PropfocusInboundServiceTest {
     System.assertEquals(1, body.get('call_logs_created'));
     System.assertEquals(1, body.get('history_rows_created'));
   }
+
+  @IsTest
+  static void success_resolvesOpportunityByBuyerId() {
+    Opportunity opp = PropfocusTestUtil.createOpportunity('Inbound Opp Buyer');
+    setContext(
+      validPayload(PropfocusTestUtil.buyerIdFor(opp), configuredOrgId())
+    );
+
+    Test.startTest();
+    PropfocusInboundService.handleEvent();
+    Test.stopTest();
+
+    System.assertEquals(200, RestContext.response.statusCode);
+    Map<String, Object> body = responseBody();
+    System.assertEquals(true, body.get('success'));
+    System.assertEquals(String.valueOf(opp.Id), body.get('opportunity_id'));
+    System.assertEquals('Opportunity', body.get('record_type'));
+    System.assertEquals(null, body.get('lead_id'));
+  }
+
+  @IsTest
+  static void success_writeback_opportunity_children() {
+    Opportunity opp = PropfocusTestUtil.createOpportunity('Inbound Opp Writeback');
+    setContext(
+      JSON.serialize(
+        new Map<String, Object>{
+          'event_type' => 'buyer_activity',
+          'buyer_id' => PropfocusTestUtil.buyerIdFor(opp),
+          'organization_id' => configuredOrgId(),
+          'lead_data' => new Map<String, Object>{
+            'buyer_name' => 'Updated Opp Name',
+            'salesforce_opportunity_id' => String.valueOf(opp.Id)
+          },
+          'call_logs' => new List<Object>{
+            new Map<String, Object>{
+              'duration' => '45',
+              'disposition' => 'Answered',
+              'call_time' => '2026-05-26T10:00:00.000Z'
+            }
+          },
+          'site_visit' => new Map<String, Object>{
+            'site_visit_number' => 'SV-OPP-1',
+            'site_visit_status' => 'Scheduled',
+            'project_name' => 'Tower A'
+          }
+        }
+      )
+    );
+
+    Test.startTest();
+    PropfocusInboundService.handleEvent();
+    Test.stopTest();
+
+    System.assertEquals(200, RestContext.response.statusCode);
+    Map<String, Object> body = responseBody();
+    System.assertEquals(true, body.get('lead_updated'));
+    System.assertEquals(1, body.get('call_logs_created'));
+    System.assertEquals(true, body.get('site_visit_synced'));
+
+    List<Propfocus_Call_Log__c> logs = [
+      SELECT Opportunity__c, Lead__c
+      FROM Propfocus_Call_Log__c
+      WHERE Opportunity__c = :opp.Id
+    ];
+    System.assertEquals(1, logs.size());
+    System.assertEquals(null, logs[0].Lead__c);
+
+    List<Propfocus_Site_Visit_Sync__c> syncRows = [
+      SELECT Opportunity__c, Lead__c, Site_Visit_Number__c
+      FROM Propfocus_Site_Visit_Sync__c
+      WHERE Opportunity__c = :opp.Id
+    ];
+    System.assertEquals(1, syncRows.size());
+    System.assertEquals('SV-OPP-1', syncRows[0].Site_Visit_Number__c);
+    System.assertEquals(null, syncRows[0].Lead__c);
+  }
 }

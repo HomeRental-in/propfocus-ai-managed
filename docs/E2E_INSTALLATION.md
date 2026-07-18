@@ -45,7 +45,8 @@ Propfocus uses **two separate OAuth systems**. Do not mix them up.
 | Outbound OAuth **Client Id** + **Client Secret** | Propfocus team | Enter in **External Credential → Propfocus Principal** (Phase 4.1) — **not** in Propfocus Config |
 | API / embed base URL | Propfocus team | Production: `https://propfocus.in` (API), `https://propfocus.in/embed/salesforce` (embed). Sandboxes: see [Sandbox override](#sandbox--uat--point-at-dev) |
 | List of **Lead field API names** to map | Customer admin | Buyer Id, Name, Project, Status, owners — see [FIELDS.md](./FIELDS.md) |
-| **Site Visit** object API name + fields (if used) | Customer admin | Package does **not** create `Site_Visit__c`; it must already exist |
+| List of **Opportunity field API names** (if using Opp panel) | Customer admin | Buyer Id, Name, Stage/Status, Project — see [FIELDS.md](./FIELDS.md) |
+| **Site Visit** object API name + fields (if used) | Customer admin | Package does **not** create `Site_Visit__c`; it must already exist (Lead + Opportunity lookups) |
 | Sales test user | Customer admin | For LWC / Generate Microsite tests |
 | Dedicated **integration user** email | Customer admin | e.g. `propfocus.integration@yourcompany.com` |
 | JWT **`server.crt`** (public cert only) | Propfocus team | Propfocus generates the key pair and keeps `server.key`; customer uploads only `server.crt` (valid 365 days) |
@@ -59,7 +60,8 @@ Do these **before** opening the install link. Lead Field History Tracking is **n
 | # | Where | Action | Pass when |
 | - | ----- | ------ | --------- |
 | 0.1 | Object Manager → Lead → Fields | Confirm custom fields you will map exist (or create them) | Buyer Id / Name / Project fields exist |
-| 0.2 | Object Manager | If using site visit features: confirm **Site Visit** object exists | Object + Lead lookup field exist |
+| 0.1b | Object Manager → Opportunity → Fields | If using Opportunity panel: confirm buyer id / project fields exist | Opportunity mappings possible |
+| 0.2 | Object Manager | If using site visit features: confirm **Site Visit** object exists | Object + Lead lookup (and Opportunity lookup if used) exist |
 | 0.3 | — | Confirm org edition supports Apex | Not Starter / Essentials / Group |
 
 ---
@@ -81,7 +83,7 @@ https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000iXWXQA
 
 **Installed for you (no action):** Apex, Lead trigger, inbound REST, Platform Event, custom objects, permission sets, External Credential + Named Credential (skeleton), Remote Site, CSP Trusted Sites, LWCs, Admin Setup tab, Propfocus AI app, default `Propfocus_Config` CMDT record.
 
-**Not installed (you configure next):** External Credential Client Id/Secret, External Client App (inbound JWT), field mappings, permission set assignments, Lead page LWC placement, integration user.
+**Not installed (you configure next):** External Credential Client Id/Secret, External Client App (inbound JWT), field mappings, permission set assignments, Lead/Opportunity page LWC placement, integration user.
 
 ---
 
@@ -126,11 +128,12 @@ If Edit only shows Label / Name:
 | Organization Id | _(from Propfocus team)_ |
 | Embed Base Url | `https://propfocus.in/embed/salesforce` (subscriber-editable in this record; sandboxes: `https://dev.propfocus.in/embed/salesforce`) |
 | Embed Uses Salesforce Lead Id | Checked |
+| Embed Uses Salesforce Opportunity Id | Checked |
 | Show Copy Modal | Checked (optional UX) |
 
 Outbound OAuth Client Id/Secret are **not** stored in Config — see Phase 4.1.
 
-#### B. Lead field mappings (required)
+#### B. Lead field mappings (required for Lead panel)
 
 Enter **API names** only (custom fields end in `__c`). Discover them via [FIELDS.md](./FIELDS.md).
 
@@ -147,14 +150,27 @@ Enter **API names** only (custom fields end in `__c`). Discover them via [FIELDS
 | Sales Owner Name Field | Write-back | org-specific |
 | Sales Owner Phone Field | Write-back | org-specific |
 
-**Critical:** Buyer Id Field must be populated on Leads you test. Inbound REST matches `buyer_id` to this field.
+**Critical:** Buyer Id Field must be populated on Leads you test. Inbound REST matches `buyer_id` to this field (or to Opportunity buyer id after Lead miss).
 
-#### C. Site Visit mappings (if using Confirm Site Visit)
+#### C. Opportunity field mappings (required for Opportunity panel)
+
+| Config field | Maps to | Example |
+| ------------ | ------- | ------- |
+| Opportunity Buyer Id Field | Unique buyer / enquiry ref on Opportunity | org-specific |
+| Opportunity Buyer Name Field | Display name | `Name` |
+| Opportunity Status Field | Stage / status | `StageName` |
+| Opportunity Project Field | Project | org-specific |
+| Opportunity Lead Source Field | Source | `LeadSource` |
+| Opportunity Pre Sales Rep Source Field | Broker / presales (outbound) | org-specific |
+| Opportunity owner name/phone fields | Write-back | org-specific |
+
+#### D. Site Visit mappings (if using Confirm Site Visit)
 
 | Config field | Example |
 | ------------ | ------- |
 | Site Visit Object | `Site_Visit__c` |
 | Lead Lookup Field | `Lead__c` |
+| Opportunity Lookup Field | `Opportunity__c` |
 | Site Visit Status Field | `Status__c` |
 | Site Visit Project Field | org-specific |
 | Site Visit Type Field | org-specific |
@@ -165,11 +181,12 @@ Save the record.
 
 ### 3.3 Grant integration user FLS on mapped fields
 
-**Propfocus Integration** does not include customer Lead/Site Visit field access.
+**Propfocus Integration** does not include customer Lead/Opportunity/Site Visit field access.
 
 1. Setup → Permission Sets → **Propfocus Integration** (or a companion set)
 2. Object Settings → **Lead** → grant **Read + Edit** on every mapped field
-3. Repeat for **Site Visit** object fields if used
+3. Object Settings → **Opportunity** → grant **Read + Edit** on every mapped Opportunity field (if using Opp panel)
+4. Repeat for **Site Visit** object fields if used
 
 ---
 
@@ -195,6 +212,7 @@ Client Id and Client Secret are stored encrypted in the External Credential — 
 | 4.4 | Setup → Custom Notifications → **PropFocus Notification** | Ensure delivery to users who should get bell alerts | Recipients configured |
 | 4.5 | Setup → App Manager → your sales app → Edit | Add **propfocusAI Admin Setup** to Navigation Items → Save | Tab visible in app |
 | 4.6 | Open any Lead → gear → **Edit Page** | Drag **propfocusLeadLinkGen** onto the page → **Save** → **Activate** (org default or relevant apps) | Component visible on Lead |
+| 4.7 | Open any Opportunity → gear → **Edit Page** | Drag **propfocusLeadLinkGen** onto the page → **Save** → **Activate** | Component visible on Opportunity |
 
 Optional: open the packaged **Propfocus AI** app (includes Lead + Admin Setup) instead of adding the tab to an existing app.
 
@@ -272,16 +290,17 @@ Propfocus must also:
 
 ## Phase 8 — End-to-end feature tests
 
-Use a Lead with **Buyer Id Field** populated.
+Use a Lead with **Buyer Id Field** populated. For Opportunity tests, use an Opportunity with **Opportunity Buyer Id Field** populated.
 
 | # | Test | Do | Pass when |
 | - | ---- | -- | --------- |
 | 8.1 | Generate Microsite | Lead → Generate Microsite → pick project | `Propfocus_Link__c` populated; no error toast |
 | 8.2 | Buyer Insights | After microsite | Iframe loads (not blank) |
-| 8.3 | Confirm Site Visit | Click Confirm Site Visit | Site visit URL field populated |
+| 8.3 | Confirm Site Visit (Lead) | Lead → Confirm Site Visit | Lead site visit URL field populated |
+| 8.3b | Confirm Site Visit (Opp) | Opportunity → Confirm Site Visit | Opportunity site visit URL populated; outbound body includes `salesforce_opportunity_id` |
 | 8.4 | Outbound sync | Change Lead Status → Save | Propfocus receives Platform Event |
-| 8.5 | Inbound notification | Propfocus POSTs notification event | Lead owner gets bell notification |
-| 8.6 | Write-back | Propfocus POSTs write-back payload | Lead + child records update |
+| 8.5 | Inbound notification | Propfocus POSTs notification event | Lead or Opportunity owner gets bell notification |
+| 8.6 | Write-back | Propfocus POSTs write-back payload | Parent + child records update (Lead or Opportunity) |
 
 Payload formats: outbound [OUTBOUND.md](./OUTBOUND.md) · inbound [INBOUND.md](./INBOUND.md)
 
@@ -337,6 +356,7 @@ The **managed package** installs Apex, LWCs, permission set *definitions*, Exter
 | Propfocus Config → Default values | `CustomMetadata` (`PropfocusAI__Propfocus_Config.Default`) | Organization Id, field API names, Embed Base Url |
 | Permission set assignments | `PermissionSetAssignment` or Manual / group assignment automation | Propfocus User / AI Admin / Integration |
 | Lead Lightning page with `propfocusLeadLinkGen` | `FlexiPage` | Activate as org/app default via deploy or App Builder + change set |
+| Opportunity Lightning page with `propfocusLeadLinkGen` | `FlexiPage` | Same shared LWC; activate for Opportunity record page |
 | Integration user FLS on mapped customer fields | Permission set (customer-owned) | Companion set recommended; not fully packaged |
 | Sandbox URL overrides | Named Credential / External Credential / CSP | Environment-specific; often manual or unlocked package |
 
@@ -376,7 +396,7 @@ If Upgrade is not offered (e.g. Beta → Released): note Client Id/Secret and JW
 
 ## Uninstall / rollback
 
-**Rollback without uninstall:** Prefer upgrading to a prior Released version only if Propfocus publishes one; otherwise leave the package installed and disable usage (remove LWC from Lead page, unassign permission sets, revoke External Client App / integration user).
+**Rollback without uninstall:** Prefer upgrading to a prior Released version only if Propfocus publishes one; otherwise leave the package installed and disable usage (remove LWC from Lead/Opportunity pages, unassign permission sets, revoke External Client App / integration user).
 
 **Before uninstall** (Setup → Installed Packages → Uninstall), record:
 
@@ -389,7 +409,7 @@ If Upgrade is not offered (e.g. Beta → Released): note Client Id/Secret and JW
 
 | Removed | Usually retained / orphaned |
 | ------- | --------------------------- |
-| Packaged Apex, LWCs, permission set *definitions*, Platform Event, inbound REST | Lead field **values** already written (e.g. packaged URL fields) may remain as data until fields are deleted |
+| Packaged Apex, LWCs, permission set *definitions*, Platform Event, inbound REST | Lead/Opportunity field **values** already written (e.g. packaged URL fields) may remain as data until fields are deleted |
 | Packaged custom objects / fields (if uninstall deletes them — confirm prompt) | Customer Site Visit object and customer-owned fields |
 | Packaged External/Named Credential skeletons | Secrets you typed (gone with credential) |
 
@@ -401,7 +421,7 @@ Uninstall does **not** automatically unregister the org in Propfocus backend —
 
 ```
 Prerequisites
-[ ] Lead (and Site Visit) fields exist for mapping
+[ ] Lead (and Opportunity / Site Visit) fields exist for mapping
 [ ] Credentials / Org Id received from Propfocus
 [ ] Enterprise: change window + pipeline path for CMDT / FlexiPage / perm sets
 
@@ -422,6 +442,7 @@ Config
 [ ] CSP Trusted Site active (frame-src)
 [ ] Admin Setup tab in app nav
 [ ] propfocusLeadLinkGen on Lead record page (activated)
+[ ] propfocusLeadLinkGen on Opportunity record page (activated, if using Opp panel)
 [ ] Custom notification delivery configured
 
 Inbound
@@ -444,13 +465,13 @@ Verify
 
 | Symptom | Fix |
 | ------- | --- |
-| Buttons missing on Lead | Phase 4.6 — add LWC + Activate |
+| Buttons missing on Lead / Opportunity | Phase 4.6 / 4.7 — add LWC + Activate |
 | Insufficient privileges | Phase 2 permission sets |
 | Test Connection fails | Phase 4.1 Client Id/Secret + token URL; Phase 3 Organization Id |
 | Unauthorized / insufficient access on callout | Phase 4.1d — user needs **Propfocus User** or **Propfocus AI Admin** (External Credential principal access) |
 | Microsite works for admin but not sales user | Assign **Propfocus User**; confirm principal access on that permission set |
 | Iframe blank | Phase 4.2 CSP + Embed Base Url; hard-refresh |
-| No Lead found for `buyer_id` | Buyer Id Field mapping + value on Lead |
+| No Lead/Opportunity found for `buyer_id` | Buyer Id Field mapping + value on Lead or Opportunity |
 | 403 Organization ID mismatch | Organization Id in Config ≠ backend |
 | Write-back fails / field errors | Phase 3.3 integration user FLS |
 | `invalid_grant` on JWT | Phase 6.6 pre-authorize integration user; or cert expired / wrong key (rotate per JWT_SETUP Step 10) |

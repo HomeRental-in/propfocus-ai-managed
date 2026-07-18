@@ -637,7 +637,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
 
   handlePrimaryMicrosite() {
     if (!this.recordId) {
-      this.showToast("Error", "Lead Id not available", "error");
+      this.showToast("Error", "Record Id not available", "error");
       return;
     }
     this.isLoading = true;
@@ -820,7 +820,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
 
   handleConfirmSiteVisit() {
     if (!this.recordId) {
-      this.showToast("Error", "Lead Id not available", "error");
+      this.showToast("Error", "Record Id not available", "error");
       return;
     }
     this.isLoading = true;
@@ -866,7 +866,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
 
   handleGeneratePostVisit() {
     if (!this.recordId) {
-      this.showToast("Error", "Lead Id not available", "error");
+      this.showToast("Error", "Record Id not available", "error");
       return;
     }
     this.isLoading = true;

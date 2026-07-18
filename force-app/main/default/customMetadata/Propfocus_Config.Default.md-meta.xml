@@ -170,4 +170,52 @@
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     />
     </values>
+    <values>
+        <field>Opportunity_Buyer_Id_Field__c</field>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    />
+    </values>
+    <values>
+        <field>Opportunity_Buyer_Name_Field__c</field>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    >Name</value>
+    </values>
+    <values>
+        <field>Opportunity_Status_Field__c</field>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    >StageName</value>
+    </values>
+    <values>
+        <field>Opportunity_Project_Field__c</field>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    />
+    </values>
+    <values>
+        <field>Opportunity_Lookup_Field__c</field>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    >Opportunity__c</value>
+    </values>
+    <values>
+        <field>Embed_Uses_Salesforce_Opportunity_Id__c</field>
+        <value
+      xsi:type="xsd:boolean"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    >true</value>
+    </values>
 </CustomMetadata>

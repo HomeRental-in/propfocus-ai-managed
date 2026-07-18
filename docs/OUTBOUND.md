@@ -11,7 +11,7 @@ For the reverse direction, see [INBOUND.md](./INBOUND.md).
 
 | Channel | When | Transport |
 | ------- | ---- | --------- |
-| REST callouts | Generate Microsite, Confirm Site Visit, Post Visit, project lists, Test Connection | HTTPS via Named Credential `Propfocus_API` + External Credential (OAuth `client_credentials`) |
+| REST callouts | Generate Microsite, Confirm Site Visit, Post Visit, project lists, Test Connection (from Lead or Opportunity panel) | HTTPS via Named Credential `Propfocus_API` + External Credential (OAuth `client_credentials`) |
 | Platform Events | Lead insert/update on watched fields | `PropfocusAI__Propfocus_Lead_Event__e` (CometD / EMP subscription by Propfocus) |
 
 Apex never reads the outbound client secret; Salesforce performs the token exchange.
@@ -26,11 +26,12 @@ Base URL: Named Credential host (`https://propfocus.in` production; `https://dev
 
 | JSON field | Source | PII? |
 | ---------- | ------ | ---- |
-| `clientName` | Lead field mapped by **Buyer Name Field** (or UI override) | Yes — buyer name |
-| `buyer_id` | Lead field mapped by **Buyer Id Field** | Yes — buyer / enquiry identifier |
-| `salesforce_lead_id` | Lead `Id` | Indirect identifier |
-| `projects` | UI selection and/or Lead **Project Field** | Usually business, not personal |
-| lead status key (API status field) | Lead **Lead Status Field** (default `Status`) | Business |
+| `clientName` | Mapped Buyer Name Field on Lead or Opportunity (or UI override) | Yes — buyer name |
+| `buyer_id` | Mapped Buyer Id Field on Lead or Opportunity | Yes — buyer / enquiry identifier |
+| `salesforce_lead_id` | Lead `Id` (Lead panel only) | Indirect identifier |
+| `salesforce_opportunity_id` | Opportunity `Id` (Opportunity panel only) | Indirect identifier |
+| `projects` | UI selection and/or mapped Project Field | Usually business, not personal |
+| lead status key (API status field) | Lead Status Field or Opportunity Status Field | Business |
 | `lead_types` | UI context | Business |
 | `configurationFilter` | UI context (may be empty) | Business |
 | `brokerName` | Lead **Pre Sales Rep Source Field** (when set) | Possible — employee name |
@@ -41,9 +42,10 @@ Base URL: Named Credential host (`https://propfocus.in` production; `https://dev
 
 | JSON field | Source | PII? |
 | ---------- | ------ | ---- |
-| `buyer_id` | Buyer Id Field | Yes |
-| `buyer_name` | Buyer Name Field | Yes |
-| `salesforce_lead_id` | Lead `Id` | Indirect identifier |
+| `buyer_id` | Mapped Buyer Id Field (Lead or Opportunity) | Yes |
+| `buyer_name` | Mapped Buyer Name Field (Lead or Opportunity) | Yes |
+| `salesforce_lead_id` | Lead `Id` (Lead panel only) | Indirect identifier |
+| `salesforce_opportunity_id` | Opportunity `Id` (Opportunity panel only) | Indirect identifier |
 | `project_name` | UI / Project Field | Business |
 | `visit_date` / `visit_time` | UI | Business |
 | `siteVisitManager` | UI (when selected) | Possible — manager details |
@@ -53,8 +55,9 @@ Base URL: Named Credential host (`https://propfocus.in` production; `https://dev
 
 | JSON field | Source | PII? |
 | ---------- | ------ | ---- |
-| `buyer_id` / `buyer_name` | Mapped Lead fields | Yes |
-| `salesforce_lead_id` | Lead `Id` | Indirect identifier |
+| `buyer_id` / `buyer_name` | Mapped Lead or Opportunity fields | Yes |
+| `salesforce_lead_id` | Lead `Id` (Lead panel) | Indirect identifier |
+| `salesforce_opportunity_id` | Opportunity `Id` (Opportunity panel) | Indirect identifier |
 | `project_name` | UI / Project Field | Business |
 | `visited_configuration` | UI | Business |
 | `visit_conducted_at` | UI | Business |
@@ -68,7 +71,9 @@ Base URL: Named Credential host (`https://propfocus.in` production; `https://dev
 | `/api/v1/organizations/{orgId}/accessible-projects` | Project picker | Organization Id |
 | `/api/v1/organizations/{orgId}/projects?include=all` | Project list | Organization Id |
 
-Idempotency: callouts send an `Idempotency-Key` header derived from operation + Lead Id + body hash (not additional PII).
+Idempotency: callouts send an `Idempotency-Key` header derived from operation + record Id (Lead or Opportunity) + body hash (not additional PII).
+
+**Identity rule:** Never put an Opportunity Id in `salesforce_lead_id`. Use `salesforce_opportunity_id` when the panel is opened from Opportunity.
 
 ---
 

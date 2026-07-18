@@ -6,9 +6,9 @@ Project overview, CLI setup, Dev Hub packaging, and definition of done.
 
 ## Project summary
 
-Build a **managed package** (`PropfocusAI` namespace) connecting Salesforce Leads to Propfocus:
+Build a **managed package** (`PropfocusAI` namespace) connecting Salesforce Leads and Opportunities to Propfocus:
 
-1. Microsite + site visit buttons on Lead records
+1. Microsite + site visit buttons on Lead and Opportunity records (shared `propfocusLeadLinkGen` panel)
 2. Buyer Insights iframe embed
 3. Bell notifications (inbound REST)
 4. Two-way sync (Platform Events + inbound write-back)
@@ -117,14 +117,14 @@ Feature testing: Partial — verify with subscriber + Propfocus backend
 | #   | Task                                                 |
 | --- | ---------------------------------------------------- |
 | 0.1 | Share install URL                                    |
-| 0.2 | Subscriber enables Lead history                      |
+| 0.2 | Subscriber confirms Lead/Opportunity fields for mapping |
 | 0.3 | Package installed (0.5.0-1)                          |
 | 1.x | Permission sets assigned                             |
-| 2.x | Propfocus Config configured (see FIELDS.md)          |
+| 2.x | Propfocus Config configured — Lead + Opportunity maps (see FIELDS.md) |
 | 3.x | External Credential principal + Named Credential verified |
-| 4.x | CSP + Lead component on page                         |
-| 5.x | Test Connection + all feature tests (SETUP_GUIDE.md) |
-| 6.x | Propfocus backend: Platform Events + inbound REST    |
+| 4.x | CSP + `propfocusLeadLinkGen` on Lead and Opportunity pages |
+| 5.x | Test Connection + Lead/Opportunity feature tests (SETUP_GUIDE.md) |
+| 6.x | Propfocus backend: Platform Events + inbound REST (`salesforce_opportunity_id`) |
 
 ---
 

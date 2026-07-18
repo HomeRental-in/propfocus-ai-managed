@@ -59,6 +59,32 @@ public with sharing class PropfocusConfigService {
     public Boolean embedUsesSalesforceLeadId;
     @AuraEnabled
     public Boolean showCopyModal;
+    @AuraEnabled
+    public String opportunityBuyerIdField;
+    @AuraEnabled
+    public String opportunityBuyerNameField;
+    @AuraEnabled
+    public String opportunityStatusField;
+    @AuraEnabled
+    public String opportunityProjectField;
+    @AuraEnabled
+    public String opportunityPreSalesRepSourceField;
+    @AuraEnabled
+    public String opportunityLeadSourceField;
+    @AuraEnabled
+    public String opportunityPreSalesOwnerNameField;
+    @AuraEnabled
+    public String opportunityPreSalesOwnerPhoneField;
+    @AuraEnabled
+    public String opportunitySalesOwnerNameField;
+    @AuraEnabled
+    public String opportunitySalesOwnerPhoneField;
+    @AuraEnabled
+    public String opportunityRelatedDateSourceField;
+    @AuraEnabled
+    public String siteVisitOpportunityLookupField;
+    @AuraEnabled
+    public Boolean embedUsesSalesforceOpportunityId;
   }
   public class ConnectionCheckResult {
     @AuraEnabled
@@ -112,6 +138,20 @@ public with sharing class PropfocusConfigService {
       cfg.embedUsesSalesforceLeadId =
         configured.Embed_Uses_Salesforce_Lead_Id__c == true;
       cfg.showCopyModal = configured.Show_Copy_Modal__c == true;
+      cfg.opportunityBuyerIdField = configured.Opportunity_Buyer_Id_Field__c;
+      cfg.opportunityBuyerNameField = configured.Opportunity_Buyer_Name_Field__c;
+      cfg.opportunityStatusField = configured.Opportunity_Status_Field__c;
+      cfg.opportunityProjectField = configured.Opportunity_Project_Field__c;
+      cfg.opportunityPreSalesRepSourceField = configured.Opportunity_Pre_Sales_Rep_Source_Field__c;
+      cfg.opportunityLeadSourceField = configured.Opportunity_Lead_Source_Field__c;
+      cfg.opportunityPreSalesOwnerNameField = configured.Opportunity_Pre_Sales_Owner_Name_Field__c;
+      cfg.opportunityPreSalesOwnerPhoneField = configured.Opportunity_Pre_Sales_Owner_Phone_Field__c;
+      cfg.opportunitySalesOwnerNameField = configured.Opportunity_Sales_Owner_Name_Field__c;
+      cfg.opportunitySalesOwnerPhoneField = configured.Opportunity_Sales_Owner_Phone_Field__c;
+      cfg.opportunityRelatedDateSourceField = configured.Opportunity_Related_Date_Source_Field__c;
+      cfg.siteVisitOpportunityLookupField = configured.Opportunity_Lookup_Field__c;
+      cfg.embedUsesSalesforceOpportunityId =
+        configured.Embed_Uses_Salesforce_Opportunity_Id__c == true;
     }
 
     cfg.logoUrl = LOGO_URL;
@@ -141,7 +181,26 @@ public with sharing class PropfocusConfigService {
       if (String.isBlank(cfg.leadSourceField)) {
         cfg.leadSourceField = 'LeadSource';
       }
+      if (String.isBlank(cfg.opportunityBuyerIdField)) {
+        cfg.opportunityBuyerIdField = 'Description';
+      }
+      if (String.isBlank(cfg.opportunityBuyerNameField)) {
+        cfg.opportunityBuyerNameField = 'Name';
+      }
+      if (String.isBlank(cfg.opportunityStatusField)) {
+        cfg.opportunityStatusField = 'StageName';
+      }
+      if (String.isBlank(cfg.opportunityProjectField)) {
+        cfg.opportunityProjectField = 'NextStep';
+      }
+      if (String.isBlank(cfg.opportunityLeadSourceField)) {
+        cfg.opportunityLeadSourceField = 'LeadSource';
+      }
+      if (String.isBlank(cfg.siteVisitOpportunityLookupField)) {
+        cfg.siteVisitOpportunityLookupField = 'Opportunity__c';
+      }
       cfg.embedUsesSalesforceLeadId = true;
+      cfg.embedUsesSalesforceOpportunityId = true;
       cfg.showCopyModal = false;
     }
 
@@ -272,6 +331,60 @@ public with sharing class PropfocusConfigService {
     if (String.isBlank(v)) {
       throw new AuraHandledException(
         'Propfocus configuration missing: Lead_Lookup_Field__c'
+      );
+    }
+    return v;
+  }
+
+  public static String requireOpportunityBuyerIdField() {
+    String v = getConfig().opportunityBuyerIdField;
+    if (String.isBlank(v)) {
+      throw new AuraHandledException(
+        'Propfocus configuration missing: Opportunity_Buyer_Id_Field__c'
+      );
+    }
+    return v;
+  }
+
+  public static String requireOpportunityBuyerNameField() {
+    String v = getConfig().opportunityBuyerNameField;
+    if (String.isBlank(v)) {
+      throw new AuraHandledException(
+        'Propfocus configuration missing: Opportunity_Buyer_Name_Field__c'
+      );
+    }
+    return v;
+  }
+
+  public static String requireOpportunityStatusField() {
+    String v = getConfig().opportunityStatusField;
+    if (String.isBlank(v)) {
+      throw new AuraHandledException(
+        'Propfocus configuration missing: Opportunity_Status_Field__c'
+      );
+    }
+    return v;
+  }
+
+  public static String requireOpportunityProjectField() {
+    String v = getConfig().opportunityProjectField;
+    if (String.isBlank(v)) {
+      throw new AuraHandledException(
+        'Propfocus configuration missing: Opportunity_Project_Field__c'
+      );
+    }
+    return v;
+  }
+
+  public static String getOpportunityPreSalesRepSourceField() {
+    return getConfig().opportunityPreSalesRepSourceField;
+  }
+
+  public static String requireSiteVisitOpportunityLookupField() {
+    String v = getConfig().siteVisitOpportunityLookupField;
+    if (String.isBlank(v)) {
+      throw new AuraHandledException(
+        'Propfocus configuration missing: Opportunity_Lookup_Field__c'
       );
     }
     return v;

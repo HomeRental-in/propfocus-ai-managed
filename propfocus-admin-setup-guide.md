@@ -28,16 +28,18 @@ Short reference below. The setup guide has navigation paths, field values, pass/
 
 ---
 
-## 2) Add Lead LWC to Lead Record Page
+## 2) Add Propfocus panel to Lead and Opportunity pages
 
-1. Lead record → gear → **Edit Page**
-2. Add **propfocusLeadLinkGen** → **Save → Activate**
+The same component (`propfocusLeadLinkGen`) is used on both objects.
+
+1. Lead record → gear → **Edit Page** → add **propfocusLeadLinkGen** → **Save → Activate**
+2. Opportunity record → gear → **Edit Page** → add **propfocusLeadLinkGen** → **Save → Activate**
 
 ---
 
 ## 3) Custom Metadata page layout (if fields missing)
 
-**Setup → Custom Metadata Types → Propfocus Config → Page Layouts → Edit** → add all fields → Save
+**Setup → Custom Metadata Types → Propfocus Config → Page Layouts → Edit** → add all fields (including Opportunity mappings) → Save
 
 ---
 
@@ -46,9 +48,10 @@ Short reference below. The setup guide has navigation paths, field values, pass/
 **Setup → Custom Metadata Types → Propfocus Config → Manage → Default → Edit**
 
 Field values: [docs/FIELDS.md](docs/FIELDS.md) or [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) section 2.2.  
+Configure **Lead** mappings and, if using the Opportunity panel, **Opportunity** mappings (`Opportunity Buyer Id/Name/Status/Project`, `Opportunity Lookup Field`).  
 OAuth credentials are **not** Config fields — see step 6.
 
-> Integration user needs **Read/Edit** on all mapped Lead fields.
+> Integration user needs **Read/Edit** on all mapped Lead and Opportunity fields.
 
 ---
 
@@ -85,7 +88,8 @@ OAuth credentials are **not** Config fields — see step 6.
 
 1. Admin Setup → **Test Connection**
 2. Lead → **Generate Microsite** / **Confirm Site Visit**
-3. Verify iframe
-4. Propfocus backend: sync + write-back + notifications
+3. Opportunity → **Confirm Site Visit** (and microsite/post-visit if used)
+4. Verify iframe / history on each parent
+5. Propfocus backend: sync + write-back + notifications (Lead or Opportunity)
 
 Full test matrix: [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md)

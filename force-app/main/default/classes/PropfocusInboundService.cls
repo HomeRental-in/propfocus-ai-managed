@@ -12,6 +12,9 @@ global class PropfocusInboundService {
     public Boolean success;
     public String message;
     public String lead_id;
+    public String opportunity_id;
+    public String record_id;
+    public String record_type;
     public Boolean lead_updated;
     public Integer call_logs_created;
     public Integer history_rows_created;
@@ -20,12 +23,21 @@ global class PropfocusInboundService {
     public InboundEventResponse(
       Boolean success,
       String message,
-      String leadId,
+      Id recordId,
       PropfocusInboundWritebackService.WritebackResult writeback
     ) {
       this.success = success;
       this.message = message;
-      this.lead_id = leadId;
+      if (recordId != null) {
+        this.record_id = String.valueOf(recordId);
+        if (recordId.getSObjectType() == Opportunity.SObjectType) {
+          this.opportunity_id = String.valueOf(recordId);
+          this.record_type = 'Opportunity';
+        } else {
+          this.lead_id = String.valueOf(recordId);
+          this.record_type = 'Lead';
+        }
+      }
       if (writeback != null) {
         this.lead_updated = writeback.leadUpdated;
         this.call_logs_created = writeback.callLogsCreated;
@@ -102,47 +114,25 @@ global class PropfocusInboundService {
         return;
       }
 
-      String buyerIdFieldApiName;
-      try {
-        buyerIdFieldApiName = PropfocusConfigService.requireBuyerIdField();
-      } catch (AuraHandledException e) {
-        respond(res, 500, false, 'Buyer ID field not configured', null, null);
-        return;
-      }
-      if (
-        !Pattern.matches('^[A-Za-z][A-Za-z0-9_]*(__c)?$', buyerIdFieldApiName)
-      ) {
-        respond(
-          res,
-          500,
-          false,
-          'Invalid buyer ID field configuration',
-          null,
-          null
-        );
-        return;
-      }
+      Id matchedRecordId = resolveParentRecord(payload.buyer_id, payloadRoot);
 
-      Lead matchedLead = resolveLead(payload.buyer_id, buyerIdFieldApiName);
-
-      if (matchedLead == null) {
+      if (matchedRecordId == null) {
         respond(
           res,
           404,
           false,
-          'No Lead found for buyer_id: ' + payload.buyer_id,
+          'No Lead or Opportunity found for buyer_id: ' + payload.buyer_id,
           null,
           null
         );
         return;
       }
 
-      String leadId = matchedLead.Id;
       PropfocusInboundWritebackService.WritebackResult writebackResult = null;
 
       if (hasWriteback) {
         writebackResult = PropfocusInboundWritebackService.applyWriteback(
-          leadId,
+          matchedRecordId,
           payloadRoot
         );
       }
@@ -153,18 +143,93 @@ global class PropfocusInboundService {
           'message' => payload.message,
           'type' => payload.event_type
         };
-        PropfocusLeadTrackingService.notifyLeadOwner(leadId, notif);
+        PropfocusLeadTrackingService.notifyLeadOwner(
+          String.valueOf(matchedRecordId),
+          notif
+        );
       }
 
-      respond(res, 200, true, 'Event processed', leadId, writebackResult);
+      respond(res, 200, true, 'Event processed', matchedRecordId, writebackResult);
     } catch (Exception e) {
       respond(res, 500, false, e.getMessage(), null, null);
     }
   }
 
   @TestVisible
-  private static Lead resolveLead(String buyerId, String buyerIdFieldApiName) {
+  private static Id resolveParentRecord(
+    String buyerId,
+    Map<String, Object> payloadRoot
+  ) {
+    Id explicitId = extractExplicitSalesforceId(payloadRoot);
+    if (explicitId != null) {
+      return explicitId;
+    }
+
+    Lead matchedLead = resolveLead(buyerId);
+    if (matchedLead != null) {
+      return matchedLead.Id;
+    }
+    Opportunity matchedOpp = resolveOpportunity(buyerId);
+    return matchedOpp == null ? null : matchedOpp.Id;
+  }
+
+  private static Id extractExplicitSalesforceId(Map<String, Object> payloadRoot) {
+    if (payloadRoot == null) {
+      return null;
+    }
+    Map<String, Object> leadData = asMap(payloadRoot.get('lead_data'));
+    String opportunityId = firstNonBlank(
+      payloadRoot,
+      leadData,
+      new List<String>{
+        'salesforce_opportunity_id',
+        'salesforceOpportunityId'
+      }
+    );
+    if (!String.isBlank(opportunityId) && looksLikeSalesforceOpportunityId(opportunityId)) {
+      List<Opportunity> rows = [
+        SELECT Id
+        FROM Opportunity
+        WHERE Id = :opportunityId
+        LIMIT 1
+      ];
+      if (!rows.isEmpty()) {
+        return rows[0].Id;
+      }
+    }
+
+    String leadId = firstNonBlank(
+      payloadRoot,
+      leadData,
+      new List<String>{ 'salesforce_lead_id', 'salesforceLeadId' }
+    );
+    if (!String.isBlank(leadId) && looksLikeSalesforceLeadId(leadId)) {
+      List<Lead> rows = [
+        SELECT Id
+        FROM Lead
+        WHERE Id = :leadId AND IsConverted = FALSE
+        LIMIT 1
+      ];
+      if (!rows.isEmpty()) {
+        return rows[0].Id;
+      }
+    }
+    return null;
+  }
+
+  @TestVisible
+  private static Lead resolveLead(String buyerId) {
     if (String.isBlank(buyerId)) {
+      return null;
+    }
+
+    String buyerIdFieldApiName;
+    try {
+      buyerIdFieldApiName = PropfocusConfigService.requireBuyerIdField();
+    } catch (AuraHandledException e) {
+      return null;
+    }
+    if (!Pattern.matches('^[A-Za-z][A-Za-z0-9_]*(__c)?$', buyerIdFieldApiName)) {
       return null;
     }
 
@@ -192,8 +257,51 @@ global class PropfocusInboundService {
   }
 
   @TestVisible
+  private static Opportunity resolveOpportunity(String buyerId) {
+    if (String.isBlank(buyerId)) {
+      return null;
+    }
+
+    String buyerIdFieldApiName;
+    try {
+      buyerIdFieldApiName = PropfocusConfigService.requireOpportunityBuyerIdField();
+    } catch (AuraHandledException e) {
+      return null;
+    }
+    if (!Pattern.matches('^[A-Za-z][A-Za-z0-9_]*(__c)?$', buyerIdFieldApiName)) {
+      return null;
+    }
+
+    if (looksLikeSalesforceOpportunityId(buyerId)) {
+      List<Opportunity> byId = [
+        SELECT Id
+        FROM Opportunity
+        WHERE Id = :buyerId
+        LIMIT 1
+      ];
+      if (!byId.isEmpty()) {
+        return byId[0];
+      }
+    }
+
+    String soql =
+      'SELECT Id FROM Opportunity' +
+      ' WHERE ' +
+      buyerIdFieldApiName +
+      ' = :buyerId' +
+      ' LIMIT 1';
+    List<Opportunity> rows = Database.query(soql);
+    return rows.isEmpty() ? null : rows[0];
+  }
+
+  @TestVisible
   private static Boolean looksLikeSalesforceLeadId(String value) {
     return Pattern.matches('^00Q[a-zA-Z0-9]{12}(?:[a-zA-Z0-9]{3})?$', value);
+  }
+
+  @TestVisible
+  private static Boolean looksLikeSalesforceOpportunityId(String value) {
+    return Pattern.matches('^006[a-zA-Z0-9]{12}(?:[a-zA-Z0-9]{3})?$', value);
   }
 
   private static InboundEventPayload parseCorePayload(
@@ -208,6 +316,30 @@ global class PropfocusInboundService {
     return payload;
   }
 
+  private static String firstNonBlank(
+    Map<String, Object> root,
+    Map<String, Object> nested,
+    List<String> keys
+  ) {
+    for (String key : keys) {
+      String fromRoot = asString(root == null ? null : root.get(key));
+      if (!String.isBlank(fromRoot)) {
+        return fromRoot;
+      }
+      String fromNested = asString(nested == null ? null : nested.get(key));
+      if (!String.isBlank(fromNested)) {
+        return fromNested;
+      }
+    }
+    return null;
+  }
+
+  private static Map<String, Object> asMap(Object value) {
+    return value instanceof Map<String, Object>
+      ? (Map<String, Object>) value
+      : null;
+  }
+
   private static String asString(Object value) {
     return value == null ? null : String.valueOf(value);
   }
@@ -217,13 +349,13 @@ global class PropfocusInboundService {
     Integer statusCode,
     Boolean success,
     String message,
-    String leadId,
+    Id recordId,
     PropfocusInboundWritebackService.WritebackResult writeback
   ) {
     res.statusCode = statusCode;
     res.responseBody = Blob.valueOf(
       JSON.serialize(
-        new InboundEventResponse(success, message, leadId, writeback)
+        new InboundEventResponse(success, message, recordId, writeback)
       )
     );
   }

@@ -66,4 +66,66 @@ public class PropfocusTestUtil {
   public static String configuredOrganizationId() {
     return PropfocusConfigService.getConfig().organizationId;
   }
+
+  public static Opportunity createOpportunity(String label) {
+    String token = label.replace(' ', '-').toLowerCase();
+    Opportunity opp = new Opportunity(
+      Name = label,
+      StageName = 'Prospecting',
+      CloseDate = Date.today().addDays(30),
+      Description = 'BUYER-' + token + '-' + String.valueOf(Math.abs(Crypto.getRandomInteger())),
+      NextStep = 'Test Project'
+    );
+
+    String buyerField = PropfocusConfigService.getConfig().opportunityBuyerIdField;
+    if (
+      !String.isBlank(buyerField) &&
+      buyerField != 'Description' &&
+      Schema.SObjectType.Opportunity.fields.getMap().containsKey(buyerField)
+    ) {
+      Schema.DescribeFieldResult buyerFieldDescribe = Schema.SObjectType.Opportunity.fields.getMap()
+        .get(buyerField)
+        .getDescribe();
+      if (
+        buyerFieldDescribe.isCreateable() && !buyerFieldDescribe.isAutoNumber()
+      ) {
+        opp.put(
+          buyerField,
+          'BUYER-' + String.valueOf(Math.abs(Crypto.getRandomInteger()))
+        );
+      }
+    }
+
+    insert opp;
+    return reloadOpportunity(opp.Id);
+  }
+
+  public static Opportunity reloadOpportunity(Id opportunityId) {
+    String buyerField = PropfocusConfigService.getConfig().opportunityBuyerIdField;
+    String fields = 'Id, Name, StageName, Description, NextStep, OwnerId, Propfocus_Buyer_Insights_Available__c, Propfocus_Link__c, Propfocus_Site_Visit__c, Propfocus_Post_Visit__c';
+    if (
+      !String.isBlank(buyerField) &&
+      buyerField != 'Description' &&
+      Pattern.matches('^[A-Za-z][A-Za-z0-9_]*(__c)?$', buyerField) &&
+      Schema.SObjectType.Opportunity.fields.getMap().containsKey(buyerField)
+    ) {
+      fields += ', ' + buyerField;
+    }
+    return (Opportunity) Database.query(
+      'SELECT ' + fields + ' FROM Opportunity WHERE Id = :opportunityId LIMIT 1'
+    );
+  }
+
+  public static String buyerIdFor(Opportunity opp) {
+    Opportunity refreshed = reloadOpportunity(opp.Id);
+    String buyerField = PropfocusConfigService.getConfig().opportunityBuyerIdField;
+    if (
+      String.isBlank(buyerField) ||
+      !Schema.SObjectType.Opportunity.fields.getMap().containsKey(buyerField)
+    ) {
+      return refreshed.Description;
+    }
+    Object value = refreshed.get(buyerField);
+    return value == null ? refreshed.Description : String.valueOf(value);
+  }
 }

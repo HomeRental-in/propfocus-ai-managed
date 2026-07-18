@@ -15,7 +15,8 @@ How to get updates?
 
 How to test two-way sync?
   SF → Propfocus: Test Connection + change Lead; Propfocus confirms Platform Event.
-  Propfocus → SF: POST to inbound REST with Bearer token; verify Lead update + bell.
+  Propfocus → SF: POST to inbound REST with Bearer token; verify Lead or Opportunity
+  update + owner bell.
 
 Do we share admin password with Propfocus?
   No. Use a dedicated integration user with Propfocus Integration permission set.
@@ -34,8 +35,9 @@ GENERAL
 ================================================================================
 
 Q: What is Propfocus AI for Salesforce?
-A: Managed package connecting Salesforce Leads to Propfocus:
+A: Managed package connecting Salesforce Leads and Opportunities to Propfocus:
    microsite links, site visits, Buyer Insights iframe, notifications, two-way sync.
+   The same panel (propfocusLeadLinkGen) is placed on Lead and Opportunity record pages.
 
 Q: What Salesforce edition do we need?
 A: Org must support Apex (Developer, Enterprise, Unlimited, Enterprise sandbox).
@@ -45,11 +47,18 @@ Q: Do we need Dev Hub?
 A: No — that is packaging for the dev team only. You install from the URL above.
 
 Q: Before install?
-A: 1. Enable Lead field history  2. Install package  3. Assign permission sets
-   4. Configure Propfocus Config (Org Id + field maps)
+A: 1. Confirm Lead (and Opportunity) fields to map  2. Install package
+   3. Assign permission sets
+   4. Configure Propfocus Config (Org Id + Lead/Opportunity field maps)
    5. Configure External Credential (outbound Client Id/Secret)
-   6. CSP Trusted Site  7. Add Lead component
+   6. CSP Trusted Site  7. Add propfocusLeadLinkGen to Lead and Opportunity pages
    Full steps: SETUP_GUIDE.md or E2E_INSTALLATION.md
+
+Q: Should site visit buttons be on Lead or Opportunity?
+A: Both are supported. If your process converts Lead → Opportunity when a site
+   visit is confirmed, put the panel on Opportunity for post-conversion work and
+   keep Lead for pre-conversion microsite/actions as needed. Configure Opportunity
+   field mappings and Site Visit Opportunity Lookup Field in Propfocus Config.
 
 Q: Where do outbound OAuth Client Id and Secret go?
 A: Setup -> Named Credentials -> External Credentials -> Propfocus API
@@ -86,7 +95,7 @@ A:  1. Dev team shares new install URL + version + release notes
     2. Log in (sandbox: test.salesforce.com; production: login.salesforce.com)
     3. Open install URL -> choose Upgrade
     4. Verify version under Installed Packages
-    5. Smoke test: Lead buttons, Test Connection, one inbound POST
+    5. Smoke test: Lead/Opportunity buttons, Test Connection, one inbound POST
 
 Q: Upgrading from a version that stored OAuth in Propfocus Config?
 A: Copy OAuth Client Id and Client Secret from Config -> Setup -> External Credentials
@@ -130,7 +139,12 @@ A: Configure External Credential Client Id/Secret -> Test Connection -> change L
 
 Q: How to test Propfocus -> SF?
 A: Integration user + Connected App -> POST JSON with Bearer token.
-   See INBOUND.md for payload format.
+   Resolver matches Lead first, then Opportunity, by buyer_id (or explicit
+   salesforce_lead_id / salesforce_opportunity_id). See INBOUND.md.
+
+Q: What identity does outbound site visit / microsite send?
+A: Lead panel: salesforce_lead_id. Opportunity panel: salesforce_opportunity_id.
+   Both also send buyer_id. See OUTBOUND.md.
 
 Q: What does Test Connection test?
 A: Outbound only (OAuth to propfocus.in). Does not test inbound REST. Sandboxes use dev.propfocus.in after override.
@@ -162,8 +176,11 @@ Test Connection fails                    -> External Credential Client Id/Secret
 Generate Microsite unauthorized          -> Propfocus User + External Credential principal access
 Blank iframe                             -> CSP Trusted Site frame-src + hard refresh
 History shows dashes                     -> Upgrade to 0.5.0-1+
+Opportunity buttons fail                 -> Opportunity Config mappings + buyer id populated
+                                           + LWC on Opportunity page
 Two-way sync not working                 -> Outbound: Test Connection + event subscription
                                            Inbound: integration user + POST to REST
+No Lead/Opportunity for buyer_id         -> Mapped Buyer Id field value on parent record
 
 ================================================================================
 RELATED DOCUMENTS

@@ -5,7 +5,7 @@
 | [E2E_INSTALLATION.md](./E2E_INSTALLATION.md)                           | Salesforce admin     | **Start here (new org)** — full e2e, upgrade, uninstall |
 | [SETUP_GUIDE.md](./SETUP_GUIDE.md)                                     | Salesforce admin     | Install + configure + test (w/ examples)    |
 | [FAQ.txt](./FAQ.txt)                                                   | Admin / stakeholders | FAQ, upgrades, troubleshooting              |
-| [FIELDS.md](./FIELDS.md)                                               | Admin                | Field API names and Hosachiguru mappings    |
+| [FIELDS.md](./FIELDS.md)                                               | Admin                | Lead + Opportunity + Site Visit field maps  |
 | [OUTBOUND.md](./OUTBOUND.md)                                           | Security / backend   | SF → Propfocus payloads, PII, residency/DPA |
 | [INBOUND.md](./INBOUND.md)                                             | Propfocus backend    | REST API, auth, sync, Postman fixes         |
 | [JWT_SETUP.txt](./JWT_SETUP.txt)                                       | Backend / DevOps     | JWT Bearer token flow (inbound)             |
