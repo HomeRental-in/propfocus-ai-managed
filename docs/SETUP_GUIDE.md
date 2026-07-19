@@ -25,10 +25,10 @@
 | **Path A — Existing sandbox**         | Package or code already deployed. Do **Part 2–4** only.        |
 | **Path B — Fresh org (install link)** | Install the managed package first, then **Part 1 + Part 2–4**. |
 
-**Managed package install link (v0.5.0-1):**
+**Managed package install link (v0.6.0-1):**
 
 ```
-https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000iXWXQA2
+https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kGszQAE
 ```
 
 ---
@@ -38,7 +38,7 @@ https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000iXWXQA
 | Step | Where                          | What to do                                              | What to check                               |
 | ---- | ------------------------------ | ------------------------------------------------------- | ------------------------------------------- |
 | 1.1  | Install URL (above)            | Log in as admin → **Install for Admins Only** → Install | No errors                                   |
-| 1.2  | Setup → **Installed Packages** |                                                         | **Propfocus AI** version **0.5.0.1** listed |
+| 1.2  | Setup → **Installed Packages** |                                                         | **Propfocus AI** version **0.6.0.1** listed |
 
 ---
 

@@ -182,7 +182,8 @@ public with sharing class PropfocusConfigService {
         cfg.leadSourceField = 'LeadSource';
       }
       if (String.isBlank(cfg.opportunityBuyerIdField)) {
-        cfg.opportunityBuyerIdField = 'Description';
+        // Description is long-text and not filterable in SOQL; use Name in tests.
+        cfg.opportunityBuyerIdField = 'Name';
       }
       if (String.isBlank(cfg.opportunityBuyerNameField)) {
         cfg.opportunityBuyerNameField = 'Name';

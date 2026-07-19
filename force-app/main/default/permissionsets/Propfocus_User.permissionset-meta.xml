@@ -157,7 +157,7 @@
     </objectPermissions>
     <externalCredentialPrincipalAccesses>
         <enabled>true</enabled>
-        <externalCredentialPrincipal>Propfocus_API_External-Propfocus_Principal</externalCredentialPrincipal>
+        <externalCredentialPrincipal>PropfocusAI__Propfocus_API_External-Propfocus_Principal</externalCredentialPrincipal>
     </externalCredentialPrincipalAccesses>
     <userPermissions>
         <enabled>true</enabled>

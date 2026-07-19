@@ -2,8 +2,8 @@
 
 Second-generation managed package (`PropfocusAI` namespace) connecting Salesforce Leads and Opportunities to Propfocus.
 
-**Current version:** `0.5.0-1`  
-**Install:** `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000iXWXQA2`
+**Current version:** `0.6.0-1`  
+**Install:** `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kGszQAE`
 
 ---
 

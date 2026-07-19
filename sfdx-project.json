@@ -1,13 +1,13 @@
 {
   "packageDirectories": [
     {
-      "versionName": "ver 0.5",
-      "versionNumber": "0.5.0.NEXT",
+      "versionName": "ver 0.6",
+      "versionNumber": "0.6.0.NEXT",
       "path": "force-app",
       "default": true,
       "package": "Propfocus AI",
-      "versionDescription": "Propfocus AI Salesforce integration",
-      "ancestorId": "05idL0000003mJRQAY"
+      "versionDescription": "Propfocus AI Salesforce integration — Opportunity support",
+      "ancestorId": "05idL0000003qDNQAY"
     }
   ],
   "name": "propfocus-ai-managed",
@@ -26,7 +26,8 @@
     "Propfocus AI@0.2.0-1": "04tdL000000dKTVQA2",
     "Propfocus AI@0.3.0-1": "04tdL000000dKV7QAM",
     "Propfocus AI@0.4.0-1": "04tdL000000dKWjQAM",
-    "Propfocus AI@0.5.0-1": "04tdL000000iXWXQA2"
+    "Propfocus AI@0.5.0-1": "04tdL000000iXWXQA2",
+    "Propfocus AI@0.6.0-1": "04tdL000000kGszQAE"
   },
   "sfdcLoginUrl": "https://login.salesforce.com",
   "sourceApiVersion": "66.0"

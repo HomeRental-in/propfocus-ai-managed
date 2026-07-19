@@ -69,18 +69,20 @@ public class PropfocusTestUtil {
 
   public static Opportunity createOpportunity(String label) {
     String token = label.replace(' ', '-').toLowerCase();
+    String buyerToken =
+      'BUYER-' + token + '-' + String.valueOf(Math.abs(Crypto.getRandomInteger()));
     Opportunity opp = new Opportunity(
-      Name = label,
+      Name = buyerToken,
       StageName = 'Prospecting',
       CloseDate = Date.today().addDays(30),
-      Description = 'BUYER-' + token + '-' + String.valueOf(Math.abs(Crypto.getRandomInteger())),
+      Description = label,
       NextStep = 'Test Project'
     );
 
     String buyerField = PropfocusConfigService.getConfig().opportunityBuyerIdField;
     if (
       !String.isBlank(buyerField) &&
-      buyerField != 'Description' &&
+      buyerField != 'Name' &&
       Schema.SObjectType.Opportunity.fields.getMap().containsKey(buyerField)
     ) {
       Schema.DescribeFieldResult buyerFieldDescribe = Schema.SObjectType.Opportunity.fields.getMap()
@@ -89,10 +91,9 @@ public class PropfocusTestUtil {
       if (
         buyerFieldDescribe.isCreateable() && !buyerFieldDescribe.isAutoNumber()
       ) {
-        opp.put(
-          buyerField,
-          'BUYER-' + String.valueOf(Math.abs(Crypto.getRandomInteger()))
-        );
+        opp.put(buyerField, buyerToken);
+        // Keep Name unique/readable when buyer id is stored elsewhere.
+        opp.Name = label;
       }
     }
 
@@ -105,7 +106,7 @@ public class PropfocusTestUtil {
     String fields = 'Id, Name, StageName, Description, NextStep, OwnerId, Propfocus_Buyer_Insights_Available__c, Propfocus_Link__c, Propfocus_Site_Visit__c, Propfocus_Post_Visit__c';
     if (
       !String.isBlank(buyerField) &&
-      buyerField != 'Description' &&
+      buyerField != 'Name' &&
       Pattern.matches('^[A-Za-z][A-Za-z0-9_]*(__c)?$', buyerField) &&
       Schema.SObjectType.Opportunity.fields.getMap().containsKey(buyerField)
     ) {
@@ -123,9 +124,9 @@ public class PropfocusTestUtil {
       String.isBlank(buyerField) ||
       !Schema.SObjectType.Opportunity.fields.getMap().containsKey(buyerField)
     ) {
-      return refreshed.Description;
+      return refreshed.Name;
     }
     Object value = refreshed.get(buyerField);
-    return value == null ? refreshed.Description : String.valueOf(value);
+    return value == null ? refreshed.Name : String.valueOf(value);
   }
 }

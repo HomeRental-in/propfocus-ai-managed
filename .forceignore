@@ -15,4 +15,5 @@ node_modules/
 
 # Subscriber orgs may already have these or block creation via CLI
 force-app/main/default/connectedApps/
-force-app/main/default/notificationtypes/
+# Custom notification type must stay in the managed package (cannot remove without Partner case)
+# force-app/main/default/notificationtypes/

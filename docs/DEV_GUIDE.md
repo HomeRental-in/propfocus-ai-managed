@@ -98,15 +98,15 @@ See [DEV_HUB_SETUP.md](./DEV_HUB_SETUP.md) for detailed Dev Hub steps (namespace
 | **Deploy**   | Code deploys; Propfocus Apex tests pass (see test run in CI/org) |
 | **Config**   | Propfocus Config, permission sets, CSP, External Credential + Named Credential |
 | **Features** | All 5 capabilities + write-back verified                 |
-| **Package**  | v0.5.0-1 Released; install link works in fresh org       |
+| **Package**  | v0.6.0-1 Released; install link works in fresh org       |
 | **Handoff**  | SETUP_GUIDE.md, FAQ.txt, INBOUND.md shared               |
 
-Current status (2026-06-14):
+Current status (2026-07-19):
 
 ```
-Apex tests:     Pass (43/43 Propfocus test classes)
-Package:        v0.5.0-1 Released
-Install URL:    https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000iXWXQA2
+Apex tests:     Pass (package version create with code coverage 81%)
+Package:        v0.6.0-1 Released
+Install URL:    https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kGszQAE
 Feature testing: Partial — verify with subscriber + Propfocus backend
 ```
 
@@ -118,7 +118,7 @@ Feature testing: Partial — verify with subscriber + Propfocus backend
 | --- | ---------------------------------------------------- |
 | 0.1 | Share install URL                                    |
 | 0.2 | Subscriber confirms Lead/Opportunity fields for mapping |
-| 0.3 | Package installed (0.5.0-1)                          |
+| 0.3 | Package installed (0.6.0-1)                          |
 | 1.x | Permission sets assigned                             |
 | 2.x | Propfocus Config configured — Lead + Opportunity maps (see FIELDS.md) |
 | 3.x | External Credential principal + Named Credential verified |
@@ -133,12 +133,14 @@ Feature testing: Partial — verify with subscriber + Propfocus backend
 The package ships:
 
 - `externalCredentials/Propfocus_API_External` — OAuth client credentials skeleton (token URL in metadata; Client Id/Secret entered post-install in subscriber org)
-- `namedCredentials/Propfocus_API` — SecuredEndpoint linked to External Credential
-- Permission sets with `externalCredentialPrincipalAccesses` for **Propfocus User** and **Propfocus AI Admin**
+- `namedCredentials/Propfocus_API` — SecuredEndpoint linked to External Credential (`PropfocusAI__Propfocus_API_External`)
+- Permission sets with `externalCredentialPrincipalAccesses` for **Propfocus User** and **Propfocus AI Admin** (`PropfocusAI__Propfocus_API_External-Propfocus_Principal`)
+
+Namespace prefixes on Named Credential / permission-set External Credential references are required for 2GP packaging validation.
 
 Subscribers populate Client Id/Secret via Setup UI after install. See [Salesforce Named Credentials packaging guide](https://developer.salesforce.com/docs/platform/named-credentials/guide/nc-populate-external-credentials.html).
 
-Removed in this release: `PropfocusOAuthService`, OAuth CMDT fields (`OAuth_Token_Url__c`, etc.).
+Legacy `PropfocusOAuthService` + OAuth CMDT fields remain in the package for managed-package upgrade compatibility (2GP cannot delete released components without a Partner case). Prefer External Credential + Named Credential for new installs.
 
 ---
 

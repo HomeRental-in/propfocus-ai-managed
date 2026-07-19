@@ -290,8 +290,13 @@ global class PropfocusInboundService {
       buyerIdFieldApiName +
       ' = :buyerId' +
       ' LIMIT 1';
-    List<Opportunity> rows = Database.query(soql);
-    return rows.isEmpty() ? null : rows[0];
+    try {
+      List<Opportunity> rows = Database.query(soql);
+      return rows.isEmpty() ? null : rows[0];
+    } catch (QueryException e) {
+      // Misconfigured buyer-id fields (e.g. long text) are not filterable.
+      return null;
+    }
   }
 
   @TestVisible

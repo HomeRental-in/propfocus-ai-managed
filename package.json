@@ -1,7 +1,7 @@
 {
   "name": "propfocus-ai-managed",
   "private": true,
-  "version": "0.5.0.0",
+  "version": "0.6.0.0",
   "description": "Propfocus AI Salesforce managed package (2GP)",
   "scripts": {
     "lint": "eslint **/{aura,lwc}/**/*.js",

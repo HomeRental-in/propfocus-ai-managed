@@ -30,7 +30,7 @@
         <customLabel>true</customLabel>
         <detailHeading>true</detailHeading>
         <editHeading>true</editHeading>
-        <label>API</label>
+        <label>API &amp; OAuth (legacy)</label>
         <layoutColumns>
             <layoutItems>
                 <behavior>Edit</behavior>
@@ -52,8 +52,25 @@
                 <behavior>Edit</behavior>
                 <field>Show_Copy_Modal__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>OAuth_Token_Url__c</field>
+            </layoutItems>
         </layoutColumns>
-        <layoutColumns />
+        <layoutColumns>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>OAuth_Grant_Type__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>OAuth_Client_Id__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>OAuth_Client_Secret__c</field>
+            </layoutItems>
+        </layoutColumns>
         <style>TwoColumnsTopToBottom</style>
     </layoutSections>
     <layoutSections>

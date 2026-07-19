@@ -3,7 +3,7 @@
 **Audience:** Salesforce admin + Propfocus backend  
 **Goal:** Brand-new org → package installed → configured → inbound/outbound working → features verified  
 **Time:** Demo / Developer org with click-path: ~1–2 hours. Enterprise (change control, External Client App + JWT, backend registration, pipeline deploy of subscriber config): plan **several days**, not a single sitting.  
-**Package:** Propfocus AI **v0.5.0-1** (`PropfocusAI` namespace) — **External Credential outbound auth** ships in the **next release after 0.5.0-1** (see [Upgrade from 0.5.x](#upgrade-from-05x) and [FAQ.txt](./FAQ.txt)).
+**Package:** Propfocus AI **v0.6.0-1** (`PropfocusAI` namespace) — Opportunity support + External Credential outbound auth (see [Upgrade from 0.5.x](#upgrade-from-05x) and [FAQ.txt](./FAQ.txt)).
 
 This is the exact workflow. Follow phases in order. Do not skip prerequisites.
 
@@ -68,10 +68,10 @@ Do these **before** opening the install link. Lead Field History Tracking is **n
 
 ## Phase 1 — Install the managed package
 
-**Install URL (v0.5.0-1):**
+**Install URL (v0.6.0-1):**
 
 ```
-https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000iXWXQA2
+https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kGszQAE
 ```
 
 | # | Action | Pass when |
