@@ -1,13 +1,13 @@
 {
   "packageDirectories": [
     {
-      "versionName": "ver 0.6",
-      "versionNumber": "0.6.0.NEXT",
+      "versionName": "ver 0.7",
+      "versionNumber": "0.7.0.NEXT",
       "path": "force-app",
       "default": true,
       "package": "Propfocus AI",
-      "versionDescription": "Propfocus AI Salesforce integration — Opportunity support",
-      "ancestorId": "05idL0000003qDNQAY"
+      "versionDescription": "Grant UserExternalCredential Read so sales users can call out via External Credential",
+      "ancestorId": "04tdL000000kGszQAE"
     }
   ],
   "name": "propfocus-ai-managed",

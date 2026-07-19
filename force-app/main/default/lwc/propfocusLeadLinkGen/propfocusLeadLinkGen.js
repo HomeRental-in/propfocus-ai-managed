@@ -757,6 +757,20 @@ export default class PropfocusLeadLinkGen extends LightningElement {
   handleSiteVisitManagerChange(event) {
     this.siteVisitManager = event.detail.value || "";
   }
+
+  buildSiteVisitManagerPayload() {
+    if (!this.siteVisitManager) {
+      return undefined;
+    }
+    const selected = (this.siteVisitManagerOptions || []).find(
+      (option) => option.value === this.siteVisitManager
+    );
+    const payload = { id: this.siteVisitManager };
+    if (selected?.name) {
+      payload.name = selected.name;
+    }
+    return payload;
+  }
   handlePostVisitProjectChange(event) {
     this.postVisitProject = event.detail.value || "";
     this.postVisitSelectedConfigurations = [];
@@ -986,9 +1000,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         visitDateTime: chosenDateTime.toISOString(),
         visitDate: chosenDateTime.toISOString().slice(0, 10),
         visitTime: `${String(chosenDateTime.getHours()).padStart(2, "0")}:${String(chosenDateTime.getMinutes()).padStart(2, "0")}`,
-        siteVisitManager: this.siteVisitManager
-          ? { id: this.siteVisitManager }
-          : undefined
+        siteVisitManager: this.buildSiteVisitManagerPayload()
       })
     })
       .then(async (result) => {
