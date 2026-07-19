@@ -104,6 +104,8 @@ Enter API names in **Setup → Custom Metadata Types → Propfocus Config → De
 | Opportunity Lookup Field | `Opportunity_Lookup_Field__c` | `Opportunity__c` |
 | Site Visit Status / Project / Type / Datetime / Team | `Site_Visit_*_Field__c` | org-specific |
 
+**Auto link on Site Visit Save:** Apex invocable `PropFocusSiteVisitLinkService` (`Generate Propfocus Site Visit Link From Record`) reads only these Config mappings (parent lookup, project, datetime, optional manager name/phone/email). Wire a Record-Triggered Flow on the configured Site Visit object — see [SETUP_GUIDE.md](./SETUP_GUIDE.md) §2.8. No package dependency on a specific Site Visit layout or field set.
+
 **Critical:** Buyer Id (Lead and/or Opportunity) must be populated on records you test. Inbound REST matches `buyer_id` to the mapped field on the resolved parent.
 
 ---

@@ -132,6 +132,20 @@ The same LWC (`propfocusLeadLinkGen`) is used on both objects.
 
 Ensure Opportunity Config mappings from section 2.2 are filled before testing on Opportunity.
 
+### 2.8 Auto site visit link on Site Visit Save (optional)
+
+The package does not own your Site Visit object, so wire a **subscriber Flow** that calls the packaged Apex action. Field mapping is entirely from **Propfocus Config** (Site Visit Object / Project / Datetime / Lead & Opportunity lookups) — no hard-coded modal fields.
+
+| Step | Action |
+| ---- | ------ |
+| 2.8a | Setup → **Flows** → New → **Record-Triggered Flow** |
+| 2.8b | Object = your Site Visit object (same API name as Config → **Site Visit Object**, e.g. `Site_Visit__c`) |
+| 2.8c | Trigger = **A record is created** (add update only if you want regenerates) · Optimize = **Actions and Related Records** |
+| 2.8d | Add element **Action** → Apex **Generate Propfocus Site Visit Link From Record** |
+| 2.8e | Set **Site Visit Record Id** = `{!$Record.Id}` → Save → Activate |
+
+On Save, the Flow enqueues a callout that creates the Propfocus site visit link on the parent Lead or Opportunity (`Propfocus_Site_Visit__c`). Requires Site Visit Project + Datetime fields mapped in Config, buyer id on the parent, and the running user to have Propfocus callout access (Part 2.1 / 2.4d).
+
 ---
 
 ## Part 3 — Admin verification

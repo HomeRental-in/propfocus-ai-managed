@@ -1,6 +1,136 @@
-public with sharing class PropfocusConfigService {
+public with sharing class PropfocusConfigService implements Callable {
   private static final String LOGO_URL = 'https://propfocus.in/assets/logo-DSQFZbaE.png';
   private static final String DEFAULT_NOTIFICATION_TYPE_DEVELOPER_NAME = 'PropFocus_Notification';
+
+  /**
+   * Cross-namespace bridge for unpackaged automation in subscriber orgs.
+   * Returns a plain map (not Config) so it can be JSON-round-tripped.
+   */
+  public Object call(String action, Map<String, Object> args) {
+    if (action == 'getConfigMap') {
+      return toConfigMap(getConfig());
+    }
+    PropFocusServiceException.throwUserFacing(
+      'Unknown PropfocusConfigService action: ' + action
+    );
+    return null;
+  }
+
+  @TestVisible
+  private static Map<String, Object> toConfigMap(Config cfg) {
+    if (cfg == null) {
+      return new Map<String, Object>();
+    }
+    return new Map<String, Object>{
+      'siteVisitObject' => cfg.siteVisitObject,
+      'siteVisitStatusField' => cfg.siteVisitStatusField,
+      'siteVisitLeadLookupField' => cfg.siteVisitLeadLookupField,
+      'siteVisitOpportunityLookupField' => cfg.siteVisitOpportunityLookupField,
+      'siteVisitProjectField' => cfg.siteVisitProjectField,
+      'siteVisitDatetimeField' => cfg.siteVisitDatetimeField,
+      'siteVisitManagerNameField' => cfg.siteVisitManagerNameField,
+      'siteVisitManagerPhoneField' => cfg.siteVisitManagerPhoneField,
+      'siteVisitManagerEmailField' => cfg.siteVisitManagerEmailField,
+      'buyerIdField' => cfg.buyerIdField,
+      'buyerNameField' => cfg.buyerNameField,
+      'projectField' => cfg.projectField,
+      'leadStatusField' => cfg.leadStatusField
+    };
+  }
+
+  public static Config fromConfigMap(Map<String, Object> values) {
+    Config cfg = getConfig();
+    if (values == null || values.isEmpty()) {
+      return cfg;
+    }
+    // Overlay packaged subscriber mappings onto the runtime config instance.
+    overlayString(cfg, values, 'siteVisitObject', 'siteVisitObject');
+    overlayString(cfg, values, 'siteVisitStatusField', 'siteVisitStatusField');
+    overlayString(
+      cfg,
+      values,
+      'siteVisitLeadLookupField',
+      'siteVisitLeadLookupField'
+    );
+    overlayString(
+      cfg,
+      values,
+      'siteVisitOpportunityLookupField',
+      'siteVisitOpportunityLookupField'
+    );
+    overlayString(cfg, values, 'siteVisitProjectField', 'siteVisitProjectField');
+    overlayString(
+      cfg,
+      values,
+      'siteVisitDatetimeField',
+      'siteVisitDatetimeField'
+    );
+    overlayString(
+      cfg,
+      values,
+      'siteVisitManagerNameField',
+      'siteVisitManagerNameField'
+    );
+    overlayString(
+      cfg,
+      values,
+      'siteVisitManagerPhoneField',
+      'siteVisitManagerPhoneField'
+    );
+    overlayString(
+      cfg,
+      values,
+      'siteVisitManagerEmailField',
+      'siteVisitManagerEmailField'
+    );
+    overlayString(cfg, values, 'buyerIdField', 'buyerIdField');
+    overlayString(cfg, values, 'buyerNameField', 'buyerNameField');
+    overlayString(cfg, values, 'projectField', 'projectField');
+    overlayString(cfg, values, 'leadStatusField', 'leadStatusField');
+    return cfg;
+  }
+
+  private static void overlayString(
+    Config cfg,
+    Map<String, Object> values,
+    String mapKey,
+    String configProperty
+  ) {
+    if (values == null || !values.containsKey(mapKey) || values.get(mapKey) == null) {
+      return;
+    }
+    String text = String.valueOf(values.get(mapKey)).trim();
+    if (String.isBlank(text)) {
+      return;
+    }
+    if (configProperty == 'siteVisitObject') {
+      cfg.siteVisitObject = text;
+    } else if (configProperty == 'siteVisitStatusField') {
+      cfg.siteVisitStatusField = text;
+    } else if (configProperty == 'siteVisitLeadLookupField') {
+      cfg.siteVisitLeadLookupField = text;
+    } else if (configProperty == 'siteVisitOpportunityLookupField') {
+      cfg.siteVisitOpportunityLookupField = text;
+    } else if (configProperty == 'siteVisitProjectField') {
+      cfg.siteVisitProjectField = text;
+    } else if (configProperty == 'siteVisitDatetimeField') {
+      cfg.siteVisitDatetimeField = text;
+    } else if (configProperty == 'siteVisitManagerNameField') {
+      cfg.siteVisitManagerNameField = text;
+    } else if (configProperty == 'siteVisitManagerPhoneField') {
+      cfg.siteVisitManagerPhoneField = text;
+    } else if (configProperty == 'siteVisitManagerEmailField') {
+      cfg.siteVisitManagerEmailField = text;
+    } else if (configProperty == 'buyerIdField') {
+      cfg.buyerIdField = text;
+    } else if (configProperty == 'buyerNameField') {
+      cfg.buyerNameField = text;
+    } else if (configProperty == 'projectField') {
+      cfg.projectField = text;
+    } else if (configProperty == 'leadStatusField') {
+      cfg.leadStatusField = text;
+    }
+  }
 
   public class Config {
     @AuraEnabled
@@ -212,7 +342,7 @@ public with sharing class PropfocusConfigService {
   public static String requireApiNamedCredential() {
     String v = getConfig().apiNamedCredential;
     if (String.isBlank(v)) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Propfocus configuration missing: Api_Named_Credential__c'
       );
     }
@@ -231,7 +361,7 @@ public with sharing class PropfocusConfigService {
   public static String requireEmbedBaseUrl() {
     String v = getConfig().embedBaseUrl;
     if (String.isBlank(v)) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Propfocus configuration missing: Embed_Base_Url__c'
       );
     }
@@ -241,7 +371,7 @@ public with sharing class PropfocusConfigService {
   public static String requireOrganizationId() {
     String v = getConfig().organizationId;
     if (String.isBlank(v)) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Propfocus configuration missing: Organization_Id__c'
       );
     }
@@ -266,7 +396,7 @@ public with sharing class PropfocusConfigService {
   public static String requireBuyerIdField() {
     String v = getConfig().buyerIdField;
     if (String.isBlank(v)) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Propfocus configuration missing: Buyer_Id_Field__c'
       );
     }
@@ -276,7 +406,7 @@ public with sharing class PropfocusConfigService {
   public static String requireLeadStatusField() {
     String v = getConfig().leadStatusField;
     if (String.isBlank(v)) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Propfocus configuration missing: Lead_Status_Field__c'
       );
     }
@@ -286,7 +416,7 @@ public with sharing class PropfocusConfigService {
   public static String requireBuyerNameField() {
     String v = getConfig().buyerNameField;
     if (String.isBlank(v)) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Propfocus configuration missing: Buyer_Name_Field__c'
       );
     }
@@ -296,7 +426,7 @@ public with sharing class PropfocusConfigService {
   public static String requireProjectField() {
     String v = getConfig().projectField;
     if (String.isBlank(v)) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Propfocus configuration missing: Project_Field__c'
       );
     }
@@ -310,7 +440,7 @@ public with sharing class PropfocusConfigService {
   public static String requireSiteVisitObject() {
     String v = getConfig().siteVisitObject;
     if (String.isBlank(v)) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Propfocus configuration missing: Site_Visit_Object__c'
       );
     }
@@ -320,7 +450,7 @@ public with sharing class PropfocusConfigService {
   public static String requireSiteVisitStatusField() {
     String v = getConfig().siteVisitStatusField;
     if (String.isBlank(v)) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Propfocus configuration missing: Site_Visit_Status_Field__c'
       );
     }
@@ -330,7 +460,7 @@ public with sharing class PropfocusConfigService {
   public static String requireSiteVisitLeadLookupField() {
     String v = getConfig().siteVisitLeadLookupField;
     if (String.isBlank(v)) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Propfocus configuration missing: Lead_Lookup_Field__c'
       );
     }
@@ -340,7 +470,7 @@ public with sharing class PropfocusConfigService {
   public static String requireOpportunityBuyerIdField() {
     String v = getConfig().opportunityBuyerIdField;
     if (String.isBlank(v)) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Propfocus configuration missing: Opportunity_Buyer_Id_Field__c'
       );
     }
@@ -350,7 +480,7 @@ public with sharing class PropfocusConfigService {
   public static String requireOpportunityBuyerNameField() {
     String v = getConfig().opportunityBuyerNameField;
     if (String.isBlank(v)) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Propfocus configuration missing: Opportunity_Buyer_Name_Field__c'
       );
     }
@@ -360,7 +490,7 @@ public with sharing class PropfocusConfigService {
   public static String requireOpportunityStatusField() {
     String v = getConfig().opportunityStatusField;
     if (String.isBlank(v)) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Propfocus configuration missing: Opportunity_Status_Field__c'
       );
     }
@@ -370,7 +500,7 @@ public with sharing class PropfocusConfigService {
   public static String requireOpportunityProjectField() {
     String v = getConfig().opportunityProjectField;
     if (String.isBlank(v)) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Propfocus configuration missing: Opportunity_Project_Field__c'
       );
     }
@@ -384,7 +514,7 @@ public with sharing class PropfocusConfigService {
   public static String requireSiteVisitOpportunityLookupField() {
     String v = getConfig().siteVisitOpportunityLookupField;
     if (String.isBlank(v)) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Propfocus configuration missing: Opportunity_Lookup_Field__c'
       );
     }

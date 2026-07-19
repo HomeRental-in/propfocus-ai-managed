@@ -1,8 +1,27 @@
-public class PropFocusLeadService {
+public class PropFocusLeadService implements Callable {
   // Fixed JSON key in the Propfocus API request body. This is a wire-contract
   // with the Propfocus backend and is intentionally independent of any
   // Salesforce field API name or namespace.
   private static final String API_LEAD_STATUS_KEY = 'leadStatus';
+
+  /**
+   * Allows unpackaged automation in subscriber orgs to call the managed-package
+   * Lead service (so package fields / LWC history update) via Type.forName.
+   */
+  public Object call(String action, Map<String, Object> args) {
+    if (action == 'generatePropfocusTemplate') {
+      if (args == null) {
+        PropFocusServiceException.throwUserFacing('generatePropfocusTemplate args required');
+      }
+      return generatePropfocusTemplate(
+        (Id) args.get('leadId'),
+        (String) args.get('communicationType'),
+        (String) args.get('contextJson')
+      );
+    }
+    PropFocusServiceException.throwUserFacing('Unknown PropFocusLeadService action: ' + action);
+    return null;
+  }
 
   public class LinkHistoryItem {
     @AuraEnabled
@@ -112,7 +131,7 @@ public class PropFocusLeadService {
 
   private static ParentFields resolveParentFields(Id recordId) {
     if (recordId == null) {
-      throw new AuraHandledException('Record Id is required');
+      PropFocusServiceException.throwUserFacing('Record Id is required');
     }
     ParentFields fields = new ParentFields();
     fields.recordId = recordId;
@@ -167,7 +186,7 @@ public class PropFocusLeadService {
       fields.embedUsesSalesforceId =
         PropfocusConfigService.getConfig().embedUsesSalesforceLeadId == true;
     } else {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Unsupported record type. Use Lead or Opportunity.'
       );
     }
@@ -201,7 +220,7 @@ public class PropFocusLeadService {
     String technicalDetail
   ) {
     logPropfocusError(operation, technicalDetail);
-    throw new AuraHandledException(CUSTOMER_SUPPORT_MESSAGE);
+    PropFocusServiceException.throwUserFacing(CUSTOMER_SUPPORT_MESSAGE);
   }
 
   private static void throwCustomerFacingHttpException(
@@ -387,7 +406,7 @@ public class PropFocusLeadService {
   ) {
     String fieldApiName = requireSafeApiName(value, configFieldApiName);
     if (!objectType.getDescribe().fields.getMap().containsKey(fieldApiName)) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Configured field not found on ' +
           objectType.getDescribe().getName() +
           ': ' +
@@ -533,7 +552,7 @@ public class PropFocusLeadService {
     Id leadId
   ) {
     if (leadId == null) {
-      throw new AuraHandledException('Record Id is required');
+      PropFocusServiceException.throwUserFacing('Record Id is required');
     }
 
     PropfocusConfigService.Config cfg = PropfocusConfigService.getConfig();
@@ -603,11 +622,11 @@ public class PropFocusLeadService {
     String contextJson
   ) {
     if (leadId == null) {
-      throw new AuraHandledException('Record Id is required');
+      PropFocusServiceException.throwUserFacing('Record Id is required');
     }
     String normalizedType = normalizeCommunicationType(communicationType);
     if (String.isBlank(normalizedType)) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'communicationType is required (microsite, site_visit, or post_visit)'
       );
     }
@@ -616,7 +635,7 @@ public class PropFocusLeadService {
       normalizedType != COMM_TYPE_SITE_VISIT &&
       normalizedType != COMM_TYPE_POST_VISIT
     ) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Unsupported communicationType: ' + communicationType
       );
     }
@@ -913,7 +932,7 @@ public class PropFocusLeadService {
       String.isBlank(value) ||
       !Pattern.matches('^[A-Za-z][A-Za-z0-9_]*(__c)?$', value)
     ) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Invalid API name configured for ' + configFieldApiName
       );
     }
@@ -1264,7 +1283,7 @@ public class PropFocusLeadService {
     Map<String, Object> contextInput
   ) {
     if (leadId == null) {
-      throw new AuraHandledException('Record Id is required');
+      PropFocusServiceException.throwUserFacing('Record Id is required');
     }
 
     Map<String, Object> context = contextInput == null
@@ -1304,13 +1323,13 @@ public class PropFocusLeadService {
       buyerName = asString(ld.get(buyerNameFieldApiName));
     }
     if (String.isBlank(buyerId)) {
-      throw new AuraHandledException(
+      PropFocusServiceException.throwUserFacing(
         'Buyer Id is required on the ' +
           (fields.isOpportunity ? 'Opportunity' : 'Lead')
       );
     }
     if (String.isBlank(buyerName)) {
-      throw new AuraHandledException('Buyer name is required');
+      PropFocusServiceException.throwUserFacing('Buyer name is required');
     }
 
     enrichContextFromLead(
@@ -1328,7 +1347,7 @@ public class PropFocusLeadService {
         new List<String>{ 'visitedConfiguration', 'visited_configuration' }
       );
       if (String.isBlank(visitedConfiguration)) {
-        throw new AuraHandledException('Visited configuration is required');
+        PropFocusServiceException.throwUserFacing('Visited configuration is required');
       }
     }
 
@@ -1880,7 +1899,8 @@ public class PropFocusLeadService {
         ? new Map<String, Object>()
         : new Map<String, Object>(asObject);
     } catch (Exception e) {
-      throw new AuraHandledException('contextJson must be a valid JSON object');
+      PropFocusServiceException.throwUserFacing('contextJson must be a valid JSON object');
+      return null;
     }
   }
 
@@ -2130,7 +2150,7 @@ public class PropFocusLeadService {
       ? null
       : visitedConfiguration.trim();
     if (String.isBlank(resolvedVisitedConfiguration)) {
-      throw new AuraHandledException('Visited configuration is required');
+      PropFocusServiceException.throwUserFacing('Visited configuration is required');
     }
 
     Map<String, Object> context = new Map<String, Object>();

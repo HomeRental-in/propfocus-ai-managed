@@ -60,6 +60,13 @@ A: Both are supported. If your process converts Lead → Opportunity when a site
    keep Lead for pre-conversion microsite/actions as needed. Configure Opportunity
    field mappings and Site Visit Opportunity Lookup Field in Propfocus Config.
 
+Q: Can Save on New Site Visit create a Propfocus site visit link automatically?
+A: Yes. Map Site Visit Object / Project / Datetime / Lead & Opportunity lookups
+   in Propfocus Config, then add a Record-Triggered Flow on that object that
+   calls Apex action "Generate Propfocus Site Visit Link From Record"
+   (PropFocusSiteVisitLinkService). Layout fields can differ per org — only
+   Config API names matter. Steps: SETUP_GUIDE.md section 2.8.
+
 Q: Where do outbound OAuth Client Id and Secret go?
 A: Setup -> Named Credentials -> External Credentials -> Propfocus API
    -> Propfocus Principal. NOT in Propfocus Config Custom Metadata.
