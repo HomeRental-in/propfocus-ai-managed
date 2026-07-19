@@ -583,11 +583,67 @@ public class PropfocusInboundWritebackService {
     }
 
     try {
-      insert row;
+      Id existingId = findExistingClientSiteVisitId(
+        objectType,
+        parentLookupField,
+        cfg.siteVisitNumberField,
+        recordId,
+        siteVisitNumber
+      );
+      if (existingId != null) {
+        row.put('Id', existingId);
+        update row;
+      } else {
+        insert row;
+      }
       return true;
     } catch (DmlException e) {
       return false;
     }
+  }
+
+  // Repeat inbound pushes for the same visit must update in place. Without a
+  // mapped Site_Visit_Number_Field__c there is no stable key to match on, so
+  // the caller falls back to insert.
+  private static Id findExistingClientSiteVisitId(
+    Schema.SObjectType objectType,
+    String parentLookupField,
+    String numberFieldApiName,
+    Id recordId,
+    String siteVisitNumber
+  ) {
+    if (String.isBlank(siteVisitNumber) || String.isBlank(numberFieldApiName)) {
+      return null;
+    }
+    if (!isSafeApiName(numberFieldApiName)) {
+      return null;
+    }
+    Map<String, Schema.SObjectField> fieldsByApiName = objectType.getDescribe()
+      .fields.getMap();
+    if (!fieldsByApiName.containsKey(numberFieldApiName)) {
+      return null;
+    }
+
+    String soql =
+      'SELECT Id FROM ' +
+      objectType.getDescribe().getName() +
+      ' WHERE ' +
+      numberFieldApiName +
+      ' = :siteVisitNumber';
+
+    // Scope to the parent so a visit number that is only unique per Lead
+    // cannot match another Lead's row.
+    if (
+      String.isNotBlank(parentLookupField) &&
+      isSafeApiName(parentLookupField) &&
+      fieldsByApiName.containsKey(parentLookupField)
+    ) {
+      soql += ' AND ' + parentLookupField + ' = :recordId';
+    }
+    soql += ' LIMIT 1';
+
+    List<SObject> rows = Database.query(soql);
+    return rows.isEmpty() ? null : (Id) rows[0].get('Id');
   }
 
   private static Boolean putMappedParentField(

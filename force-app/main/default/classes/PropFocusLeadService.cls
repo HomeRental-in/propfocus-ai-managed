@@ -28,6 +28,15 @@ public class PropFocusLeadService {
     public String phone;
   }
 
+  public class SalesTeamMemberItem {
+    @AuraEnabled
+    public String id;
+    @AuraEnabled
+    public String name;
+    @AuraEnabled
+    public String displayName;
+  }
+
   public class BuyerInsightsEmbedContext {
     @AuraEnabled
     public String embedUrl;
@@ -1560,6 +1569,13 @@ public class PropFocusLeadService {
       preSalesRepSourceFieldApiName,
       organizationId
     );
+    String assignedBrokerId = firstContextString(
+      context,
+      new List<String>{ 'assignedBrokerId', 'assigned_broker_id' }
+    );
+    if (!String.isBlank(assignedBrokerId)) {
+      body.put('assignedBrokerId', assignedBrokerId.trim());
+    }
     return body;
   }
 
@@ -1991,6 +2007,89 @@ public class PropFocusLeadService {
       return new List<SiteVisitManagerItem>();
     }
     return parseSiteVisitManagerRows((List<Object>) managerRows);
+  }
+
+  /**
+   * Sales reps + sales managers for post-visit "Reassign to".
+   * Calls Propfocus GET /api/dashboard/sales-team (organizationId for
+   * Salesforce Named Credential auth; browser uses broker JWT instead).
+   */
+  @AuraEnabled
+  public static List<SalesTeamMemberItem> getSalesTeam() {
+    String organizationId = EncodingUtil.urlEncode(
+      PropfocusConfigService.requireOrganizationId(),
+      'UTF-8'
+    );
+    HttpRequest req = new HttpRequest();
+    req.setEndpoint(
+      PropfocusConfigService.apiEndpoint(
+        '/api/dashboard/sales-team?organizationId=' + organizationId
+      )
+    );
+    req.setMethod('GET');
+    req.setHeader('Content-Type', 'application/json');
+
+    HttpResponse res = PropfocusHttpService.send(req);
+    if (res.getStatusCode() != 200) {
+      throwCustomerFacingHttpException('getSalesTeam', res);
+    }
+
+    Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(
+      res.getBody()
+    );
+    if (asBoolean(response.get('success')) == false) {
+      throwCustomerFacingApiException(
+        'getSalesTeam',
+        extractApiErrorMessage(response)
+      );
+    }
+    return parseSalesTeamMemberRows(getListFromPayload(response, 'members'));
+  }
+
+  private static List<Object> getListFromPayload(
+    Map<String, Object> payload,
+    String fieldName
+  ) {
+    if (payload == null || String.isBlank(fieldName)) {
+      return new List<Object>();
+    }
+    Object raw = payload.get(fieldName);
+    if (raw == null) {
+      Map<String, Object> dataMap = asMap(payload.get('data'));
+      raw = dataMap == null ? null : dataMap.get(fieldName);
+    }
+    if (!(raw instanceof List<Object>)) {
+      return new List<Object>();
+    }
+    return (List<Object>) raw;
+  }
+
+  private static List<SalesTeamMemberItem> parseSalesTeamMemberRows(
+    List<Object> memberRows
+  ) {
+    List<SalesTeamMemberItem> items = new List<SalesTeamMemberItem>();
+    if (memberRows == null || memberRows.isEmpty()) {
+      return items;
+    }
+
+    for (Object rowObj : memberRows) {
+      Map<String, Object> row = asMap(rowObj);
+      if (row == null) {
+        continue;
+      }
+      String memberId = asString(row.get('id'));
+      String memberName = asString(row.get('name'));
+      if (String.isBlank(memberId) || String.isBlank(memberName)) {
+        continue;
+      }
+      SalesTeamMemberItem item = new SalesTeamMemberItem();
+      item.id = memberId;
+      item.name = memberName;
+      String displayName = asString(row.get('displayName'));
+      item.displayName = String.isBlank(displayName) ? memberName : displayName;
+      items.add(item);
+    }
+    return items;
   }
 
   private static List<SiteVisitManagerItem> parseSiteVisitManagerRows(

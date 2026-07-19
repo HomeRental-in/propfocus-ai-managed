@@ -61,6 +61,7 @@ Base URL: Named Credential host (`https://propfocus.in` production; `https://dev
 | `project_name` | UI / Project Field | Business |
 | `visited_configuration` | UI | Business |
 | `visit_conducted_at` | UI | Business |
+| `assignedBrokerId` | UI "Reassign to" (optional) | Indirect — Propfocus broker id |
 | `brokerName` / `brokerNumber` / `organizationId` | Same as microsite | See above |
 
 ### Other callouts (lower PII)
@@ -70,6 +71,7 @@ Base URL: Named Credential host (`https://propfocus.in` production; `https://dev
 | OAuth token URL | Client credentials | Client Id (not Lead PII) |
 | `/api/v1/organizations/{orgId}/accessible-projects` | Project picker | Organization Id |
 | `/api/v1/organizations/{orgId}/projects?include=all` | Project list | Organization Id |
+| `/api/dashboard/sales-team?organizationId=` | Post-visit "Reassign to" picker | Organization Id |
 
 Idempotency: callouts send an `Idempotency-Key` header derived from operation + record Id (Lead or Opportunity) + body hash (not additional PII).
 

@@ -664,6 +664,43 @@ private class PropFocusLeadServiceTest {
   }
 
   @IsTest
+  static void getSalesTeam_returnsMembers() {
+    setApiMock(
+      200,
+      '{"success":true,"members":[{"id":"sales-1","name":"Alex Sales","displayName":"Alex Sales (Sales)"}]}'
+    );
+
+    Test.startTest();
+    List<PropFocusLeadService.SalesTeamMemberItem> members = PropFocusLeadService.getSalesTeam();
+    Test.stopTest();
+
+    System.assertEquals(1, members.size());
+    System.assertEquals('sales-1', members[0].id);
+    System.assertEquals('Alex Sales', members[0].name);
+    System.assertEquals('Alex Sales (Sales)', members[0].displayName);
+    System.assert(
+      apiMock.lastApiEndpoint != null &&
+      apiMock.lastApiEndpoint.contains('/api/dashboard/sales-team'),
+      'Expected sales-team endpoint'
+    );
+    System.assert(
+      apiMock.lastApiEndpoint.contains('organizationId='),
+      'Expected organizationId query param for Salesforce auth'
+    );
+  }
+
+  @IsTest
+  static void getSalesTeam_returnsEmptyWhenNoMembers() {
+    setApiMock(200, '{"success":true,"members":[]}');
+
+    Test.startTest();
+    List<PropFocusLeadService.SalesTeamMemberItem> members = PropFocusLeadService.getSalesTeam();
+    Test.stopTest();
+
+    System.assertEquals(0, members.size());
+  }
+
+  @IsTest
   static void getSiteVisitManagers_returnsEmptyWhenProjectMissing() {
     Test.startTest();
     List<PropFocusLeadService.SiteVisitManagerItem> managers = PropFocusLeadService.getSiteVisitManagers(
@@ -1082,6 +1119,36 @@ private class PropFocusLeadServiceTest {
       WHERE Id = :ld.Id
     ];
     System.assertEquals('https://example.test/pv', updated.Propfocus_Post_Visit__c);
+  }
+
+  @IsTest
+  static void generatePropfocusTemplate_postVisit_includesAssignedBrokerId() {
+    Lead ld = makeLead();
+    setApiMock(
+      200,
+      '{"success":true,"data":{"postVisitUrl":"https://example.test/pv"}}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.generatePropfocusTemplate(
+      ld.Id,
+      'post_visit',
+      JSON.serialize(
+        new Map<String, Object>{
+          'buyerName' => 'Priya Sharma',
+          'projectName' => 'Skyline Residences',
+          'visitedConfiguration' => '2 BHK',
+          'assignedBrokerId' => 'sales-1'
+        }
+      )
+    );
+    String capturedBody = apiMock.lastApiRequestBody;
+    Test.stopTest();
+
+    Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
+      capturedBody
+    );
+    System.assertEquals('sales-1', requestBody.get('assignedBrokerId'));
   }
 
   @IsTest

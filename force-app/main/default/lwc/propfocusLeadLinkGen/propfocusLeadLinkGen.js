@@ -9,6 +9,7 @@ import generatePropfocusTemplate from "@salesforce/apex/PropFocusLeadService.gen
 import getConfigurationsForProjects from "@salesforce/apex/PropFocusLeadService.getConfigurationsForProjects";
 import getLatestSiteVisitDateTime from "@salesforce/apex/PropFocusLeadService.getLatestSiteVisitDateTime";
 import getSiteVisitManagers from "@salesforce/apex/PropFocusLeadService.getSiteVisitManagers";
+import getSalesTeam from "@salesforce/apex/PropFocusLeadService.getSalesTeam";
 import getLinkHistory from "@salesforce/apex/PropFocusLeadService.getLinkHistory";
 import getBuyerInsightsEmbedContext from "@salesforce/apex/PropFocusLeadService.getBuyerInsightsEmbedContext";
 import getUiConfiguration from "@salesforce/apex/PropfocusConfigService.getUiConfiguration";
@@ -282,6 +283,9 @@ export default class PropfocusLeadLinkGen extends LightningElement {
   postVisitSelectedConfigurations = [];
   postVisitConfigurationOptions = [];
   isLoadingPostVisitConfigurations = false;
+  postVisitReassignTo = "";
+  salesTeamOptions = [];
+  isLoadingSalesTeam = false;
   micrositeLeadType = "new";
   selectedConfigurations = [];
   configurationOptions = [];
@@ -564,6 +568,12 @@ export default class PropfocusLeadLinkGen extends LightningElement {
   get showPostVisitConfigurationField() {
     return Boolean(this.postVisitProject);
   }
+
+  get postVisitReassignPlaceholder() {
+    return this.salesTeamOptions.length > 0
+      ? "Select sales person"
+      : "No sales team members available";
+  }
   get showMicrositeFields() {
     return this.modalAction === "microsite";
   }
@@ -680,6 +690,9 @@ export default class PropfocusLeadLinkGen extends LightningElement {
     this.postVisitSelectedConfigurations = [];
     this.postVisitConfigurationOptions = [];
     this.isLoadingPostVisitConfigurations = false;
+    this.postVisitReassignTo = "";
+    this.salesTeamOptions = [];
+    this.isLoadingSalesTeam = false;
     this.micrositeLeadType = "new";
     this.selectedConfigurations = [];
     this.configurationOptions = [];
@@ -760,6 +773,38 @@ export default class PropfocusLeadLinkGen extends LightningElement {
       ? [ALL_CONFIG_OPTION_VALUE]
       : selected;
   }
+
+  handlePostVisitReassignChange(event) {
+    this.postVisitReassignTo = event.detail.value || "";
+  }
+
+  loadSalesTeam() {
+    this.isLoadingSalesTeam = true;
+    return getSalesTeam()
+      .then((rows) => {
+        const options = (rows || []).map((row) => ({
+          label: row.displayName || row.name,
+          value: row.id
+        }));
+        this.salesTeamOptions = options;
+        if (
+          this.postVisitReassignTo &&
+          !options.some((option) => option.value === this.postVisitReassignTo)
+        ) {
+          this.postVisitReassignTo = "";
+        }
+        return options;
+      })
+      .catch(() => {
+        this.salesTeamOptions = [];
+        this.postVisitReassignTo = "";
+        return [];
+      })
+      .finally(() => {
+        this.isLoadingSalesTeam = false;
+      });
+  }
+
   getPostVisitSpecificConfigurationValues() {
     return (this.postVisitConfigurationOptions || [])
       .map((option) => option?.value)
@@ -870,7 +915,11 @@ export default class PropfocusLeadLinkGen extends LightningElement {
       return;
     }
     this.isLoading = true;
-    Promise.allSettled([getLeadDetails({ leadId: this.recordId }), this.loadSiteVisitProjects()])
+    Promise.allSettled([
+      getLeadDetails({ leadId: this.recordId }),
+      this.loadSiteVisitProjects(),
+      this.loadSalesTeam()
+    ])
       .then(([leadResult, optsResult]) => {
         if (leadResult.status !== "fulfilled") {
           throw leadResult.reason;
@@ -882,6 +931,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         const opts = optsResult.value;
         this.clientName = lead?.[LEAD_BUYER_NAME_FIELD];
         this.postVisitProject = "";
+        this.postVisitReassignTo = "";
         if (lead?.[LEAD_PROJECT_FIELD]) {
           const p = String(lead[LEAD_PROJECT_FIELD]).trim();
           const m = opts?.find((o) => o.value === p);
@@ -979,14 +1029,18 @@ export default class PropfocusLeadLinkGen extends LightningElement {
 
     this.isLoading = true;
     const finishDeferredCopy = beginDeferredClipboardCopy();
+    const context = {
+      buyerName,
+      projectName: this.postVisitProject,
+      visitedConfiguration
+    };
+    if (this.postVisitReassignTo) {
+      context.assignedBrokerId = this.postVisitReassignTo;
+    }
     generatePropfocusTemplate({
       leadId: this.recordId,
       communicationType: COMM_TYPE_POST_VISIT,
-      contextJson: JSON.stringify({
-        buyerName,
-        projectName: this.postVisitProject,
-        visitedConfiguration
-      })
+      contextJson: JSON.stringify(context)
     })
       .then(async (result) => {
         await this.presentSuccessWithCopy(

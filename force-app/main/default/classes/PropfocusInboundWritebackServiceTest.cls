@@ -154,4 +154,95 @@ private class PropfocusInboundWritebackServiceTest {
     System.assertEquals(1, rows.size());
     System.assertEquals('Completed', rows[0].Site_Visit_Status__c);
   }
+
+  // The client site-visit object is customer-owned, so tests stand in
+  // Propfocus_Call_Log__c for it: it exists in the packaging org and has a
+  // parent lookup plus text/datetime fields to map onto.
+  private static void mapClientSiteVisitObjectForTest() {
+    // Names are resolved through describe so they carry the package namespace
+    // when one is present — a literal 'Propfocus_Call_Log__c' does not resolve
+    // via getGlobalDescribe() in a namespaced org.
+    PropfocusConfigService.Config cfg = PropfocusConfigService.getConfig();
+    cfg.siteVisitObject = Propfocus_Call_Log__c.SObjectType.getDescribe()
+      .getName();
+    cfg.siteVisitLeadLookupField = Propfocus_Call_Log__c.Lead__c.getDescribe()
+      .getName();
+    cfg.siteVisitNumberField = Propfocus_Call_Log__c.Duration__c.getDescribe()
+      .getName();
+    cfg.siteVisitStatusField = Propfocus_Call_Log__c.Disposition__c.getDescribe()
+      .getName();
+    cfg.siteVisitDatetimeField = Propfocus_Call_Log__c.Call_Time__c.getDescribe()
+      .getName();
+    cfg.siteVisitTypeField = null;
+    cfg.siteVisitTeamField = null;
+    cfg.siteVisitProjectField = null;
+    cfg.siteVisitManagerNameField = null;
+    cfg.siteVisitManagerPhoneField = null;
+    cfg.siteVisitManagerEmailField = null;
+  }
+
+  private static Map<String, Object> siteVisitPayload(
+    String visitNumber,
+    String status
+  ) {
+    return new Map<String, Object>{
+      'site_visit' => new Map<String, Object>{
+        'site_visit_number' => visitNumber,
+        'site_visit_status' => status,
+        'site_visit_datetime' => '2026-05-27T14:00:00.000Z'
+      }
+    };
+  }
+
+  @IsTest
+  static void clientSiteVisit_repeatPushUpdatesInPlace() {
+    Lead ld = makeLead();
+    mapClientSiteVisitObjectForTest();
+
+    Test.startTest();
+    PropfocusInboundWritebackService.applyWriteback(
+      ld.Id,
+      siteVisitPayload('SV-3001', 'Scheduled')
+    );
+    PropfocusInboundWritebackService.applyWriteback(
+      ld.Id,
+      siteVisitPayload('SV-3001', 'Completed')
+    );
+    Test.stopTest();
+
+    List<Propfocus_Call_Log__c> rows = [
+      SELECT Disposition__c
+      FROM Propfocus_Call_Log__c
+      WHERE Lead__c = :ld.Id AND Duration__c = 'SV-3001'
+    ];
+    Assert.areEqual(1, rows.size(), 'Repeat push must not duplicate the row');
+    Assert.areEqual(
+      'Completed',
+      rows[0].Disposition__c,
+      'Repeat push must update status in place'
+    );
+  }
+
+  @IsTest
+  static void clientSiteVisit_distinctVisitNumbersInsertSeparateRows() {
+    Lead ld = makeLead();
+    mapClientSiteVisitObjectForTest();
+
+    Test.startTest();
+    PropfocusInboundWritebackService.applyWriteback(
+      ld.Id,
+      siteVisitPayload('SV-4001', 'Scheduled')
+    );
+    PropfocusInboundWritebackService.applyWriteback(
+      ld.Id,
+      siteVisitPayload('SV-4002', 'Scheduled')
+    );
+    Test.stopTest();
+
+    Assert.areEqual(
+      2,
+      [SELECT COUNT() FROM Propfocus_Call_Log__c WHERE Lead__c = :ld.Id],
+      'Distinct visit numbers must remain separate rows'
+    );
+  }
 }

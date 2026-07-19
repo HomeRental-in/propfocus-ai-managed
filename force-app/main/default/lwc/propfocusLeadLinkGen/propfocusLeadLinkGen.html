@@ -118,6 +118,7 @@
                             </template>
                             <lightning-dual-listbox class="slds-m-top_small" name="postVisitConfigurations" label="Visited Configuration" source-label="Available" selected-label="Selected" options={postVisitConfigurationOptions} value={postVisitSelectedConfigurations} onchange={handlePostVisitConfigurationChange} required message-when-value-missing="Select at least one configuration" disabled={isLoadingPostVisitConfigurations}></lightning-dual-listbox>
                         </template>
+                        <lightning-combobox class="slds-m-top_small" label="Reassign to" value={postVisitReassignTo} options={salesTeamOptions} placeholder={postVisitReassignPlaceholder} onchange={handlePostVisitReassignChange} disabled={isLoadingSalesTeam}></lightning-combobox>
                     </template>
                     <template lwc:elseif={showMicrositeFields}>
                         <lightning-combobox label="Lead Type" value={micrositeLeadType} options={micrositeLeadTypeOptions} onchange={handleMicrositeLeadTypeChange} required></lightning-combobox>
