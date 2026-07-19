@@ -211,6 +211,7 @@ Outbound identity: Lead sends `salesforce_lead_id`; Opportunity sends `salesforc
 | 403 Organization ID mismatch | Organization Id in Config                                  |
 | Outbound auth not configured | Part 2.4 — External Credential → Propfocus Principal |
 | Callout unauthorized for sales user | Part 2.1a + 2.4d — **Propfocus User** + principal access |
+| "don't have read permissions on the User External Credential object" | Grant **Read** on **User External Credentials** (packaged in Propfocus User / AI Admin from next release; or local permission set) |
 
 ---
 
