@@ -128,8 +128,9 @@ private class PropFocusLeadServiceTest {
         'new',
         ''
       );
-    } catch (AuraHandledException e) {
-      firstCallFailedAsExpected = true;
+    } catch (Exception e) {
+      firstCallFailedAsExpected =
+        e instanceof AuraHandledException || e instanceof PropFocusServiceException;
       String errorMessage = e.getMessage();
       System.assert(
         errorMessage != null &&
@@ -140,7 +141,7 @@ private class PropFocusLeadServiceTest {
     Test.stopTest();
     System.assert(
       firstCallFailedAsExpected,
-      'Expected non-200 status to throw AuraHandledException'
+      'Expected non-200 status to throw user-facing exception'
     );
   }
 
@@ -159,8 +160,9 @@ private class PropFocusLeadServiceTest {
         'new',
         ''
       );
-    } catch (AuraHandledException e2) {
-      secondCallFailedAsExpected = true;
+    } catch (Exception e2) {
+      secondCallFailedAsExpected =
+        e2 instanceof AuraHandledException || e2 instanceof PropFocusServiceException;
       String errorMessage = e2.getMessage();
       System.assert(
         errorMessage != null &&
@@ -171,7 +173,7 @@ private class PropFocusLeadServiceTest {
     Test.stopTest();
     System.assert(
       secondCallFailedAsExpected,
-      'Expected missing micrositeUrl to throw AuraHandledException'
+      'Expected missing micrositeUrl to throw user-facing exception'
     );
   }
 
@@ -545,8 +547,9 @@ private class PropFocusLeadServiceTest {
         '2 BHK',
         Date.today()
       );
-    } catch (AuraHandledException e) {
-      failedAsExpected = true;
+    } catch (Exception e) {
+      failedAsExpected =
+        e instanceof AuraHandledException || e instanceof PropFocusServiceException;
       String errorMessage = e.getMessage();
       System.assert(
         errorMessage != null &&
@@ -557,7 +560,7 @@ private class PropFocusLeadServiceTest {
     Test.stopTest();
     System.assert(
       failedAsExpected,
-      'Expected missing post visit URL to throw AuraHandledException'
+      'Expected missing post visit URL to throw user-facing exception'
     );
   }
 
@@ -576,8 +579,9 @@ private class PropFocusLeadServiceTest {
         System.now(),
         null
       );
-    } catch (AuraHandledException e) {
-      httpErrorFailedAsExpected = true;
+    } catch (Exception e) {
+      httpErrorFailedAsExpected =
+        e instanceof AuraHandledException || e instanceof PropFocusServiceException;
       String errorMessage = e.getMessage();
       System.assert(
         errorMessage != null &&
@@ -588,7 +592,7 @@ private class PropFocusLeadServiceTest {
     Test.stopTest();
     System.assert(
       httpErrorFailedAsExpected,
-      'Expected non-200 status to throw AuraHandledException'
+      'Expected non-200 status to throw user-facing exception'
     );
   }
 
@@ -607,8 +611,9 @@ private class PropFocusLeadServiceTest {
         System.now(),
         null
       );
-    } catch (AuraHandledException e2) {
-      missingUrlFailedAsExpected = true;
+    } catch (Exception e2) {
+      missingUrlFailedAsExpected =
+        e2 instanceof AuraHandledException || e2 instanceof PropFocusServiceException;
       String errorMessage = e2.getMessage();
       System.assert(
         errorMessage != null &&
@@ -619,7 +624,7 @@ private class PropFocusLeadServiceTest {
     Test.stopTest();
     System.assert(
       missingUrlFailedAsExpected,
-      'Expected missing sv_url to throw AuraHandledException'
+      'Expected missing sv_url to throw user-facing exception'
     );
   }
 
@@ -637,14 +642,19 @@ private class PropFocusLeadServiceTest {
       Test.stopTest();
       System.assert(
         false,
-        'Expected null lead Id to throw AuraHandledException'
+        'Expected null lead Id to throw user-facing exception'
       );
-    } catch (AuraHandledException e) {
+    } catch (Exception e) {
       Test.stopTest();
+      System.assert(
+        e instanceof AuraHandledException || e instanceof PropFocusServiceException,
+        'Unexpected exception type: ' + e
+      );
       String errorMessage = e.getMessage();
       System.assert(
         errorMessage != null &&
         (errorMessage.contains('Lead Id is required') ||
+        errorMessage.contains('Record Id is required') ||
         errorMessage.contains('Script-thrown exception'))
       );
     }
@@ -1158,8 +1168,9 @@ private class PropFocusLeadServiceTest {
     Test.startTest();
     try {
       PropFocusLeadService.generatePropfocusTemplate(ld.Id, 'payment_reminder', '{}');
-    } catch (AuraHandledException e) {
-      failed = true;
+    } catch (Exception e) {
+      failed =
+        e instanceof AuraHandledException || e instanceof PropFocusServiceException;
     }
     Test.stopTest();
     System.assert(failed, 'Expected unsupported type to throw');
@@ -1172,8 +1183,9 @@ private class PropFocusLeadServiceTest {
     Test.startTest();
     try {
       PropFocusLeadService.generatePropfocusTemplate(ld.Id, 'microsite', 'not-json');
-    } catch (AuraHandledException e) {
-      failed = true;
+    } catch (Exception e) {
+      failed =
+        e instanceof AuraHandledException || e instanceof PropFocusServiceException;
     }
     Test.stopTest();
     System.assert(failed, 'Expected invalid contextJson to throw');

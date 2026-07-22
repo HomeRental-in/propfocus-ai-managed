@@ -178,10 +178,11 @@ private class PropFocusSiteVisitLinkServiceTest {
     Boolean threw = false;
     try {
       PropFocusSiteVisitLinkService.mapSiteVisitRecord(ld.Id);
-    } catch (AuraHandledException ex) {
-      threw = true;
+    } catch (Exception ex) {
+      threw =
+        ex instanceof AuraHandledException || ex instanceof PropFocusServiceException;
     }
-    System.assert(threw, 'Expected AuraHandledException for wrong object type');
+    System.assert(threw, 'Expected user-facing exception for wrong object type');
   }
 
   @IsTest
@@ -197,9 +198,10 @@ private class PropFocusSiteVisitLinkServiceTest {
     Boolean threw = false;
     try {
       PropFocusSiteVisitLinkService.mapSiteVisitRecord(sv.Id);
-    } catch (AuraHandledException ex) {
-      threw = true;
+    } catch (Exception ex) {
+      threw =
+        ex instanceof AuraHandledException || ex instanceof PropFocusServiceException;
     }
-    System.assert(threw, 'Expected AuraHandledException for blank project');
+    System.assert(threw, 'Expected user-facing exception for blank project');
   }
 }

@@ -354,7 +354,9 @@ public class PropFocusLeadService implements Callable {
     String projectFieldApiName = cfg.siteVisitProjectField;
     String statusFieldApiName = cfg.siteVisitStatusField;
     for (SObject row : queryLatestSiteVisits(leadId, 50)) {
-      String projectName = asString(row.get(projectFieldApiName));
+      String projectName = asString(
+        getFieldPathValue(row, projectFieldApiName)
+      );
       String rawStatus = asString(row.get(statusFieldApiName));
       if (String.isBlank(projectName)) {
         continue;
@@ -404,16 +406,114 @@ public class PropFocusLeadService implements Callable {
     String value,
     String configFieldApiName
   ) {
-    String fieldApiName = requireSafeApiName(value, configFieldApiName);
-    if (!objectType.getDescribe().fields.getMap().containsKey(fieldApiName)) {
+    String fieldApiName = requireSafeFieldPath(value, configFieldApiName);
+    assertFieldPathExists(objectType, fieldApiName, configFieldApiName);
+    return fieldApiName;
+  }
+
+  /**
+   * Reads a direct field or relationship path (e.g. Project__r.Name, Owner.Name).
+   * SOQL must have selected the path (or parent relationship) for nested values.
+   */
+  @TestVisible
+  private static Object getFieldPathValue(SObject record, String fieldPath) {
+    if (record == null || String.isBlank(fieldPath)) {
+      return null;
+    }
+    if (!fieldPath.contains('.')) {
+      return record.get(fieldPath);
+    }
+    List<String> parts = fieldPath.split('\\.');
+    SObject current = record;
+    for (Integer i = 0; i < parts.size() - 1; i++) {
+      current = current.getSObject(parts[i]);
+      if (current == null) {
+        return null;
+      }
+    }
+    return current.get(parts[parts.size() - 1]);
+  }
+
+  private static void assertFieldPathExists(
+    Schema.SObjectType objectType,
+    String fieldPath,
+    String configFieldApiName
+  ) {
+    if (objectType == null || String.isBlank(fieldPath)) {
       PropFocusServiceException.throwUserFacing(
-        'Configured field not found on ' +
-          objectType.getDescribe().getName() +
-          ': ' +
-          fieldApiName
+        'Configured field not found for ' + configFieldApiName
       );
     }
-    return fieldApiName;
+    Schema.SObjectType currentType = objectType;
+    List<String> parts = fieldPath.split('\\.');
+    for (Integer i = 0; i < parts.size(); i++) {
+      String part = parts[i];
+      Map<String, Schema.SObjectField> fieldsByApiName = currentType.getDescribe()
+        .fields.getMap();
+      Boolean isLast = i == parts.size() - 1;
+      if (isLast) {
+        if (!fieldsByApiName.containsKey(part)) {
+          PropFocusServiceException.throwUserFacing(
+            'Configured field not found on ' +
+              currentType.getDescribe().getName() +
+              ': ' +
+              fieldPath
+          );
+        }
+        return;
+      }
+      Schema.SObjectField relationshipField = resolveRelationshipField(
+        fieldsByApiName,
+        part
+      );
+      if (relationshipField == null) {
+        PropFocusServiceException.throwUserFacing(
+          'Configured field not found on ' +
+            currentType.getDescribe().getName() +
+            ': ' +
+            fieldPath
+        );
+      }
+      List<Schema.SObjectType> refs = relationshipField.getDescribe()
+        .getReferenceTo();
+      if (refs == null || refs.isEmpty()) {
+        PropFocusServiceException.throwUserFacing(
+          'Configured field not found on ' +
+            currentType.getDescribe().getName() +
+            ': ' +
+            fieldPath
+        );
+      }
+      currentType = refs[0];
+    }
+  }
+
+  private static Schema.SObjectField resolveRelationshipField(
+    Map<String, Schema.SObjectField> fieldsByApiName,
+    String relationshipName
+  ) {
+    if (fieldsByApiName == null || String.isBlank(relationshipName)) {
+      return null;
+    }
+    if (fieldsByApiName.containsKey(relationshipName)) {
+      Schema.SObjectField direct = fieldsByApiName.get(relationshipName);
+      if (!direct.getDescribe().getReferenceTo().isEmpty()) {
+        return direct;
+      }
+    }
+    if (relationshipName.endsWith('__r')) {
+      String lookupApiName =
+        relationshipName.substring(0, relationshipName.length() - 3) + '__c';
+      if (fieldsByApiName.containsKey(lookupApiName)) {
+        return fieldsByApiName.get(lookupApiName);
+      }
+    }
+    // Standard relationships often use Owner -> OwnerId
+    String idField = relationshipName + 'Id';
+    if (fieldsByApiName.containsKey(idField)) {
+      return fieldsByApiName.get(idField);
+    }
+    return null;
   }
 
   private static String requireLeadFieldApiName(
@@ -461,7 +561,7 @@ public class PropFocusLeadService implements Callable {
   ) {
     if (!String.isBlank(preSalesRepSourceFieldApiName)) {
       String mappedValue = asString(
-        leadRecord.get(preSalesRepSourceFieldApiName)
+        getFieldPathValue(leadRecord, preSalesRepSourceFieldApiName)
       );
       if (!String.isBlank(mappedValue)) {
         return mappedValue;
@@ -539,10 +639,10 @@ public class PropFocusLeadService implements Callable {
       'buyerInsightsAvailable' => ld.get(
         'Propfocus_Buyer_Insights_Available__c'
       ),
-      'buyerId' => ld.get(fields.buyerIdField),
-      'buyerName' => ld.get(fields.buyerNameField),
-      'projectName' => ld.get(fields.projectField),
-      'leadStatus' => ld.get(fields.statusField),
+      'buyerId' => getFieldPathValue(ld, fields.buyerIdField),
+      'buyerName' => getFieldPathValue(ld, fields.buyerNameField),
+      'projectName' => getFieldPathValue(ld, fields.projectField),
+      'leadStatus' => getFieldPathValue(ld, fields.statusField),
       'isOpportunity' => fields.isOpportunity
     };
   }
@@ -939,6 +1039,25 @@ public class PropFocusLeadService implements Callable {
     return value;
   }
 
+  /** Direct field or relationship path (e.g. Project__r.Name, Owner.MobilePhone). */
+  private static String requireSafeFieldPath(
+    String value,
+    String configFieldApiName
+  ) {
+    if (
+      String.isBlank(value) ||
+      !Pattern.matches(
+        '^[A-Za-z][A-Za-z0-9_]*(__[cr])?(\\.[A-Za-z][A-Za-z0-9_]*(__[cr])?)*$',
+        value
+      )
+    ) {
+      PropFocusServiceException.throwUserFacing(
+        'Invalid API name configured for ' + configFieldApiName
+      );
+    }
+    return value;
+  }
+
   private static Schema.SObjectType requireSiteVisitObjectType(
     String objectApiName
   ) {
@@ -973,7 +1092,7 @@ public class PropFocusLeadService implements Callable {
           PropfocusConfigService.requireSiteVisitLeadLookupField(),
           'Lead_Lookup_Field__c'
         );
-    String projectFieldApiName = requireSafeApiName(
+    String projectFieldApiName = requireSafeFieldPath(
       PropfocusConfigService.requireSiteVisitProjectField(),
       'Site_Visit_Project_Field__c'
     );
@@ -984,17 +1103,25 @@ public class PropFocusLeadService implements Callable {
     }
     Map<String, Schema.SObjectField> fieldsByApiName = objectType.getDescribe()
       .fields.getMap();
-    List<String> requiredFields = new List<String>{
+    List<String> requiredDirectFields = new List<String>{
       'Id',
       'CreatedDate',
       statusFieldApiName,
-      parentLookupFieldApiName,
-      projectFieldApiName
+      parentLookupFieldApiName
     };
-    for (String fieldApiName : requiredFields) {
+    for (String fieldApiName : requiredDirectFields) {
       if (!fieldsByApiName.containsKey(fieldApiName)) {
         return new List<SObject>();
       }
+    }
+    try {
+      assertFieldPathExists(
+        objectType,
+        projectFieldApiName,
+        'Site_Visit_Project_Field__c'
+      );
+    } catch (Exception e) {
+      return new List<SObject>();
     }
 
     String soql =
@@ -1314,13 +1441,13 @@ public class PropFocusLeadService implements Callable {
     }
     SObject ld = queryParentById(leadId, leadFieldApiNames);
 
-    String buyerId = asString(ld.get(buyerIdFieldApiName));
+    String buyerId = asString(getFieldPathValue(ld, buyerIdFieldApiName));
     String buyerName = firstContextString(
       context,
       new List<String>{ 'buyerName', 'clientName', 'buyer_name', 'client_name' }
     );
     if (String.isBlank(buyerName)) {
-      buyerName = asString(ld.get(buyerNameFieldApiName));
+      buyerName = asString(getFieldPathValue(ld, buyerNameFieldApiName));
     }
     if (String.isBlank(buyerId)) {
       PropFocusServiceException.throwUserFacing(
@@ -1479,7 +1606,7 @@ public class PropFocusLeadService implements Callable {
       'projects' => projects,
       API_LEAD_STATUS_KEY => context.containsKey(API_LEAD_STATUS_KEY)
         ? context.get(API_LEAD_STATUS_KEY)
-        : ld.get(leadStatusFieldApiName),
+        : getFieldPathValue(ld, leadStatusFieldApiName),
       'buyer_id' => buyerId
     };
     putSalesforceIdentity(body, leadId);
@@ -1623,7 +1750,9 @@ public class PropFocusLeadService implements Callable {
     String leadStatusFieldApiName,
     String preSalesRepSourceFieldApiName
   ) {
-    String projectFromLead = asString(ld.get(projectFieldApiName));
+    String projectFromLead = asString(
+      getFieldPathValue(ld, projectFieldApiName)
+    );
     if (
       String.isBlank(firstContextString(context, new List<String>{ 'projectName', 'project_name' })) &&
       context.get('projects') == null &&
@@ -1652,7 +1781,10 @@ public class PropFocusLeadService implements Callable {
         context.put('lead_types', leadTypesForApi);
       }
       if (!context.containsKey(API_LEAD_STATUS_KEY)) {
-        context.put(API_LEAD_STATUS_KEY, ld.get(leadStatusFieldApiName));
+        context.put(
+          API_LEAD_STATUS_KEY,
+          getFieldPathValue(ld, leadStatusFieldApiName)
+        );
       }
     }
 

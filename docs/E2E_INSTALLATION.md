@@ -3,7 +3,7 @@
 **Audience:** Salesforce admin + Propfocus backend  
 **Goal:** Brand-new org → package installed → configured → inbound/outbound working → features verified  
 **Time:** Demo / Developer org with click-path: ~1–2 hours. Enterprise (change control, External Client App + JWT, backend registration, pipeline deploy of subscriber config): plan **several days**, not a single sitting.  
-**Package:** Propfocus AI **v0.6.0-1** (`PropfocusAI` namespace) — Opportunity support + External Credential outbound auth (see [Upgrade from 0.5.x](#upgrade-from-05x) and [FAQ.txt](./FAQ.txt)).
+**Package:** Propfocus AI **v0.7.0-2** (`PropfocusAI` namespace) — Opportunity support + External Credential outbound auth (see [Upgrade from 0.5.x](#upgrade-from-05x) and [FAQ.txt](./FAQ.txt)).
 
 This is the exact workflow. Follow phases in order. Do not skip prerequisites.
 
@@ -68,10 +68,10 @@ Do these **before** opening the install link. Lead Field History Tracking is **n
 
 ## Phase 1 — Install the managed package
 
-**Install URL (v0.6.0-1):**
+**Install URL (v0.7.0-2):**
 
 ```
-https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kGszQAE
+https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kNpdQAE
 ```
 
 | # | Action | Pass when |
@@ -79,7 +79,7 @@ https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kGszQA
 | 1.1 | Log into the **target org** first (sandbox: use `https://test.salesforce.com`, then open the install URL) | You are in the correct org |
 | 1.1b | **Sandbox only:** after install, complete [Sandbox override](#sandbox--uat--point-at-dev) before Phase 4 | All URLs point to `dev.propfocus.in` |
 | 1.2 | Open install URL → **Install for Admins Only** → Install | Install completes with no errors |
-| 1.3 | Setup → **Installed Packages** | **Propfocus AI** version **0.5.0.1** is listed |
+| 1.3 | Setup → **Installed Packages** | **Propfocus AI** version **0.7.0.2** is listed |
 
 **Installed for you (no action):** Apex, Lead trigger, inbound REST, Platform Event, custom objects, permission sets, External Credential + Named Credential (skeleton), Remote Site, CSP Trusted Sites, LWCs, Admin Setup tab, Propfocus AI app, default `Propfocus_Config` CMDT record.
 
@@ -92,6 +92,7 @@ https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kGszQA
 | # | Who | Permission set | Action |
 | - | --- | -------------- | ------ |
 | 2.1 | Sales reps / test user | **Propfocus User** | Setup → Permission Sets → Manage Assignments |
+| 2.1b | Sales reps / test user | **Propfocus Callout Access** (local) | Required — [SETUP_GUIDE.md](./SETUP_GUIDE.md) §2.1e. Managed Propfocus User cannot grant User External Credentials Read. |
 | 2.2 | Salesforce admin(s) | **Propfocus AI Admin** | Same |
 | 2.3 | New user (Minimum Access profile) | **Propfocus Integration** | Create user → assign this set |
 
@@ -176,6 +177,7 @@ Enter **API names** only (custom fields end in `__c`). Discover them via [FIELDS
 | Site Visit Type Field | org-specific |
 | Site Visit Datetime Field | org-specific |
 | Site Visit Team Field | org-specific |
+| Site Visit Manager Name / Phone / Email Field | optional — org field API names |
 
 Save the record.
 
@@ -213,6 +215,7 @@ Client Id and Client Secret are stored encrypted in the External Credential — 
 | 4.5 | Setup → App Manager → your sales app → Edit | Add **propfocusAI Admin Setup** to Navigation Items → Save | Tab visible in app |
 | 4.6 | Open any Lead → gear → **Edit Page** | Drag **propfocusLeadLinkGen** onto the page → **Save** → **Activate** (org default or relevant apps) | Component visible on Lead |
 | 4.7 | Open any Opportunity → gear → **Edit Page** | Drag **propfocusLeadLinkGen** onto the page → **Save** → **Activate** | Component visible on Opportunity |
+| 4.8 | (Optional) Auto site visit link | Setup → **Flows** → Record-Triggered Flow on Site Visit object → Apex **Generate Propfocus Site Visit Link From Record** → **Site Visit Record Id** = `{!$Record.Id}` → Activate | See [SETUP_GUIDE.md](./SETUP_GUIDE.md) §2.8 |
 
 Optional: open the packaged **Propfocus AI** app (includes Lead + Admin Setup) instead of adding the tab to an existing app.
 
@@ -426,10 +429,11 @@ Prerequisites
 [ ] Enterprise: change window + pipeline path for CMDT / FlexiPage / perm sets
 
 Install
-[ ] Package 0.5.0.1 installed (or upgraded — see Upgrade from 0.5.x)
+[ ] Package 0.7.0.2 installed (or upgraded — see Upgrade from 0.5.x)
 
 Users
 [ ] Propfocus User assigned to sales users
+[ ] Local Propfocus Callout Access assigned to sales users (SETUP_GUIDE §2.1e); users logged out/in
 [ ] Propfocus AI Admin assigned to admins
 [ ] Integration user created + Propfocus Integration assigned
 [ ] Integration user FLS on all mapped fields
@@ -443,6 +447,7 @@ Config
 [ ] Admin Setup tab in app nav
 [ ] propfocusLeadLinkGen on Lead record page (activated)
 [ ] propfocusLeadLinkGen on Opportunity record page (activated, if using Opp panel)
+[ ] Optional: Site Visit Record-Triggered Flow active (SETUP_GUIDE §2.8)
 [ ] Custom notification delivery configured
 
 Inbound
@@ -468,8 +473,10 @@ Verify
 | Buttons missing on Lead / Opportunity | Phase 4.6 / 4.7 — add LWC + Activate |
 | Insufficient privileges | Phase 2 permission sets |
 | Test Connection fails | Phase 4.1 Client Id/Secret + token URL; Phase 3 Organization Id |
-| Unauthorized / insufficient access on callout | Phase 4.1d — user needs **Propfocus User** or **Propfocus AI Admin** (External Credential principal access) |
-| Microsite works for admin but not sales user | Assign **Propfocus User**; confirm principal access on that permission set |
+| Unauthorized / insufficient access on callout | Phase 4.1d — user needs **Propfocus User** or **Propfocus AI Admin** (External Credential principal access) **and** local **Propfocus Callout Access** for sales (§2.1b / SETUP_GUIDE §2.1e) |
+| Microsite works for admin but not sales user | Assign **Propfocus User** + **Propfocus Callout Access**; confirm principal access; user must log out/in |
+| "don't have read permissions on the User External Credential object" | Local Callout Access PS with UEC Read — SETUP_GUIDE §2.1e |
+| Site Visit Save creates SV but no Propfocus link | Phase 4.8 / SETUP_GUIDE §2.8 — Flow active, `{!$Record.Id}`, project name in Propfocus, Callout Access |
 | Iframe blank | Phase 4.2 CSP + Embed Base Url; hard-refresh |
 | No Lead/Opportunity found for `buyer_id` | Buyer Id Field mapping + value on Lead or Opportunity |
 | 403 Organization ID mismatch | Organization Id in Config ≠ backend |

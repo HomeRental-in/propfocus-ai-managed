@@ -46,8 +46,11 @@ $RECYCLE.BIN/
 propfocus-sf-jwt/server.key
 propfocus-sf-jwt/server.crt
 
-# Sandbox-only config (contains OAuth secrets)
+# Sandbox-only config (contains OAuth secrets / one-off deploy debris)
 config/sandbox-hosachiguru/
+config/sandbox-uat2026/
+.tmp-uat2026-config-backup.json
+.tmp-uat*/
 
 # Dev-only retrieve / cleanup manifests (not part of package source)
 manifest/cleanup-local-duplicates/

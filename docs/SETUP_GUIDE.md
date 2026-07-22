@@ -25,10 +25,10 @@
 | **Path A — Existing sandbox**         | Package or code already deployed. Do **Part 2–4** only.        |
 | **Path B — Fresh org (install link)** | Install the managed package first, then **Part 1 + Part 2–4**. |
 
-**Managed package install link (v0.6.0-1):**
+**Managed package install link (v0.7.0-2):**
 
 ```
-https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kGszQAE
+https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kNpdQAE
 ```
 
 ---
@@ -38,7 +38,7 @@ https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kGszQA
 | Step | Where                          | What to do                                              | What to check                               |
 | ---- | ------------------------------ | ------------------------------------------------------- | ------------------------------------------- |
 | 1.1  | Install URL (above)            | Log in as admin → **Install for Admins Only** → Install | No errors                                   |
-| 1.2  | Setup → **Installed Packages** |                                                         | **Propfocus AI** version **0.6.0.1** listed |
+| 1.2  | Setup → **Installed Packages** |                                                         | **Propfocus AI** version **0.7.0.2** listed |
 
 ---
 
@@ -46,7 +46,8 @@ https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kGszQA
 
 ### 2.1 Assign permission sets
 
-**Sales / test user:** **Propfocus User** + **Propfocus AI Admin**  
+**Sales / test user:** **Propfocus User** + local **Propfocus Callout Access** (required — see 2.1e)  
+**Admin:** **Propfocus AI Admin** (System Admin profiles usually already have User External Credentials Read)  
 **Integration user:** **Propfocus Integration** (e.g. `propfocus.integration@yourcompany.com`, Minimum Access profile)
 
 | Step | Action                                                                                |
@@ -55,12 +56,31 @@ https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kGszQA
 | 2.1b | Repeat for **Propfocus AI Admin** → assign admin user                                 |
 | 2.1c | Create or select integration user                                                     |
 | 2.1d | Assign **Propfocus Integration** to integration user                                  |
+| 2.1e | Create and assign local **Propfocus Callout Access** (below) — required for sales users |
+
+#### 2.1e Local permission set — Propfocus Callout Access (required for sales users)
+
+Salesforce strips **User External Credentials** object Read from **managed** permission sets. Packaged **Propfocus User** alone is not enough for most sales profiles. Do this once per org:
+
+| Step | Action |
+| ---- | ------ |
+| 1 | Setup → **Permission Sets** → **New** → Label: `Propfocus Callout Access` → Save |
+| 2 | Open that permission set → **Object Settings** → **User External Credentials** → enable **Read** → Save |
+| 3 | Same permission set → **External Credential Principal Access** → enable **Propfocus API — Propfocus Principal** (packaged under namespace PropfocusAI) → Save. *(Optional if users already have packaged Propfocus User, which includes principal access; still recommended so one local set is complete.)* |
+| 4 | **Manage Assignments** → **Add Assignments** → select every sales user who creates Propfocus links (they must also have **Propfocus User**) |
+| 5 | Users must **log out and log back in** so the object permission takes effect |
+
+Without this, sales users often see empty Projects or: *You don't have read permissions on the User External Credential object.*
 
 ### 2.2 Configure Propfocus Config
 
 **Where:** Setup → **Custom Metadata Types → Propfocus Config** (namespace **PropfocusAI**) → **Default → Edit**
 
-If Edit shows only Label/Name, add a **Page Layout** first (Page Layouts → New → drag all fields → Save).
+If Edit shows only Label/Name, **or Opportunity fields are missing**, edit the page layout first:
+
+1. Setup → Custom Metadata Types → **Propfocus Config** → **Page Layouts** → **Propfocus Config Layout** (or New)
+2. Drag all **Opportunity_*** fields (and **Opportunity Lookup Field**, **Embed Uses Salesforce Opportunity Id**) onto the layout → Save
+3. Re-open **Default → Edit** — Opportunity section should appear
 
 #### Hosachiguru sandbox values
 
@@ -92,6 +112,9 @@ If Edit shows only Label/Name, add a **Page Layout** first (Page Layouts → New
 | Site Visit Type Field         | `sv_type__c`                                |
 | Site Visit Datetime Field     | `Site_Visit_Date__c`                        |
 | Site Visit Team Field         | `Sv_Team__c`                                |
+| Site Visit Manager Name Field | _(optional — org field for SV manager name)_ |
+| Site Visit Manager Phone Field | _(optional)_                               |
+| Site Visit Manager Email Field | _(optional)_                              |
 
 > **Other orgs:** See [FIELDS.md](./FIELDS.md) for Lead and Opportunity field API names.
 
@@ -134,17 +157,34 @@ Ensure Opportunity Config mappings from section 2.2 are filled before testing on
 
 ### 2.8 Auto site visit link on Site Visit Save (optional)
 
-The package does not own your Site Visit object, so wire a **subscriber Flow** that calls the packaged Apex action. Field mapping is entirely from **Propfocus Config** (Site Visit Object / Project / Datetime / Lead & Opportunity lookups) — no hard-coded modal fields.
+The package does **not** own your Site Visit object or “New Site Visit” modal. Saving a Site Visit only creates the customer record unless you wire a **subscriber Flow**.
+
+**What the package provides:** Apex invocable **Generate Propfocus Site Visit Link From Record** (`PropFocusSiteVisitLinkService`). It reads **only Propfocus Config** field maps (object, Lead/Opportunity lookups, project, datetime, optional manager name/phone/email), then enqueues a callout so Save is not blocked. The link is written to the parent Lead or Opportunity `Propfocus_Site_Visit__c` (same outcome as panel **Confirm Site Visit**).
+
+**Prerequisites before the Flow will succeed**
+
+- Config: Site Visit Object, Project Field, Datetime Field, Lead and/or Opportunity Lookup Field
+- Optional Config: Site Visit Manager Name / Phone / Email Field (sent as `siteVisitManager` when filled)
+- Parent Lead/Opportunity has **buyer id** populated
+- Running user has **Propfocus User** + **Propfocus Callout Access** (Part 2.1 / 2.1e) and External Credential is configured (Part 2.4)
+- Project value on the Site Visit must match a **Propfocus** project name (not only a Salesforce picklist label that Propfocus does not know)
+
+#### Wire the Flow (once per org)
 
 | Step | Action |
 | ---- | ------ |
-| 2.8a | Setup → **Flows** → New → **Record-Triggered Flow** |
-| 2.8b | Object = your Site Visit object (same API name as Config → **Site Visit Object**, e.g. `Site_Visit__c`) |
-| 2.8c | Trigger = **A record is created** (add update only if you want regenerates) · Optimize = **Actions and Related Records** |
-| 2.8d | Add element **Action** → Apex **Generate Propfocus Site Visit Link From Record** |
-| 2.8e | Set **Site Visit Record Id** = `{!$Record.Id}` → Save → Activate |
+| 2.8a | Setup → **Flows** → **New** → **Record-Triggered Flow** |
+| 2.8b | **Object** = your Site Visit object (same API name as Config → **Site Visit Object**, e.g. `Site_Visit__c`) |
+| 2.8c | **Trigger** = **A record is created** (add **updated** only if you want regenerates on edit) · **Optimize for** = **Actions and Related Records** |
+| 2.8d | Add element → **Action** → search Apex **Generate Propfocus Site Visit Link From Record** |
+| 2.8e | Input **Site Visit Record Id** → open the resource picker → **`$Record` → `Id`** (inserts `{!$Record.Id}`). Do not paste a hard-coded Id — `$Record` is the Site Visit that just saved. |
+| 2.8f | **Save** → **Activate** |
 
-On Save, the Flow enqueues a callout that creates the Propfocus site visit link on the parent Lead or Opportunity (`Propfocus_Site_Visit__c`). Requires Site Visit Project + Datetime fields mapped in Config, buyer id on the parent, and the running user to have Propfocus callout access (Part 2.1 / 2.4d).
+#### Verify
+
+1. Create a Site Visit with Project + Datetime filled (project name known to Propfocus)
+2. Shortly after Save, parent Lead/Opportunity **Propfocus_Site_Visit__c** and History show the new site visit link
+3. If nothing appears: Setup → **Flows** → open the Flow → **View Run** / debug; confirm Config maps and Callout Access; check that the project name exists in Propfocus
 
 ---
 
@@ -224,8 +264,9 @@ Outbound identity: Lead sends `salesforce_lead_id`; Opportunity sends `salesforc
 | Opportunity buttons fail     | Part 2.2 Opportunity mappings + buyer id populated         |
 | 403 Organization ID mismatch | Organization Id in Config                                  |
 | Outbound auth not configured | Part 2.4 — External Credential → Propfocus Principal |
-| Callout unauthorized for sales user | Part 2.1a + 2.4d — **Propfocus User** + principal access |
-| "don't have read permissions on the User External Credential object" | Grant **Read** on **User External Credentials** (packaged in Propfocus User / AI Admin from next release; or local permission set) |
+| Callout unauthorized for sales user | Part 2.1a + **2.1e** + 2.4d — **Propfocus User** + local **Propfocus Callout Access** |
+| "don't have read permissions on the User External Credential object" | Part **2.1e** — local permission set with Read on **User External Credentials**; users must log out/in |
+| Site Visit Save creates SV but no Propfocus link | Part **2.8** — activate Record-Triggered Flow; project name must exist in Propfocus; Callout Access + buyer id |
 
 ---
 

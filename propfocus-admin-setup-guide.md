@@ -13,7 +13,7 @@ Short reference below. The setup guide has navigation paths, field values, pass/
 
 | Item                    | Value                                                                                          |
 | ----------------------- | ---------------------------------------------------------------------------------------------- |
-| **Install link**        | `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kGszQAE` (v0.6.0-1) |
+| **Install link**        | `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kNpdQAE` (v0.7.0-2) |
 | **Hosachiguru sandbox** | `https://hosachiguru--consultefy.sandbox.my.salesforce.com`                                    |
 | **Organization Id**     | _(from Propfocus team)_                                                                        |
 | **API base (production)** | `https://propfocus.in`                                                                         |
@@ -69,18 +69,27 @@ OAuth credentials are **not** Config fields — see step 6.
 2. Open **Propfocus Principal** → enter Client Id + Client Secret from Propfocus team → Save
 3. **Setup → Named Credentials → Propfocus API** → confirm URL `https://propfocus.in` (sandbox: `https://dev.propfocus.in`) and **Generate Authorization Header** enabled
 4. Confirm **Propfocus User** and **Propfocus AI Admin** permission sets include External Credential principal access (packaged)
+5. Create local **Propfocus Callout Access** (UEC Read) and assign to sales users — [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) §2.1e; users must log out/in
 
-**Check:** Admin Setup → **Test Connection** succeeds.
+**Check:** Admin Setup → **Test Connection** succeeds. Sales user can load Projects / generate links.
 
 ---
 
 ## 7) Permission sets
 
-| Permission set            | Who                             |
-| ------------------------- | ------------------------------- |
-| **Propfocus User**        | Sales reps                      |
-| **Propfocus AI Admin**    | Admins                          |
-| **Propfocus Integration** | Integration user (inbound REST) |
+| Permission set                 | Who                             |
+| ------------------------------ | ------------------------------- |
+| **Propfocus User**             | Sales reps                      |
+| **Propfocus Callout Access** (local) | Sales reps — required; see SETUP_GUIDE §2.1e |
+| **Propfocus AI Admin**         | Admins                          |
+| **Propfocus Integration**      | Integration user (inbound REST) |
+
+---
+
+## 7b) Optional — auto site visit link on Save
+
+Record-Triggered Flow on your Site Visit object → Apex **Generate Propfocus Site Visit Link From Record** → **Site Visit Record Id** = `{!$Record.Id}`.  
+Full steps: [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) §2.8
 
 ---
 
@@ -89,7 +98,8 @@ OAuth credentials are **not** Config fields — see step 6.
 1. Admin Setup → **Test Connection**
 2. Lead → **Generate Microsite** / **Confirm Site Visit**
 3. Opportunity → **Confirm Site Visit** (and microsite/post-visit if used)
-4. Verify iframe / history on each parent
-5. Propfocus backend: sync + write-back + notifications (Lead or Opportunity)
+4. (If Flow wired) Create Site Visit → parent gets Propfocus site visit link
+5. Verify iframe / history on each parent
+6. Propfocus backend: sync + write-back + notifications (Lead or Opportunity)
 
 Full test matrix: [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md)

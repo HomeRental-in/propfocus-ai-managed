@@ -103,8 +103,11 @@ Enter API names in **Setup → Custom Metadata Types → Propfocus Config → De
 | Lead Lookup Field | `Lead_Lookup_Field__c` | `Lead__c` |
 | Opportunity Lookup Field | `Opportunity_Lookup_Field__c` | `Opportunity__c` |
 | Site Visit Status / Project / Type / Datetime / Team | `Site_Visit_*_Field__c` | org-specific |
+| Site Visit Manager Name Field | `Site_Visit_Manager_Name_Field__c` | optional — org field API name |
+| Site Visit Manager Phone Field | `Site_Visit_Manager_Phone_Field__c` | optional |
+| Site Visit Manager Email Field | `Site_Visit_Manager_Email_Field__c` | optional |
 
-**Auto link on Site Visit Save:** Apex invocable `PropFocusSiteVisitLinkService` (`Generate Propfocus Site Visit Link From Record`) reads only these Config mappings (parent lookup, project, datetime, optional manager name/phone/email). Wire a Record-Triggered Flow on the configured Site Visit object — see [SETUP_GUIDE.md](./SETUP_GUIDE.md) §2.8. No package dependency on a specific Site Visit layout or field set.
+**Auto link on Site Visit Save:** Apex invocable `PropFocusSiteVisitLinkService` (`Generate Propfocus Site Visit Link From Record`) reads only these Config mappings (parent lookup, project, datetime, optional manager name/phone/email). Wire a Record-Triggered Flow on the configured Site Visit object — set **Site Visit Record Id** = `{!$Record.Id}` — see [SETUP_GUIDE.md](./SETUP_GUIDE.md) §2.8. No package dependency on a specific Site Visit layout or field set. Saving user needs **Propfocus User** + local **Propfocus Callout Access** (§2.1e).
 
 **Critical:** Buyer Id (Lead and/or Opportunity) must be populated on records you test. Inbound REST matches `buyer_id` to the mapped field on the resolved parent.
 

@@ -62,10 +62,20 @@ A: Both are supported. If your process converts Lead → Opportunity when a site
 
 Q: Can Save on New Site Visit create a Propfocus site visit link automatically?
 A: Yes. Map Site Visit Object / Project / Datetime / Lead & Opportunity lookups
-   in Propfocus Config, then add a Record-Triggered Flow on that object that
-   calls Apex action "Generate Propfocus Site Visit Link From Record"
-   (PropFocusSiteVisitLinkService). Layout fields can differ per org — only
-   Config API names matter. Steps: SETUP_GUIDE.md section 2.8.
+   (and optional Manager Name/Phone/Email fields) in Propfocus Config, then add a
+   Record-Triggered Flow on that object that calls Apex action
+   "Generate Propfocus Site Visit Link From Record" (PropFocusSiteVisitLinkService).
+   Set Site Visit Record Id = {!$Record.Id} via the resource picker ($Record → Id).
+   Layout fields can differ per org — only Config API names matter.
+   Project value must match a Propfocus project name. Saving user needs Propfocus
+   User + local Propfocus Callout Access. Steps: SETUP_GUIDE.md section 2.8.
+
+Q: Why do sales users fail with "don't have read permissions on the User External
+   Credential object" even after assigning Propfocus User?
+A: Salesforce strips User External Credentials object Read from managed permission
+   sets. Create a local permission set (e.g. Propfocus Callout Access) with Read on
+   User External Credentials, assign it to sales users (in addition to Propfocus
+   User), then have them log out/in. Full steps: SETUP_GUIDE.md section 2.1e.
 
 Q: Where do outbound OAuth Client Id and Secret go?
 A: Setup -> Named Credentials -> External Credentials -> Propfocus API
