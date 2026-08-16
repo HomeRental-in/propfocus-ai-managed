@@ -95,6 +95,16 @@ Enter API names in **Setup → Custom Metadata Types → Propfocus Config → De
 | Opportunity owner name/phone fields | `Opportunity_*_Owner_*_Field__c` | org-specific |
 | Embed Uses Salesforce Opportunity Id | `Embed_Uses_Salesforce_Opportunity_Id__c` | checked |
 
+### Panel UI toggles
+
+| Config field (label) | CMDT API name | Default | Effect |
+| -------------------- | ------------- | ------- | ------ |
+| Show Copy Modal | `Show_Copy_Modal__c` | false | Show copy-message modal after link generate |
+| Show Site Visit Button | `Show_Site_Visit_Button__c` | true | Show **Confirm Site Visit** on Lead/Opportunity panel |
+| Show Post Visit Button | `Show_Post_Visit_Button__c` | true | Show **Generate Post Visit** on Lead/Opportunity panel |
+
+Uncheck either button toggle when that action is not part of the org's process. **Generate Microsite** always remains visible.
+
 ### Site Visit mappings
 
 | Config field (label) | CMDT API name | Typical value |

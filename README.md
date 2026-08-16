@@ -2,8 +2,8 @@
 
 Second-generation managed package (`PropfocusAI` namespace) connecting Salesforce Leads and Opportunities to Propfocus.
 
-**Current version:** `0.6.0-1`  
-**Install:** `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kGszQAE`
+**Current version:** `0.10.0-1`  
+**Install:** `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000lEh3QAE`
 
 ---
 
@@ -61,7 +61,8 @@ Permission sets **Propfocus User** and **Propfocus AI Admin** include External C
 
 ### Other post-install
 
-Permission sets, Lead/Opportunity page component (`propfocusLeadLinkGen`), CSP Trusted Site.
+Permission sets, Lead/Opportunity page component (`propfocusLeadLinkGen`), CSP Trusted Site.  
+Optional: **Show Site Visit Button** / **Show Post Visit Button** on Propfocus Config (both default on).
 
 ---
 

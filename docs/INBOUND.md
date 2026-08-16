@@ -216,6 +216,49 @@ When the resolved parent is a **Lead**, Lead Config fields are used. When it is 
 | `lead_history`  | `Propfocus_Sync_History__c`                                 | `Lead__c` or `Opportunity__c` |
 | `site_visit`    | `Propfocus_Site_Visit_Sync__c` (+ optional `Site_Visit__c`) | Same parent; client SV uses Lead Lookup Field or Opportunity Lookup Field |
 
+### Link history status (Propfocus → Salesforce)
+
+History card statuses are stored on `Propfocus_Link__c.Status__c`. They are updated when Salesforce pulls live status from PropFocus on history load (`POST /api/v1/salesforce/link-history-status` — see [OUTBOUND.md](./OUTBOUND.md)), and can also be updated from PropFocus inbound events. They are **not** overlaid from Salesforce CRM Site Visit picklists.
+
+| Communication | Initial status | Updated when Propfocus sends |
+| ------------- | -------------- | ---------------------------- |
+| Microsite / Post Visit | `Not engaged` | `engagement` (or `engagement_status` / `microsite_status`) → `Engaged`; also buyer_activity notifications that mention microsite/post visit viewed/engaged |
+| Site Visit Confirmation | `Pending` | `site_visit.site_visit_status` → `Pending` / `Confirmed` / `Rescheduled` |
+
+Site visit status mapping (case-insensitive): values containing `resched` → Rescheduled; `confirm` / `complete` / `conduct` / `visited` / `done` → Confirmed; otherwise Pending.
+
+Engagement example:
+
+```json
+{
+  "event_type": "buyer_activity",
+  "buyer_id": "BUYER-UUID-123",
+  "organization_id": "<from Propfocus Config>",
+  "engagement": {
+    "status": "Engaged",
+    "communication_type": "microsite",
+    "project_name": "Project Alpha"
+  }
+}
+```
+
+Or root-level: `"engagement_status": "Engaged"`.
+
+Site visit status example (updates matching history card):
+
+```json
+{
+  "event_type": "lead_sync",
+  "buyer_id": "BUYER-UUID-123",
+  "organization_id": "<from Propfocus Config>",
+  "site_visit": {
+    "site_visit_number": "SV-1001",
+    "site_visit_status": "Confirmed",
+    "project_name": "Project Alpha"
+  }
+}
+```
+
 ### Response & errors
 
 Success (Lead): `{ "success": true, "lead_id": "00Q...", "record_id": "00Q...", "record_type": "Lead", "lead_updated": true, ... }`  

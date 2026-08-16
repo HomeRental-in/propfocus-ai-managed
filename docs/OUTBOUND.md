@@ -72,6 +72,21 @@ Base URL: Named Credential host (`https://propfocus.in` production; `https://dev
 | `/api/v1/organizations/{orgId}/accessible-projects` | Project picker | Organization Id |
 | `/api/v1/organizations/{orgId}/projects?include=all` | Project list | Organization Id |
 | `/api/dashboard/sales-team?organizationId=` | Post-visit "Reassign to" picker | Organization Id |
+| `POST /api/v1/salesforce/link-history-status` | Lead/Opportunity history card status refresh (Pending/Confirmed/Rescheduled/Engaged) | Organization Id, Buyer Id, shared link URLs / project names (no phone/email unless Buyer Id maps to them) |
+
+#### Link history status — `POST /api/v1/salesforce/link-history-status`
+
+Called from `PropFocusLeadService.getLinkHistory` when the Lead/Opportunity panel loads history. PropFocus returns live statuses; Apex updates `Propfocus_Link__c.Status__c`. Callout failure leaves stored status unchanged.
+
+| JSON field | Source | PII? |
+| ---------- | ------ | ---- |
+| `organization_id` | Propfocus Config Organization Id | Tenant id |
+| `buyer_id` | Mapped Buyer Id Field on Lead or Opportunity | Yes — buyer / enquiry identifier |
+| `links[].type` | History row type (Microsite / Site Visit / Post Visit) | No |
+| `links[].url` | Shared PropFocus link URL from history | Indirect identifier |
+| `links[].project_name` | History project name | Usually business |
+
+Response `statuses[]` mirrors input order with `status` values: `Pending` / `Confirmed` / `Rescheduled` (site visit) or `Not engaged` / `Engaged` (microsite / post visit).
 
 Idempotency: callouts send an `Idempotency-Key` header derived from operation + record Id (Lead or Opportunity) + body hash (not additional PII).
 

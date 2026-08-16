@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Show_Post_Visit_Button__c</fullName>
+    <defaultValue>true</defaultValue>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>When enabled, the Generate Post Visit button is shown on the Lead and Opportunity Propfocus panel.</inlineHelpText>
+    <label>Show Post Visit Button</label>
+    <type>Checkbox</type>
+</CustomField>

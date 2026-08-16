@@ -98,16 +98,16 @@ See [DEV_HUB_SETUP.md](./DEV_HUB_SETUP.md) for detailed Dev Hub steps (namespace
 | **Deploy**   | Code deploys; Propfocus Apex tests pass (see test run in CI/org) |
 | **Config**   | Propfocus Config, permission sets, CSP, External Credential + Named Credential |
 | **Features** | All 5 capabilities + write-back verified                 |
-| **Package**  | v0.6.0-1 Released; install link works in fresh org       |
+| **Package**  | v0.10.0-1 Released; install link works in fresh org      |
 | **Handoff**  | SETUP_GUIDE.md, FAQ.txt, INBOUND.md shared               |
 
-Current status (2026-07-19):
+Current status (2026-08-07):
 
 ```
-Apex tests:     Pass (package version create with code coverage 81%)
-Package:        v0.6.0-1 Released
-Install URL:    https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kGszQAE
-Feature testing: Partial — verify with subscriber + Propfocus backend
+Apex tests:     Pass (package version create with code coverage)
+Package:        v0.10.0-1 Released
+Install URL:    https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000lEh3QAE
+Feature testing: Verify with subscriber + Propfocus backend
 ```
 
 ---
@@ -118,7 +118,7 @@ Feature testing: Partial — verify with subscriber + Propfocus backend
 | --- | ---------------------------------------------------- |
 | 0.1 | Share install URL                                    |
 | 0.2 | Subscriber confirms Lead/Opportunity fields for mapping |
-| 0.3 | Package installed (0.6.0-1)                          |
+| 0.3 | Package installed (0.10.0-1)                         |
 | 1.x | Permission sets assigned                             |
 | 2.x | Propfocus Config configured — Lead + Opportunity maps (see FIELDS.md) |
 | 3.x | External Credential principal + Named Credential verified |

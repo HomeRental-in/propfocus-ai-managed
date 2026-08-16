@@ -17,10 +17,16 @@
             <div class="pf-toolbar-row">
                 <button type="button" class="pf-btn pf-btn-primary pf-btn-full" onclick={handlePrimaryMicrosite} disabled={isLoading}>{primaryMicrositeLabel}</button>
             </div>
-            <div class="pf-toolbar-row pf-toolbar-row-split">
-                <button type="button" class="pf-btn pf-btn-secondary" onclick={handleConfirmSiteVisit} disabled={isLoading}>Confirm Site visit</button>
-                <button type="button" class="pf-btn pf-btn-secondary" onclick={handleGeneratePostVisit} disabled={isLoading}>Generate Post Visit</button>
-            </div>
+            <template lwc:if={showSiteVisitToolbar}>
+                <div class={siteVisitToolbarRowClass}>
+                    <template lwc:if={showSiteVisitButtonEnabled}>
+                        <button type="button" class={siteVisitButtonClass} onclick={handleConfirmSiteVisit} disabled={isLoading}>Confirm Site visit</button>
+                    </template>
+                    <template lwc:if={showPostVisitButtonEnabled}>
+                        <button type="button" class={postVisitButtonClass} onclick={handleGeneratePostVisit} disabled={isLoading}>Generate Post Visit</button>
+                    </template>
+                </div>
+            </template>
         </div>
         <div class="pf-body">
             <template lwc:if={showBodySpinner}>

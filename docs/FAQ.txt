@@ -3,7 +3,7 @@ PROPFOCUS AI — FAQ
 ================================================================================
 
 Audience: Salesforce administrators and stakeholders
-Package version: Propfocus AI 0.6.0-1 (Released)
+Package version: Propfocus AI 0.10.0-1 (Released)
 
 ================================================================================
 QUICK ANSWERS
@@ -25,7 +25,7 @@ Inbound REST URL in browser?
   No token. POST only with Authorization: Bearer <access_token>.
 
 Install URL:
-  https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kGszQAE
+  https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000lEh3QAE
 
 Full setup: SETUP_GUIDE.md
 Inbound API: INBOUND.md
@@ -59,6 +59,8 @@ A: Both are supported. If your process converts Lead → Opportunity when a site
    visit is confirmed, put the panel on Opportunity for post-conversion work and
    keep Lead for pre-conversion microsite/actions as needed. Configure Opportunity
    field mappings and Site Visit Opportunity Lookup Field in Propfocus Config.
+   To hide Confirm Site Visit or Generate Post Visit on the panel, uncheck
+   Show Site Visit Button / Show Post Visit Button on Propfocus Config → Default.
 
 Q: Can Save on New Site Visit create a Propfocus site visit link automatically?
 A: Yes. Map Site Visit Object / Project / Datetime / Lead & Opportunity lookups

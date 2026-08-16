@@ -25,10 +25,10 @@
 | **Path A — Existing sandbox**         | Package or code already deployed. Do **Part 2–4** only.        |
 | **Path B — Fresh org (install link)** | Install the managed package first, then **Part 1 + Part 2–4**. |
 
-**Managed package install link (v0.7.0-2):**
+**Managed package install link (v0.10.0-1):**
 
 ```
-https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kNpdQAE
+https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000lEh3QAE
 ```
 
 ---
@@ -38,7 +38,7 @@ https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kNpdQA
 | Step | Where                          | What to do                                              | What to check                               |
 | ---- | ------------------------------ | ------------------------------------------------------- | ------------------------------------------- |
 | 1.1  | Install URL (above)            | Log in as admin → **Install for Admins Only** → Install | No errors                                   |
-| 1.2  | Setup → **Installed Packages** |                                                         | **Propfocus AI** version **0.7.0.2** listed |
+| 1.2  | Setup → **Installed Packages** |                                                         | **Propfocus AI** version **0.10.0.1** listed |
 
 ---
 
@@ -76,11 +76,11 @@ Without this, sales users often see empty Projects or: *You don't have read perm
 
 **Where:** Setup → **Custom Metadata Types → Propfocus Config** (namespace **PropfocusAI**) → **Default → Edit**
 
-If Edit shows only Label/Name, **or Opportunity fields are missing**, edit the page layout first:
+If Edit shows only Label/Name, **or Opportunity / UI toggle fields are missing**, edit the page layout first:
 
 1. Setup → Custom Metadata Types → **Propfocus Config** → **Page Layouts** → **Propfocus Config Layout** (or New)
-2. Drag all **Opportunity_*** fields (and **Opportunity Lookup Field**, **Embed Uses Salesforce Opportunity Id**) onto the layout → Save
-3. Re-open **Default → Edit** — Opportunity section should appear
+2. Drag all **Opportunity_*** fields, **Show Site Visit Button**, **Show Post Visit Button**, and **Opportunity Lookup Field** / **Embed Uses Salesforce Opportunity Id** onto the layout → Save
+3. Re-open **Default → Edit** — Opportunity and UI toggle sections should appear
 
 #### Hosachiguru sandbox values
 
@@ -90,6 +90,8 @@ If Edit shows only Label/Name, **or Opportunity fields are missing**, edit the p
 | Organization Id               | _(from Propfocus team)_                     |
 | Embed Base Url                | `https://dev.propfocus.in/embed/salesforce` _(sandbox override; production default is `https://propfocus.in/embed/salesforce`)_ |
 | Embed Uses Salesforce Lead Id | **Checked**                                 |
+| Show Site Visit Button        | **Checked** (default) — uncheck to hide Confirm Site Visit |
+| Show Post Visit Button        | **Checked** (default) — uncheck to hide Generate Post Visit |
 | Buyer Id Field                | `Enquiry_Ref_No__c`                         |
 | Buyer Name Field              | `Full_Name__c`                              |
 | Lead Status Field             | `Status`                                    |
@@ -138,7 +140,7 @@ Client Id and Client Secret are **not** stored in Propfocus Config. Configure th
 
 ### 2.5 CSP Trusted Site
 
-Setup → **CSP Trusted Sites** → confirm `https://propfocus.in` is Active with **frame-src** enabled (packaged default). Sandboxes: change to `https://dev.propfocus.in`. Hard-refresh browser (Ctrl+F5).
+Setup → **CSP Trusted Sites** → confirm `https://propfocus.in` is Active with **frame-src** enabled (packaged default). Sandboxes: the dev host is **not** packaged — create a new CSP Trusted Site for `https://dev.propfocus.in` (Active, context **All**, with frame-src/connect-src/img-src/style-src/font-src/media-src enabled). Hard-refresh browser (Ctrl+F5).
 
 ### 2.6 Admin Setup tab
 
@@ -213,6 +215,8 @@ Use a Lead with buyer id populated, then repeat site-visit tests on an Opportuni
 | 2   | Buyer Insights iframe     | After microsite                    | Iframe loads (not blank)                | ☐     |
 | 3   | Confirm Site Visit (Lead) | Lead → Confirm Site Visit          | Lead `Propfocus_Site_Visit__c` has URL  | ☐     |
 | 4   | Confirm Site Visit (Opp)  | Opportunity → Confirm Site Visit   | Opp `Propfocus_Site_Visit__c` has URL; history on Opportunity | ☐     |
+| 4b  | Generate Post Visit       | Lead/Opp → Generate Post Visit     | `Propfocus_Post_Visit__c` has URL (button visible if Show Post Visit Button is on) | ☐     |
+| 4c  | History status            | Open History after Propfocus engagement / SV update | Status Engaged / Confirmed / Rescheduled | ☐     |
 | 5   | Notification              | Propfocus POSTs to inbound REST    | Lead or Opportunity owner bell notification | ☐     |
 | 6   | SF → Propfocus sync       | Change Lead Status → Save          | Propfocus receives Platform Event       | ☐     |
 | 7   | Propfocus → SF write-back | Propfocus POSTs write-back payload | Parent + child records update (Lead or Opportunity) | ☐     |
@@ -256,6 +260,7 @@ Outbound identity: Lead sends `salesforce_lead_id`; Opportunity sends `salesforc
 | Symptom                      | Fix                                                        |
 | ---------------------------- | ---------------------------------------------------------- |
 | Buttons not visible          | Part 2.7 — add `propfocusLeadLinkGen` on Lead **and** Opportunity pages |
+| Site Visit / Post Visit button hidden | Part 2.2 — enable **Show Site Visit Button** / **Show Post Visit Button** on Config |
 | Insufficient privileges      | Part 2.1 — permission sets                                 |
 | API / OAuth errors           | Part 2.2, 2.4; verify External Credential Client Id/Secret |
 | Iframe blank                 | Part 2.5 CSP + Embed Base Url                              |

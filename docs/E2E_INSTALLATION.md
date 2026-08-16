@@ -3,7 +3,7 @@
 **Audience:** Salesforce admin + Propfocus backend  
 **Goal:** Brand-new org → package installed → configured → inbound/outbound working → features verified  
 **Time:** Demo / Developer org with click-path: ~1–2 hours. Enterprise (change control, External Client App + JWT, backend registration, pipeline deploy of subscriber config): plan **several days**, not a single sitting.  
-**Package:** Propfocus AI **v0.7.0-2** (`PropfocusAI` namespace) — Opportunity support + External Credential outbound auth (see [Upgrade from 0.5.x](#upgrade-from-05x) and [FAQ.txt](./FAQ.txt)).
+**Package:** Propfocus AI **v0.10.0-1** (`PropfocusAI` namespace) — Opportunity support, External Credential outbound auth, optional Site/Post Visit buttons, history card status sync (see [Upgrade from 0.5.x](#upgrade-from-05x) and [FAQ.txt](./FAQ.txt)).
 
 This is the exact workflow. Follow phases in order. Do not skip prerequisites.
 
@@ -68,10 +68,10 @@ Do these **before** opening the install link. Lead Field History Tracking is **n
 
 ## Phase 1 — Install the managed package
 
-**Install URL (v0.7.0-2):**
+**Install URL (v0.10.0-1):**
 
 ```
-https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kNpdQAE
+https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000lEh3QAE
 ```
 
 | # | Action | Pass when |
@@ -79,7 +79,7 @@ https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kNpdQA
 | 1.1 | Log into the **target org** first (sandbox: use `https://test.salesforce.com`, then open the install URL) | You are in the correct org |
 | 1.1b | **Sandbox only:** after install, complete [Sandbox override](#sandbox--uat--point-at-dev) before Phase 4 | All URLs point to `dev.propfocus.in` |
 | 1.2 | Open install URL → **Install for Admins Only** → Install | Install completes with no errors |
-| 1.3 | Setup → **Installed Packages** | **Propfocus AI** version **0.7.0.2** is listed |
+| 1.3 | Setup → **Installed Packages** | **Propfocus AI** version **0.10.0.1** is listed |
 
 **Installed for you (no action):** Apex, Lead trigger, inbound REST, Platform Event, custom objects, permission sets, External Credential + Named Credential (skeleton), Remote Site, CSP Trusted Sites, LWCs, Admin Setup tab, Propfocus AI app, default `Propfocus_Config` CMDT record.
 
@@ -131,6 +131,8 @@ If Edit only shows Label / Name:
 | Embed Uses Salesforce Lead Id | Checked |
 | Embed Uses Salesforce Opportunity Id | Checked |
 | Show Copy Modal | Checked (optional UX) |
+| Show Site Visit Button | Checked (default) — uncheck to hide **Confirm Site Visit** on the panel |
+| Show Post Visit Button | Checked (default) — uncheck to hide **Generate Post Visit** on the panel |
 
 Outbound OAuth Client Id/Secret are **not** stored in Config — see Phase 4.1.
 
@@ -299,8 +301,10 @@ Use a Lead with **Buyer Id Field** populated. For Opportunity tests, use an Oppo
 | - | ---- | -- | --------- |
 | 8.1 | Generate Microsite | Lead → Generate Microsite → pick project | `Propfocus_Link__c` populated; no error toast |
 | 8.2 | Buyer Insights | After microsite | Iframe loads (not blank) |
-| 8.3 | Confirm Site Visit (Lead) | Lead → Confirm Site Visit | Lead site visit URL field populated |
+| 8.3 | Confirm Site Visit (Lead) | Lead → Confirm Site Visit (button visible if Show Site Visit Button is on) | Lead site visit URL field populated |
 | 8.3b | Confirm Site Visit (Opp) | Opportunity → Confirm Site Visit | Opportunity site visit URL populated; outbound body includes `salesforce_opportunity_id` |
+| 8.3c | Generate Post Visit | Lead/Opp → Generate Post Visit (if Show Post Visit Button is on) | `Propfocus_Post_Visit__c` populated |
+| 8.3d | History status | Open panel History after Propfocus engagement / site visit update | Card status shows Engaged / Confirmed / Rescheduled (not only Salesforce picklists) |
 | 8.4 | Outbound sync | Change Lead Status → Save | Propfocus receives Platform Event |
 | 8.5 | Inbound notification | Propfocus POSTs notification event | Lead or Opportunity owner gets bell notification |
 | 8.6 | Write-back | Propfocus POSTs write-back payload | Parent + child records update (Lead or Opportunity) |
@@ -328,7 +332,7 @@ If installing in a **Salesforce sandbox**, override these packaged production de
 | Named Credential URL | Setup → Named Credentials → **Propfocus API** | `https://dev.propfocus.in` |
 | OAuth token URL | Setup → External Credentials → **Propfocus API** | `https://dev.propfocus.in/api/oauth2/token` |
 | Embed Base URL | Setup → Custom Metadata Types → **Propfocus Config → Default** | `https://dev.propfocus.in/embed/salesforce` |
-| CSP Trusted Site | Setup → CSP Trusted Sites | `https://dev.propfocus.in` |
+| CSP Trusted Site | Setup → CSP Trusted Sites | **Create new** site `https://dev.propfocus.in` (not packaged — Active, context All, frame-src + connect-src enabled) |
 | Connected App callback | Setup → External Client Apps → **Propfocus AI** | `https://dev.propfocus.in/oauth/callback` |
 
 Use the **dev** Organization Id and OAuth Client Id/Secret from Propfocus for that environment. Re-run Phase 8 after changing URLs.
@@ -429,7 +433,7 @@ Prerequisites
 [ ] Enterprise: change window + pipeline path for CMDT / FlexiPage / perm sets
 
 Install
-[ ] Package 0.7.0.2 installed (or upgraded — see Upgrade from 0.5.x)
+[ ] Package 0.10.0.1 installed (or upgraded — see Upgrade from 0.5.x)
 
 Users
 [ ] Propfocus User assigned to sales users
@@ -439,7 +443,7 @@ Users
 [ ] Integration user FLS on all mapped fields
 
 Config
-[ ] Propfocus Config → Default filled (Org Id + field maps)
+[ ] Propfocus Config → Default filled (Org Id + field maps + optional Show Site/Post Visit Button)
 [ ] External Credential principal: Client Id + Secret configured
 [ ] Named Credential URL + token endpoint correct (prod: propfocus.in; sandbox: dev.propfocus.in)
 [ ] Sandbox override completed if applicable
@@ -470,7 +474,8 @@ Verify
 
 | Symptom | Fix |
 | ------- | --- |
-| Buttons missing on Lead / Opportunity | Phase 4.6 / 4.7 — add LWC + Activate |
+| Buttons missing on Lead / Opportunity | Phase 4.6 / 4.7 — add LWC + Activate; for Site/Post Visit only, confirm Phase 3 Show Site Visit / Show Post Visit Button |
+| Site Visit or Post Visit button hidden | Phase 3 — enable **Show Site Visit Button** / **Show Post Visit Button** on Propfocus Config → Default |
 | Insufficient privileges | Phase 2 permission sets |
 | Test Connection fails | Phase 4.1 Client Id/Secret + token URL; Phase 3 Organization Id |
 | Unauthorized / insufficient access on callout | Phase 4.1d — user needs **Propfocus User** or **Propfocus AI Admin** (External Credential principal access) **and** local **Propfocus Callout Access** for sales (§2.1b / SETUP_GUIDE §2.1e) |

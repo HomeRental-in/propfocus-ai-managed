@@ -13,7 +13,7 @@ Short reference below. The setup guide has navigation paths, field values, pass/
 
 | Item                    | Value                                                                                          |
 | ----------------------- | ---------------------------------------------------------------------------------------------- |
-| **Install link**        | `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000kNpdQAE` (v0.7.0-2) |
+| **Install link**        | `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000lEh3QAE` (v0.10.0-1) |
 | **Hosachiguru sandbox** | `https://hosachiguru--consultefy.sandbox.my.salesforce.com`                                    |
 | **Organization Id**     | _(from Propfocus team)_                                                                        |
 | **API base (production)** | `https://propfocus.in`                                                                         |
@@ -49,6 +49,7 @@ The same component (`propfocusLeadLinkGen`) is used on both objects.
 
 Field values: [docs/FIELDS.md](docs/FIELDS.md) or [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) section 2.2.  
 Configure **Lead** mappings and, if using the Opportunity panel, **Opportunity** mappings (`Opportunity Buyer Id/Name/Status/Project`, `Opportunity Lookup Field`).  
+Optional UI: **Show Site Visit Button** / **Show Post Visit Button** (both default on) control Confirm Site Visit and Generate Post Visit on the panel.  
 OAuth credentials are **not** Config fields — see step 6.
 
 > Integration user needs **Read/Edit** on all mapped Lead and Opportunity fields.
@@ -57,7 +58,7 @@ OAuth credentials are **not** Config fields — see step 6.
 
 ## 5) CSP Trusted Site
 
-**Setup → CSP Trusted Sites** → confirm `https://propfocus.in` (production default). Sandboxes: change to `https://dev.propfocus.in`.
+**Setup → CSP Trusted Sites** → confirm `https://propfocus.in` (production default). Sandboxes: the dev host is **not** packaged — manually create a new CSP Trusted Site for `https://dev.propfocus.in` (Active, context All, frame-src + connect-src enabled).
 
 ---
 

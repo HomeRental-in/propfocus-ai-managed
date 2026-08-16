@@ -1,6 +1,15 @@
 import { LightningElement, wire } from "lwc";
 import { ShowToastEvent } from "lightning/platformShowToastEvent";
 import { CurrentPageReference } from "lightning/navigation";
+import { getRecord, getFieldValue } from "lightning/uiRecordApi";
+import LEAD_STATUS_SCHEMA from "@salesforce/schema/Lead.Status";
+import OPP_STAGE_SCHEMA from "@salesforce/schema/Opportunity.StageName";
+import {
+  normalizeStatusToken,
+  parseStatusSet,
+  pickAutoModalAction as resolveAutoModalAction,
+  isAutoCreateReady as resolveAutoCreateReady
+} from "./autoModalRules";
 
 import getLeadDetails from "@salesforce/apex/PropFocusLeadService.getLeadDetails";
 import getProjects from "@salesforce/apex/PropFocusLeadService.getProjects";
@@ -15,6 +24,8 @@ import getBuyerInsightsEmbedContext from "@salesforce/apex/PropFocusLeadService.
 import getUiConfiguration from "@salesforce/apex/PropfocusConfigService.getUiConfiguration";
 
 const LEAD_PROFOCUS_LINK_FIELD = "Propfocus_Link__c";
+const LEAD_SITE_VISIT_FIELD = "Propfocus_Site_Visit__c";
+const LEAD_POST_VISIT_FIELD = "Propfocus_Post_Visit__c";
 const LEAD_BUYER_ID_FIELD = "buyerId";
 const LEAD_BUYER_NAME_FIELD = "buyerName";
 const LEAD_PROJECT_FIELD = "projectName";
@@ -147,13 +158,6 @@ function beginDeferredClipboardCopy() {
   return (text) => resolveCopyText(String(text || ""));
 }
 
-function normalizeStatusToken(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[_-]+/g, " ");
-}
-
 function resolveHistoryStatus(type, rawStatus) {
   const status = normalizeStatusToken(rawStatus);
   const historyType = String(type || "").trim().toLowerCase();
@@ -183,6 +187,7 @@ function resolveHistoryStatus(type, rawStatus) {
     if (
       status === "confirmed" ||
       status === "completed" ||
+      status === "conducted" ||
       status === "done" ||
       status === "visited"
     ) {
@@ -260,6 +265,12 @@ function getPropfocusLinkFromLead(lead) {
   return v != null && String(v).trim() ? String(v).trim() : "";
 }
 
+function leadFieldHasValue(lead, field) {
+  if (!lead) return false;
+  const v = lead[field];
+  return v != null && String(v).trim() !== "";
+}
+
 export default class PropfocusLeadLinkGen extends LightningElement {
   recordId;
   isLoading = false;
@@ -292,6 +303,8 @@ export default class PropfocusLeadLinkGen extends LightningElement {
   isLoadingConfigurations = false;
   projectOptions;
   hasMicrosite = false;
+  hasSiteVisit = false;
+  hasPostVisit = false;
   hasValidBuyerInsights = false;
   previewExpanded = false;
   linkHistory = [];
@@ -303,13 +316,29 @@ export default class PropfocusLeadLinkGen extends LightningElement {
   copyButtonLabel = "Copy message";
   pendingAutoCopy = false;
   showCopyModalEnabled = false;
+  showSiteVisitButtonEnabled = true;
+  showPostVisitButtonEnabled = true;
+  autoMicrositeStatuses = new Set();
+  autoSiteVisitStatuses = new Set();
+  autoPostVisitStatuses = new Set();
+  autoModalsConfigLoaded = false;
+  autoStatusRecordId = null;
+  lastKnownLeadStatus;
+  autoPromptedKeys = new Set();
 
   @wire(CurrentPageReference)
   setPageRef(pageRef) {
     if (pageRef?.attributes?.recordId) {
+      const changedRecord = this.recordId !== pageRef.attributes.recordId;
       this.recordId = pageRef.attributes.recordId;
       this.iframeBust = Date.now();
       this.historyExpanded = false;
+      if (changedRecord) {
+        // New record: forget prior auto-open baselines so it can prompt afresh.
+        this.autoPromptedKeys = new Set();
+        this.lastKnownLeadStatus = undefined;
+        this.autoStatusRecordId = null;
+      }
       Promise.allSettled([
         this.refreshMicrositeState(),
         this.loadLinkHistory(),
@@ -320,6 +349,8 @@ export default class PropfocusLeadLinkGen extends LightningElement {
       this.storedPropfocusLink = "";
       this.enquiryRefNo = "";
       this.hasMicrosite = false;
+      this.hasSiteVisit = false;
+      this.hasPostVisit = false;
       this.hasValidBuyerInsights = false;
       this.linkHistory = [];
       this.selectedLinkKey = "";
@@ -327,6 +358,103 @@ export default class PropfocusLeadLinkGen extends LightningElement {
       this.lastReloadAt = null;
       this.buyerInsightsEmbedUrl = "";
     }
+  }
+
+  // The status field to watch depends on the object this panel is on:
+  // Lead.Status on a Lead, Opportunity.StageName on an Opportunity (key
+  // prefix 006). Returned as a reactive field list for the getRecord wire.
+  get autoStatusFields() {
+    if (!this.recordId) {
+      return [];
+    }
+    return String(this.recordId).startsWith("006")
+      ? [OPP_STAGE_SCHEMA]
+      : [LEAD_STATUS_SCHEMA];
+  }
+
+  // Reactively observe the record's status (Lead.Status or Opportunity
+  // .StageName) so that both opening a matching record and changing its status
+  // into a matching value can auto-open the relevant modal. Works on both Lead
+  // and Opportunity record pages.
+  @wire(getRecord, { recordId: "$recordId", fields: "$autoStatusFields" })
+  wiredRecordStatus({ data }) {
+    if (!data) {
+      return;
+    }
+    const statusField =
+      data.apiName === "Opportunity" ? OPP_STAGE_SCHEMA : LEAD_STATUS_SCHEMA;
+    this.autoStatusRecordId = data.id;
+    this.lastKnownLeadStatus = normalizeStatusToken(
+      getFieldValue(data, statusField)
+    );
+    this.evaluateAutoModals();
+  }
+
+  // Picks which modal (if any) should auto-open for the current status, in
+  // precedence order microsite -> site visit -> post visit. A modal is a
+  // candidate only when the status is in its admin-configured list, its feature
+  // is enabled, and its link does not exist yet.
+  pickAutoModalAction(status) {
+    return resolveAutoModalAction(status, {
+      micrositeStatuses: this.autoMicrositeStatuses,
+      siteVisitStatuses: this.autoSiteVisitStatuses,
+      postVisitStatuses: this.autoPostVisitStatuses,
+      hasMicrosite: this.hasMicrosite,
+      hasSiteVisit: this.hasSiteVisit,
+      hasPostVisit: this.hasPostVisit,
+      siteVisitEnabled: this.showSiteVisitButtonEnabled,
+      postVisitEnabled: this.showPostVisitButtonEnabled
+    });
+  }
+
+  // Auto-opens the microsite / site visit / post visit modal whenever the
+  // current Lead status matches its admin-configured statuses and its link does
+  // not exist yet. Runs on load and on every status change; the prompt key set
+  // stops it from re-popping for the same record+action+status after the rep
+  // dismisses it (or on LDS cache refreshes).
+  evaluateAutoModals() {
+    if (!this.autoModalsConfigLoaded) {
+      return;
+    }
+    const recordId = this.autoStatusRecordId;
+    const status = this.lastKnownLeadStatus;
+    if (!recordId || !status) {
+      return;
+    }
+    if (this.isModalOpen || this.isLoading) {
+      return;
+    }
+    const action = this.pickAutoModalAction(status);
+    if (!action) {
+      return;
+    }
+    const promptKey = `${recordId}::${action}::${status}`;
+    if (this.autoPromptedKeys.has(promptKey)) {
+      return;
+    }
+    // Mark as prompted before the async open so LDS refreshes can't double-fire.
+    this.autoPromptedKeys.add(promptKey);
+    if (action === "microsite") {
+      this.openMicrositeModal({ skipIfExists: true, autoCreate: true });
+    } else if (action === "siteVisit") {
+      this.openSiteVisitModal({ skipIfExists: true, autoCreate: true });
+    } else if (action === "postVisit") {
+      this.openPostVisitModal({ skipIfExists: true, autoCreate: true });
+    }
+  }
+
+  // For the auto-open path: true when every mandatory field for the action is
+  // already populated and valid, so the link can be created without showing the
+  // modal. Mirrors each submit's own required-field validation.
+  isAutoCreateReady(action) {
+    return resolveAutoCreateReady(action, {
+      nameValid: validateFullName(this.clientName).valid,
+      projectCount: this.selectedProjects?.length || 0,
+      siteVisitProject: this.siteVisitProject,
+      siteVisitDateTime: this.siteVisitDateTime,
+      postVisitProject: this.postVisitProject,
+      postVisitConfigCount: this.postVisitSelectedConfigurations?.length || 0
+    });
   }
 
   markDataReloaded() {
@@ -346,12 +474,26 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         this.embedUsesSalesforceLeadId =
           cfg?.embedUsesSalesforceLeadId === true;
         this.showCopyModalEnabled = cfg?.showCopyModal === true;
+        this.showSiteVisitButtonEnabled = cfg?.showSiteVisitButton === true;
+        this.showPostVisitButtonEnabled = cfg?.showPostVisitButton === true;
+        this.autoMicrositeStatuses = parseStatusSet(cfg?.autoMicrositeStatuses);
+        this.autoSiteVisitStatuses = parseStatusSet(cfg?.autoSiteVisitStatuses);
+        this.autoPostVisitStatuses = parseStatusSet(cfg?.autoPostVisitStatuses);
+        this.autoModalsConfigLoaded = true;
+        // Re-check in case the status wire resolved before config loaded.
+        this.evaluateAutoModals();
       })
       .catch(() => {
         this.logoUrl = "";
         this.buyerInsightsEmbedBase = "";
         this.embedUsesSalesforceLeadId = false;
         this.showCopyModalEnabled = false;
+        this.showSiteVisitButtonEnabled = true;
+        this.showPostVisitButtonEnabled = true;
+        this.autoMicrositeStatuses = new Set();
+        this.autoSiteVisitStatuses = new Set();
+        this.autoPostVisitStatuses = new Set();
+        this.autoModalsConfigLoaded = true;
       });
   }
 
@@ -363,6 +505,8 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         ? String(lead[LEAD_BUYER_ID_FIELD]).trim()
         : "";
     this.hasMicrosite = !!this.storedPropfocusLink;
+    this.hasSiteVisit = leadFieldHasValue(lead, LEAD_SITE_VISIT_FIELD);
+    this.hasPostVisit = leadFieldHasValue(lead, LEAD_POST_VISIT_FIELD);
     this.hasValidBuyerInsights = !!lead?.buyerInsightsAvailable;
   }
 
@@ -389,17 +533,23 @@ export default class PropfocusLeadLinkGen extends LightningElement {
       this.storedPropfocusLink = "";
       this.enquiryRefNo = "";
       this.hasMicrosite = false;
+      this.hasSiteVisit = false;
+      this.hasPostVisit = false;
       this.hasValidBuyerInsights = false;
       return Promise.resolve();
     }
     return getLeadDetails({ leadId: this.recordId })
       .then((lead) => {
         this.applyLeadLinkFromResponse(lead);
+        // Existence flags are now authoritative; re-check auto-open candidates.
+        this.evaluateAutoModals();
       })
       .catch(() => {
         this.storedPropfocusLink = "";
         this.enquiryRefNo = "";
         this.hasMicrosite = false;
+        this.hasSiteVisit = false;
+        this.hasPostVisit = false;
         this.hasValidBuyerInsights = false;
       })
       .finally(() => this.loadBuyerInsightsEmbedContext());
@@ -517,6 +667,30 @@ export default class PropfocusLeadLinkGen extends LightningElement {
 
   get primaryMicrositeLabel() {
     return this.hasMicrosite ? "Regenerate Microsite" : "Generate Microsite";
+  }
+
+  get showSiteVisitToolbar() {
+    return this.showSiteVisitButtonEnabled || this.showPostVisitButtonEnabled;
+  }
+
+  get siteVisitToolbarRowClass() {
+    const bothVisible =
+      this.showSiteVisitButtonEnabled && this.showPostVisitButtonEnabled;
+    return bothVisible
+      ? "pf-toolbar-row pf-toolbar-row-split"
+      : "pf-toolbar-row";
+  }
+
+  get siteVisitButtonClass() {
+    return this.showPostVisitButtonEnabled
+      ? "pf-btn pf-btn-secondary"
+      : "pf-btn pf-btn-secondary pf-btn-full";
+  }
+
+  get postVisitButtonClass() {
+    return this.showSiteVisitButtonEnabled
+      ? "pf-btn pf-btn-secondary"
+      : "pf-btn pf-btn-secondary pf-btn-full";
   }
 
   get iframeSrc() {
@@ -646,6 +820,10 @@ export default class PropfocusLeadLinkGen extends LightningElement {
   }
 
   handlePrimaryMicrosite() {
+    this.openMicrositeModal({ skipIfExists: false });
+  }
+
+  openMicrositeModal({ skipIfExists = false, autoCreate = false } = {}) {
     if (!this.recordId) {
       this.showToast("Error", "Record Id not available", "error");
       return;
@@ -654,6 +832,10 @@ export default class PropfocusLeadLinkGen extends LightningElement {
     getLeadDetails({ leadId: this.recordId })
       .then((lead) => {
         this.applyLeadLinkFromResponse(lead);
+        // Auto-open path: a microsite already exists, so do not pop the modal.
+        if (skipIfExists && this.hasMicrosite) {
+          return;
+        }
         this.clientName = lead?.[LEAD_BUYER_NAME_FIELD];
         if (lead?.[LEAD_PROJECT_FIELD]) {
           const p = String(lead[LEAD_PROJECT_FIELD]).trim();
@@ -666,6 +848,11 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         this.selectedConfigurations = [];
         this.configurationOptions = [];
         this.modalAction = "microsite";
+        // Auto-create: all mandatory fields already known → generate silently.
+        if (autoCreate && this.isAutoCreateReady("microsite")) {
+          this.submitGenerate();
+          return;
+        }
         this.isModalOpen = true;
         this.loadConfigurationsForSelectedProjects();
       })
@@ -819,11 +1006,6 @@ export default class PropfocusLeadLinkGen extends LightningElement {
       });
   }
 
-  getPostVisitSpecificConfigurationValues() {
-    return (this.postVisitConfigurationOptions || [])
-      .map((option) => option?.value)
-      .filter((value) => value && value !== ALL_CONFIG_OPTION_VALUE);
-  }
   getResolvedPostVisitConfigurations() {
     const selected = this.postVisitSelectedConfigurations || [];
     if (selected.includes(ALL_CONFIG_OPTION_VALUE)) {
@@ -878,6 +1060,10 @@ export default class PropfocusLeadLinkGen extends LightningElement {
   }
 
   handleConfirmSiteVisit() {
+    this.openSiteVisitModal({ skipIfExists: false });
+  }
+
+  openSiteVisitModal({ skipIfExists = false, autoCreate = false } = {}) {
     if (!this.recordId) {
       this.showToast("Error", "Record Id not available", "error");
       return;
@@ -898,6 +1084,11 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         const lead = leadResult.value;
         const opts = optsResult.value;
         const dt = dtResult.status === "fulfilled" ? dtResult.value : null;
+        this.applyLeadLinkFromResponse(lead);
+        // Auto-open path: a site visit link already exists, so don't pop.
+        if (skipIfExists && this.hasSiteVisit) {
+          return;
+        }
         this.clientName = lead?.[LEAD_BUYER_NAME_FIELD];
         this.siteVisitProject = "";
         if (lead?.[LEAD_PROJECT_FIELD]) {
@@ -910,6 +1101,11 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         this.siteVisitManagerOptions = [];
         this.siteVisitDateTime = normalizeSiteVisitDateTime(dt || new Date());
         this.modalAction = "siteVisit";
+        // Auto-create: all mandatory fields already known → confirm silently.
+        if (autoCreate && this.isAutoCreateReady("siteVisit")) {
+          this.submitSiteVisit();
+          return;
+        }
         this.isModalOpen = true;
         if (this.siteVisitProject) {
           this.loadSiteVisitManagers(this.siteVisitProject);
@@ -924,6 +1120,10 @@ export default class PropfocusLeadLinkGen extends LightningElement {
   }
 
   handleGeneratePostVisit() {
+    this.openPostVisitModal({ skipIfExists: false });
+  }
+
+  openPostVisitModal({ skipIfExists = false, autoCreate = false } = {}) {
     if (!this.recordId) {
       this.showToast("Error", "Record Id not available", "error");
       return;
@@ -943,6 +1143,11 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         }
         const lead = leadResult.value;
         const opts = optsResult.value;
+        this.applyLeadLinkFromResponse(lead);
+        // Auto-open path: a post visit link already exists, so don't pop.
+        if (skipIfExists && this.hasPostVisit) {
+          return;
+        }
         this.clientName = lead?.[LEAD_BUYER_NAME_FIELD];
         this.postVisitProject = "";
         this.postVisitReassignTo = "";
@@ -955,6 +1160,12 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         this.postVisitSelectedConfigurations = [];
         this.postVisitConfigurationOptions = [];
         this.modalAction = "postVisit";
+        // Post visit needs a configuration selection, which can't be inferred,
+        // so this normally falls through to the modal.
+        if (autoCreate && this.isAutoCreateReady("postVisit")) {
+          this.submitPostVisit();
+          return;
+        }
         this.isModalOpen = true;
         if (this.postVisitProject) {
           this.loadPostVisitConfigurations(this.postVisitProject);
@@ -1297,6 +1508,9 @@ export default class PropfocusLeadLinkGen extends LightningElement {
     }
     this.successCopyText = text;
     this.showCopySuccess = true;
+    // Ensure the success/copy view is visible even on the auto-create path,
+    // where the form modal was never opened.
+    this.isModalOpen = true;
     this.pendingAutoCopy = Boolean(text);
     this.copyButtonLabel = "Copy message";
   }

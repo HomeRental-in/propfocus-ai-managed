@@ -1,4 +1,4 @@
-public class PropfocusLeadEventService {
+public inherited sharing class PropfocusLeadEventService {
   // Fields watched for changes. Read from CMDT so customer field mappings
   // are respected. Evaluated against Trigger.oldMap on every Lead update.
   @TestVisible

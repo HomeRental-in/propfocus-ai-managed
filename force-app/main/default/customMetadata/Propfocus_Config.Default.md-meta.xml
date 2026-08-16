@@ -11,6 +11,30 @@
     >Propfocus_API</value>
     </values>
     <values>
+        <field>Auto_Microsite_Statuses__c</field>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    />
+    </values>
+    <values>
+        <field>Auto_Site_Visit_Statuses__c</field>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    />
+    </values>
+    <values>
+        <field>Auto_Post_Visit_Statuses__c</field>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    />
+    </values>
+    <values>
         <field>Buyer_Id_Field__c</field>
         <value
       xsi:type="xsd:string"
@@ -51,6 +75,22 @@
     >true</value>
     </values>
     <values>
+        <field>Show_Site_Visit_Button__c</field>
+        <value
+      xsi:type="xsd:boolean"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    >true</value>
+    </values>
+    <values>
+        <field>Show_Post_Visit_Button__c</field>
+        <value
+      xsi:type="xsd:boolean"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    >true</value>
+    </values>
+    <values>
         <field>Lead_Lookup_Field__c</field>
         <value
       xsi:type="xsd:string"
@@ -80,7 +120,7 @@
       xsi:type="xsd:string"
       xmlns:xsd="http://www.w3.org/2001/XMLSchema"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    >63e68b70-6b76-4997-b5fe-6084484d7819</value>
+    />
     </values>
     <values>
         <field>Pre_Sales_Owner_Name_Field__c</field>
@@ -153,6 +193,14 @@
       xmlns:xsd="http://www.w3.org/2001/XMLSchema"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     >Status__c</value>
+    </values>
+    <values>
+        <field>Site_Visit_Scheduled_Status__c</field>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    >SV Scheduled</value>
     </values>
     <values>
         <field>Site_Visit_Team_Field__c</field>
