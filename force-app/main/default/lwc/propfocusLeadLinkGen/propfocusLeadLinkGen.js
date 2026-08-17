@@ -222,7 +222,7 @@ function resolveHistoryStatus(type, rawStatus) {
 
 function resolveDefaultMicrositeLeadType(leadStatus) {
   const normalized = (leadStatus || "").trim().toLowerCase();
-  if (normalized === "open") return "rnr";
+  if (normalized === "open" || normalized === "not connected") return "rnr";
   if (normalized === "new") return "new";
   return "new";
 }
