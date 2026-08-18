@@ -5,6 +5,26 @@
     <label>PropFocus AI</label>
     <oauthConfig>
         <callbackUrl>https://propfocus.in/oauth/callback</callbackUrl>
+        <!-- Public cert for the JWT Bearer flow (Propfocus holds server.key).
+             Valid 2026-08-16 to 2028-08-15; rotate before expiry. -->
+        <certificate>-----BEGIN CERTIFICATE-----
+MIICpDCCAYwCCQC7HBa1zz9gxjANBgkqhkiG9w0BAQsFADAUMRIwEAYDVQQDDAlw
+cm9wZm9jdXMwHhcNMjYwODE2MTMzNjUzWhcNMjgwODE1MTMzNjUzWjAUMRIwEAYD
+VQQDDAlwcm9wZm9jdXMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDG
+ssMRSev3VcX0wznyCG4RKUVVUDcCG4O0s3KuoZnzKxazc2KVBGPBUEh6UO67TZf3
+EX3qiwhmm0OYSJule14qDunvCxz8MiIieuGVhYqJVZPfajp8uxI94jQctCPnJ2RT
+K853obWjDfHOLSmEY48xd9N8gcV0y3tnge8DUcQFttysyIOU/IkuozaoZMPDVrLD
+LjvbJMykNQa8HlQAzfI+qHm8nim6S+cqw7vRNp6f4FoBA2BSV3Idvkv6RmLIq1q0
+/amIh3PPX3f/Kk8rAG2MOnDC0UG03va+P77S4NenoPEz0w3znq270GArBy0WPXSF
+FV8zNCJNRTDpKB0v3jpbAgMBAAEwDQYJKoZIhvcNAQELBQADggEBAEI2d7wFH8oG
+icXyiSL4BBuxlyku+H0YonyUOEBqvkht4fQ7UqF2cQgElXQuVRnRL0i6Lz/pBEI+
+bocpYbGqdkD4eLXwC+8K+4xftE1Qvx2h8geDrGQkEmhSw46NYtyDnCjZ+BxgbbK/
+3FCK/ViFsQnRWNclRZ3sUJl+9mFgHghWZi9nb8SqAvKaYeszdExobY9RAb63+r9l
+8ihoU1nKAxjZb2I4EeP3wiS6iCqPYF/nQujYdqqGXOiORdeCXGx0wxFs5gIGPm1G
+VW6dEetGJEU5pwr+sEP7w15fl/sQ1PT5MNVmT3g85PV9NwgowOlpKgtup1jSuD3y
+pAwvrGY4KZI=
+-----END CERTIFICATE-----</certificate>
+        <isAdminApproved>true</isAdminApproved>
         <scopes>Api</scopes>
         <scopes>RefreshToken</scopes>
         <scopes>OfflineAccess</scopes>

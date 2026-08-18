@@ -13,8 +13,11 @@ package.xml
 
 node_modules/
 
-# Subscriber orgs may already have these or block creation via CLI
-force-app/main/default/connectedApps/
+# NOTE: connectedApps must NOT be forceignored — .forceignore also applies to
+# `sf package version create`, so ignoring it silently drops the packaged
+# PropFocus AI connected app (JWT inbound auth) from every package version.
+# For source deploys to subscriber sandboxes, deploy targeted metadata instead
+# of the whole force-app tree.
 # Org-specific JWT External Client App (created in subscriber orgs, not packaged)
 force-app/main/default/externalClientApps/
 # Custom notification type must stay in the managed package (cannot remove without Partner case)

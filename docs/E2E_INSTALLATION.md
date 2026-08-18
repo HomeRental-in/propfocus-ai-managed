@@ -3,7 +3,7 @@
 **Audience:** Salesforce admin + Propfocus backend  
 **Goal:** Brand-new org → package installed → configured → inbound/outbound working → features verified  
 **Time:** Demo / Developer org with click-path: ~1–2 hours. Enterprise (change control, External Client App + JWT, backend registration, pipeline deploy of subscriber config): plan **several days**, not a single sitting.  
-**Package:** Propfocus AI **v0.10.0-1** (`PropfocusAI` namespace) — Opportunity support, External Credential outbound auth, optional Site/Post Visit buttons, history card status sync (see [Upgrade from 0.5.x](#upgrade-from-05x) and [FAQ.txt](./FAQ.txt)).
+**Package:** Propfocus AI **v0.12.0-3 (Released)** (`PropfocusAI` namespace) — Opportunity support, External Credential outbound auth, optional Site/Post Visit buttons, history card status sync, auto-open modals by status + auto-create, configurable SV-scheduled status (see [Upgrade from 0.5.x](#upgrade-from-05x) and [FAQ.txt](./FAQ.txt)).
 
 This is the exact workflow. Follow phases in order. Do not skip prerequisites.
 
@@ -68,18 +68,20 @@ Do these **before** opening the install link. Lead Field History Tracking is **n
 
 ## Phase 1 — Install the managed package
 
-**Install URL (v0.10.0-1):**
+**Install URL (v0.12.0-3, Released):**
 
 ```
-https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000lEh3QAE
+https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000mR4LQAU
 ```
+
+Sandboxes: use `https://test.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000mR4LQAU`.
 
 | #    | Action                                                                                                    | Pass when                                       |
 | ---- | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | 1.1  | Log into the **target org** first (sandbox: use `https://test.salesforce.com`, then open the install URL) | You are in the correct org                      |
 | 1.1b | **Sandbox only:** after install, complete [Sandbox override](#sandbox--uat--point-at-dev) before Phase 4  | All URLs point to `dev.propfocus.in`            |
 | 1.2  | Open install URL → **Install for Admins Only** → Install                                                  | Install completes with no errors                |
-| 1.3  | Setup → **Installed Packages**                                                                            | **Propfocus AI** version **0.10.0.1** is listed |
+| 1.3  | Setup → **Installed Packages**                                                                            | **Propfocus AI** version **0.12.0.3** is listed |
 
 **Installed for you (no action):** Apex, Lead trigger, inbound REST, Platform Event, custom objects, permission sets, External Credential + Named Credential (skeleton), Remote Site, CSP Trusted Sites, LWCs, Admin Setup tab, Propfocus AI app, default `Propfocus_Config` CMDT record.
 
@@ -435,7 +437,7 @@ Prerequisites
 [ ] Enterprise: change window + pipeline path for CMDT / FlexiPage / perm sets
 
 Install
-[ ] Package 0.10.0.1 installed (or upgraded — see Upgrade from 0.5.x)
+[ ] Package 0.12.0.3 installed (or upgraded — see Upgrade from 0.5.x)
 
 Users
 [ ] Propfocus User assigned to sales users
