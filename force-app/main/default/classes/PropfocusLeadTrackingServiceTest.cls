@@ -42,6 +42,73 @@ private class PropfocusLeadTrackingServiceTest {
   }
 
   @IsTest
+  static void notifyLeadOwner_requiresMessageWhenOnlyTitle() {
+    Lead ld = makeLead();
+    Boolean failedAsExpected = false;
+
+    Test.startTest();
+    try {
+      PropfocusLeadTrackingService.notifyLeadOwner(
+        String.valueOf(ld.Id),
+        new Map<String, Object>{ 'message' => 'Body only, no title' }
+      );
+    } catch (IllegalArgumentException e) {
+      failedAsExpected = true;
+      System.assert(
+        e.getMessage().contains('title and message'),
+        'Expected title/message validation message'
+      );
+    }
+    Test.stopTest();
+
+    System.assertEquals(true, failedAsExpected);
+  }
+
+  @IsTest
+  static void notifyLeadOwner_blankRecordId_throws() {
+    Boolean failedAsExpected = false;
+
+    Test.startTest();
+    try {
+      PropfocusLeadTrackingService.notifyLeadOwner(
+        '',
+        new Map<String, Object>{ 'title' => 'T', 'message' => 'M' }
+      );
+    } catch (IllegalArgumentException e) {
+      failedAsExpected = true;
+      System.assert(
+        e.getMessage().contains('Record Id is required'),
+        'Expected blank record id message'
+      );
+    }
+    Test.stopTest();
+
+    System.assertEquals(true, failedAsExpected);
+  }
+
+  @IsTest
+  static void notifyLeadOwner_invalidRecordId_throws() {
+    Boolean failedAsExpected = false;
+
+    Test.startTest();
+    try {
+      PropfocusLeadTrackingService.notifyLeadOwner(
+        'not-a-valid-id',
+        new Map<String, Object>{ 'title' => 'T', 'message' => 'M' }
+      );
+    } catch (IllegalArgumentException e) {
+      failedAsExpected = true;
+      System.assert(
+        e.getMessage().contains('Invalid Record Id'),
+        'Expected invalid record id message'
+      );
+    }
+    Test.stopTest();
+
+    System.assertEquals(true, failedAsExpected);
+  }
+
+  @IsTest
   static void notifyLeadOwner_success_returnsOwnerId() {
     Lead ld = makeLead();
 
@@ -56,5 +123,23 @@ private class PropfocusLeadTrackingServiceTest {
     Test.stopTest();
 
     System.assertEquals(ld.OwnerId, ownerId);
+  }
+
+  @IsTest
+  static void notifyLeadOwner_opportunity_returnsOwnerId() {
+    Opportunity opp = PropfocusTestUtil.createOpportunity('Tracking Opp');
+
+    Test.startTest();
+    Id ownerId = PropfocusLeadTrackingService.notifyLeadOwner(
+      String.valueOf(opp.Id),
+      new Map<String, Object>{
+        'title' => 'Buyer Active',
+        'message' => 'Buyer viewed post-visit page'
+      }
+    );
+    Test.stopTest();
+
+    // Resolves the Opportunity owner via the Opportunity SObjectType branch.
+    System.assertEquals(opp.OwnerId, ownerId);
   }
 }

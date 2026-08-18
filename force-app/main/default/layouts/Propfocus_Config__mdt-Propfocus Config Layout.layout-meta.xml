@@ -30,7 +30,7 @@
         <customLabel>true</customLabel>
         <detailHeading>true</detailHeading>
         <editHeading>true</editHeading>
-        <label>API &amp; OAuth (legacy)</label>
+        <label>API</label>
         <layoutColumns>
             <layoutItems>
                 <behavior>Edit</behavior>
@@ -54,21 +54,25 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>OAuth_Token_Url__c</field>
+                <field>Show_Site_Visit_Button__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Show_Post_Visit_Button__c</field>
             </layoutItems>
         </layoutColumns>
         <layoutColumns>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>OAuth_Grant_Type__c</field>
+                <field>Auto_Microsite_Statuses__c</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>OAuth_Client_Id__c</field>
+                <field>Auto_Site_Visit_Statuses__c</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
-                <field>OAuth_Client_Secret__c</field>
+                <field>Auto_Post_Visit_Statuses__c</field>
             </layoutItems>
         </layoutColumns>
         <style>TwoColumnsTopToBottom</style>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <fullName>Site_Visit_Scheduled_Status__c</fullName>
+    <inlineHelpText>Status value to set on the Lead/Opportunity (in the configured status field) when a site visit link is created. Leave blank to never change the status. Must be a valid picklist value.</inlineHelpText>
+    <label>Site Visit Scheduled Status</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+</CustomField>

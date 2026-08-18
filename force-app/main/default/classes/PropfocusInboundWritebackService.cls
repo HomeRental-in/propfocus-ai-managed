@@ -1,10 +1,13 @@
-public class PropfocusInboundWritebackService {
+// without sharing: invoked from the inbound integration endpoint; must update
+// the matched parent record regardless of the integration user's sharing.
+public without sharing class PropfocusInboundWritebackService {
   public class WritebackResult {
     public Boolean leadUpdated = false;
     public Integer callLogsCreated = 0;
     public Integer historyRowsCreated = 0;
     public Boolean siteVisitSynced = false;
     public Boolean clientSiteVisitUpdated = false;
+    public Boolean engagementSynced = false;
   }
 
   private class SiteVisitSyncResult {
@@ -55,6 +58,29 @@ public class PropfocusInboundWritebackService {
       );
     }
 
+    Map<String, Object> engagement = asMap(payloadRoot.get('engagement'));
+    if (engagement != null && !engagement.isEmpty()) {
+      result.engagementSynced = syncEngagement(recordId, engagement);
+    } else {
+      String engagementStatus = asString(
+        firstPresent(
+          payloadRoot,
+          new List<String>{
+            'engagement_status',
+            'engagementStatus',
+            'microsite_status',
+            'micrositeStatus'
+          }
+        )
+      );
+      if (isEngagedStatus(engagementStatus)) {
+        result.engagementSynced = syncEngagement(
+          recordId,
+          new Map<String, Object>{ 'status' => 'Engaged' }
+        );
+      }
+    }
+
     return result;
   }
 
@@ -66,10 +92,152 @@ public class PropfocusInboundWritebackService {
     List<Object> callLogs = asList(payloadRoot.get('call_logs'));
     Map<String, Object> siteVisit = asMap(payloadRoot.get('site_visit'));
     List<Object> leadHistory = asList(payloadRoot.get('lead_history'));
+    Map<String, Object> engagement = asMap(payloadRoot.get('engagement'));
+    String engagementStatus = asString(
+      firstPresent(
+        payloadRoot,
+        new List<String>{
+          'engagement_status',
+          'engagementStatus',
+          'microsite_status',
+          'micrositeStatus'
+        }
+      )
+    );
     return (leadData != null && !leadData.isEmpty()) ||
       (callLogs != null && !callLogs.isEmpty()) ||
       (siteVisit != null && !siteVisit.isEmpty()) ||
-      (leadHistory != null && !leadHistory.isEmpty());
+      (leadHistory != null && !leadHistory.isEmpty()) ||
+      (engagement != null && !engagement.isEmpty()) ||
+      isEngagedStatus(engagementStatus);
+  }
+
+  /**
+   * Marks microsite/post-visit history as Engaged from buyer activity signals
+   * (notification title/message) when no explicit engagement write-back is present.
+   */
+  public static Boolean syncEngagementFromActivity(
+    Id recordId,
+    String eventType,
+    String title,
+    String message
+  ) {
+    if (recordId == null) {
+      return false;
+    }
+    String engagementHint = resolveEngagementHintFromActivity(
+      eventType,
+      title,
+      message
+    );
+    if (String.isBlank(engagementHint)) {
+      return false;
+    }
+    PropFocusLeadService.syncLinkHistoryEngagement(
+      recordId,
+      engagementHint,
+      null
+    );
+    return true;
+  }
+
+  @TestVisible
+  private static String resolveEngagementHintFromActivity(
+    String eventType,
+    String title,
+    String message
+  ) {
+    String haystack = (
+      (eventType == null ? '' : eventType) +
+      ' ' +
+      (title == null ? '' : title) +
+      ' ' +
+      (message == null ? '' : message)
+    )
+      .trim()
+      .toLowerCase();
+    if (String.isBlank(haystack)) {
+      return null;
+    }
+    // Site-visit notifications should not flip microsite/post-visit engagement.
+    if (
+      haystack.contains('site visit') &&
+      !haystack.contains('post visit') &&
+      !haystack.contains('microsite')
+    ) {
+      return null;
+    }
+    if (haystack.contains('post visit') || haystack.contains('post-visit')) {
+      return 'post_visit';
+    }
+    if (
+      haystack.contains('microsite') ||
+      haystack.contains('engaged') ||
+      haystack.contains('viewed') ||
+      haystack.contains('opened')
+    ) {
+      return 'microsite';
+    }
+    return null;
+  }
+
+  private static Boolean syncEngagement(
+    Id recordId,
+    Map<String, Object> engagement
+  ) {
+    if (engagement == null || engagement.isEmpty()) {
+      return false;
+    }
+    String status = asString(
+      firstPresent(
+        engagement,
+        new List<String>{ 'status', 'engagement_status', 'engagementStatus' }
+      )
+    );
+    if (String.isBlank(status)) {
+      // engagement {} with type/project only still means Engaged.
+      status = 'Engaged';
+    } else if (!isEngagedStatus(status)) {
+      return false;
+    }
+    String communicationTypeHint = asString(
+      firstPresent(
+        engagement,
+        new List<String>{
+          'communication_type',
+          'communicationType',
+          'type',
+          'link_type',
+          'linkType'
+        }
+      )
+    );
+    String projectName = asString(
+      firstPresent(
+        engagement,
+        new List<String>{
+          'primary_project_name',
+          'project_name',
+          'projectName'
+        }
+      )
+    );
+    PropFocusLeadService.syncLinkHistoryEngagement(
+      recordId,
+      communicationTypeHint,
+      projectName
+    );
+    return true;
+  }
+
+  private static Boolean isEngagedStatus(String status) {
+    if (String.isBlank(status)) {
+      return false;
+    }
+    String normalized = status.trim().toLowerCase();
+    return normalized == 'engaged' ||
+      normalized == 'yes' ||
+      normalized == 'true';
   }
 
   private static Boolean applyParentData(

@@ -245,4 +245,90 @@ private class PropfocusInboundWritebackServiceTest {
       'Distinct visit numbers must remain separate rows'
     );
   }
+
+  @IsTest
+  static void applyWriteback_engagementMarksMicrositeEngaged() {
+    Lead ld = makeLead();
+    insert new Propfocus_Link__c(
+      Lead__c = ld.Id,
+      Type__c = 'Microsite Generation',
+      Project_Name__c = 'Project Alpha',
+      URL__c = 'https://example.test/micro',
+      Created_At__c = System.now(),
+      Status__c = 'Not engaged'
+    );
+
+    Map<String, Object> payload = new Map<String, Object>{
+      'engagement' => new Map<String, Object>{
+        'status' => 'Engaged',
+        'communication_type' => 'microsite',
+        'project_name' => 'Project Alpha'
+      }
+    };
+
+    Test.startTest();
+    PropfocusInboundWritebackService.WritebackResult result = PropfocusInboundWritebackService.applyWriteback(
+      ld.Id,
+      payload
+    );
+    Test.stopTest();
+
+    System.assertEquals(true, result.engagementSynced);
+    System.assertEquals(
+      'Engaged',
+      [
+          SELECT Status__c
+          FROM Propfocus_Link__c
+          WHERE Lead__c = :ld.Id
+          LIMIT 1
+        ]
+        .Status__c
+    );
+  }
+
+  @IsTest
+  static void syncEngagementFromActivity_detectsMicrositeView() {
+    Lead ld = makeLead();
+    insert new Propfocus_Link__c(
+      Lead__c = ld.Id,
+      Type__c = 'Microsite Generation',
+      Project_Name__c = 'Project Alpha',
+      URL__c = 'https://example.test/micro-view',
+      Created_At__c = System.now(),
+      Status__c = 'Not engaged'
+    );
+
+    Test.startTest();
+    Boolean synced = PropfocusInboundWritebackService.syncEngagementFromActivity(
+      ld.Id,
+      'buyer_activity',
+      'Buyer Active',
+      'Buyer viewed microsite'
+    );
+    Test.stopTest();
+
+    System.assertEquals(true, synced);
+    System.assertEquals(
+      'Engaged',
+      [
+          SELECT Status__c
+          FROM Propfocus_Link__c
+          WHERE Lead__c = :ld.Id
+          LIMIT 1
+        ]
+        .Status__c
+    );
+  }
+
+  @IsTest
+  static void syncEngagementFromActivity_ignoresSiteVisitNotifications() {
+    System.assertEquals(
+      null,
+      PropfocusInboundWritebackService.resolveEngagementHintFromActivity(
+        'buyer_activity',
+        'New Site Visit Scheduled',
+        'Customer has scheduled a site visit for tomorrow at 11 AM'
+      )
+    );
+  }
 }

@@ -150,26 +150,6 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>Propfocus_Config__mdt.OAuth_Token_Url__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>Propfocus_Config__mdt.OAuth_Grant_Type__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>Propfocus_Config__mdt.OAuth_Client_Id__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>Propfocus_Config__mdt.OAuth_Client_Secret__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
         <field>Propfocus_Config__mdt.Pre_Sales_Owner_Name_Field__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -241,6 +221,16 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>Propfocus_Config__mdt.Show_Copy_Modal__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Config__mdt.Show_Site_Visit_Button__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Propfocus_Config__mdt.Show_Post_Visit_Button__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

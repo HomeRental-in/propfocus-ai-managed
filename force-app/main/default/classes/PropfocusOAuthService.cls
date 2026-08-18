@@ -1,4 +1,4 @@
-public class PropfocusOAuthService {
+public inherited sharing class PropfocusOAuthService {
   private static final String DEFAULT_GRANT_TYPE = 'client_credentials';
   private static final String CACHE_KEY = 'PropfocusAccessToken';
   private static final Integer EXPIRY_BUFFER_SECONDS = 60;

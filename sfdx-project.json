@@ -1,13 +1,13 @@
 {
   "packageDirectories": [
     {
-      "versionName": "ver 0.9",
-      "versionNumber": "0.9.0.NEXT",
+      "versionName": "ver 0.12",
+      "versionNumber": "0.12.0.NEXT",
       "path": "force-app",
       "default": true,
       "package": "Propfocus AI",
-      "versionDescription": "Allow relationship field paths (e.g. Project__r.Name) in Propfocus Config mappings",
-      "ancestorId": "04tdL000000kaN3QAI"
+      "versionDescription": "Hide unused OAuth CMDT fields from Config layout; auto status buttons and Site Visit Scheduled status",
+      "ancestorId": "04tdL000000mLrlQAE"
     }
   ],
   "name": "propfocus-ai-managed",
@@ -31,7 +31,11 @@
     "Propfocus AI@0.7.0-1": "04tdL000000kIErQAM",
     "Propfocus AI@0.7.0-2": "04tdL000000kNpdQAE",
     "Propfocus AI@0.8.0-1": "04tdL000000kTrpQAE",
-    "Propfocus AI@0.9.0-1": "04tdL000000kaN3QAI"
+    "Propfocus AI@0.9.0-1": "04tdL000000kaN3QAI",
+    "Propfocus AI@0.10.0-1": "04tdL000000lEh3QAE",
+    "Propfocus AI@0.11.0-1": "04tdL000000mLrlQAE",
+    "Propfocus AI@0.12.0-1": "04tdL000000mPfFQAU",
+    "Propfocus AI@0.12.0-2": "04tdL000000mPvNQAU"
   },
   "sfdcLoginUrl": "https://login.salesforce.com",
   "sourceApiVersion": "66.0"

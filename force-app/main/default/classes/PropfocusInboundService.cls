@@ -1,5 +1,8 @@
 @RestResource(urlMapping='/propfocus/events/*')
-global class PropfocusInboundService {
+// without sharing: inbound integration endpoint must resolve and write back to
+// the matched Lead/Opportunity regardless of the integration user's record
+// sharing. Access is still gated by the connected app / permission set.
+global without sharing class PropfocusInboundService {
   global class InboundEventPayload {
     public String event_type;
     public String buyer_id;
@@ -146,6 +149,20 @@ global class PropfocusInboundService {
         PropfocusLeadTrackingService.notifyLeadOwner(
           String.valueOf(matchedRecordId),
           notif
+        );
+      }
+
+      // Flip microsite/post-visit history to Engaged when buyer activity indicates
+      // engagement and write-back did not already handle an engagement section.
+      if (
+        writebackResult == null ||
+        writebackResult.engagementSynced != true
+      ) {
+        PropfocusInboundWritebackService.syncEngagementFromActivity(
+          matchedRecordId,
+          payload.event_type,
+          payload.title,
+          payload.message
         );
       }
 

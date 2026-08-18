@@ -780,6 +780,8 @@ private class PropFocusLeadServiceTest {
       Created_At__c = System.now(),
       Status__c = 'Confirmed'
     );
+    // Empty statuses → keep stored Status__c
+    setApiMock(200, '{"success":true,"data":{"statuses":[]}}');
 
     Test.startTest();
     List<PropFocusLeadService.LinkHistoryItem> history = PropFocusLeadService.getLinkHistory(
@@ -793,6 +795,11 @@ private class PropFocusLeadServiceTest {
     System.assertEquals('Site Visit Confirmation', history[0].type);
     System.assertEquals('Microsite Generation', history[1].type);
     System.assertEquals('Project B', history[0].projectName);
+    System.assert(
+      apiMock.lastApiEndpoint != null &&
+      apiMock.lastApiEndpoint.contains('/api/v1/salesforce/link-history-status'),
+      'Expected link-history-status callout'
+    );
   }
 
   @IsTest
@@ -822,6 +829,7 @@ private class PropFocusLeadServiceTest {
       Created_At__c = System.now().addMinutes(-2),
       Status__c = 'Generated'
     );
+    setApiMock(200, '{"success":true,"data":{"statuses":[]}}');
 
     Test.startTest();
     List<PropFocusLeadService.LinkHistoryItem> history = PropFocusLeadService.getLinkHistory(
@@ -897,6 +905,40 @@ private class PropFocusLeadServiceTest {
   }
 
   @IsTest
+  static void getLatestSiteVisitDateTime_usesConfiguredDatetimeField() {
+    Lead ld = makeLead();
+    PropfocusConfigService.Config cfg = PropfocusConfigService.getConfig();
+    cfg.siteVisitObject = Propfocus_Call_Log__c.SObjectType.getDescribe()
+      .getName();
+    cfg.siteVisitLeadLookupField = Propfocus_Call_Log__c.Lead__c.getDescribe()
+      .getName();
+    cfg.siteVisitStatusField = Propfocus_Call_Log__c.Duration__c.getDescribe()
+      .getName();
+    cfg.siteVisitProjectField = Propfocus_Call_Log__c.Disposition__c.getDescribe()
+      .getName();
+    cfg.siteVisitDatetimeField = Propfocus_Call_Log__c.Call_Time__c.getDescribe()
+      .getName();
+
+    Datetime visitAt = Datetime.newInstance(2026, 8, 20, 16, 45, 0);
+    insert new Propfocus_Call_Log__c(
+      Lead__c = ld.Id,
+      Disposition__c = 'Project A',
+      Duration__c = 'Scheduled',
+      Call_Time__c = visitAt
+    );
+
+    Test.startTest();
+    Datetime latest = PropFocusLeadService.getLatestSiteVisitDateTime(ld.Id);
+    Test.stopTest();
+
+    System.assertEquals(
+      visitAt,
+      latest,
+      'Modal datetime must come from Site Visit Datetime Field, not CreatedDate'
+    );
+  }
+
+  @IsTest
   static void getLinkHistory_excludesReusedAndDuplicateUrls() {
     Lead ld = makeLead();
     String reusedUrl = 'https://example.test/reused';
@@ -924,6 +966,7 @@ private class PropFocusLeadServiceTest {
       Created_At__c = System.now().addMinutes(-10),
       Status__c = 'Generated'
     );
+    setApiMock(200, '{"success":true,"data":{"statuses":[]}}');
 
     Test.startTest();
     List<PropFocusLeadService.LinkHistoryItem> history = PropFocusLeadService.getLinkHistory(
@@ -950,6 +993,7 @@ private class PropFocusLeadServiceTest {
         Status__c = 'Generated'
       );
     }
+    setApiMock(200, '{"success":true,"data":{"statuses":[]}}');
 
     Test.startTest();
     List<PropFocusLeadService.LinkHistoryItem> history = PropFocusLeadService.getLinkHistory(
@@ -1096,6 +1140,82 @@ private class PropFocusLeadServiceTest {
     System.assertEquals(
       'mgr-1',
       String.valueOf(((Map<String, Object>) requestBody.get('siteVisitManager')).get('id'))
+    );
+  }
+
+  @IsTest
+  static void generatePropfocusTemplate_siteVisit_setsScheduledStatus() {
+    // Configure the "SV Scheduled" status value.
+    PropfocusConfigService.fromConfigMap(
+      new Map<String, Object>{
+        'siteVisitScheduledStatus' => 'Working - Contacted'
+      }
+    );
+    Lead ld = makeLead();
+    System.assertEquals('Open - Not Contacted', ld.Status);
+    setApiMock(
+      200,
+      '{"success":true,"link":"https://example.test/sv","template":"Visit ready"}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.generatePropfocusTemplate(
+      ld.Id,
+      'site_visit',
+      JSON.serialize(
+        new Map<String, Object>{
+          'buyerName' => 'Priya Sharma',
+          'projectName' => 'Skyline Residences',
+          'visitDate' => '2026-07-15',
+          'visitTime' => '10:00'
+        }
+      )
+    );
+    Test.stopTest();
+
+    Lead updated = [SELECT Status, Propfocus_Site_Visit__c FROM Lead WHERE Id = :ld.Id];
+    System.assertEquals(
+      'Working - Contacted',
+      updated.Status,
+      'Site visit link creation should stamp the configured scheduled status'
+    );
+    System.assertEquals(
+      'https://example.test/sv',
+      updated.Propfocus_Site_Visit__c,
+      'Link write-back must still succeed alongside the status update'
+    );
+  }
+
+  @IsTest
+  static void generatePropfocusTemplate_siteVisit_blankStatusLeavesStatusUnchanged() {
+    // Explicitly clear Default CMDT so blank-config behavior is testable.
+    PropfocusConfigService.Config cfg = PropfocusConfigService.getConfig();
+    cfg.siteVisitScheduledStatus = null;
+
+    Lead ld = makeLead();
+    setApiMock(
+      200,
+      '{"success":true,"link":"https://example.test/sv","template":"Visit ready"}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.generatePropfocusTemplate(
+      ld.Id,
+      'site_visit',
+      JSON.serialize(
+        new Map<String, Object>{
+          'buyerName' => 'Priya Sharma',
+          'projectName' => 'Skyline Residences'
+        }
+      )
+    );
+    Test.stopTest();
+
+    Lead updated = [SELECT Status FROM Lead WHERE Id = :ld.Id];
+    System.assertEquals(
+      'Open - Not Contacted',
+      updated.Status,
+      'Status must not change when no scheduled status is configured'
     );
   }
 
@@ -1319,6 +1439,7 @@ private class PropFocusLeadServiceTest {
       Created_At__c = System.now(),
       Status__c = 'Not engaged'
     );
+    setApiMock(200, '{"success":true,"data":{"statuses":[]}}');
 
     Test.startTest();
     List<PropFocusLeadService.LinkHistoryItem> items = PropFocusLeadService.getLinkHistory(
@@ -1328,5 +1449,161 @@ private class PropFocusLeadServiceTest {
 
     System.assertEquals(1, items.size());
     System.assertEquals('https://example.test/opp-micro', items[0].url);
+  }
+
+  @IsTest
+  static void normalizeSiteVisitHistoryStatus_mapsConductedAndReschedule() {
+    System.assertEquals(
+      'Confirmed',
+      PropFocusLeadService.normalizeSiteVisitHistoryStatus('Conducted')
+    );
+    System.assertEquals(
+      'Confirmed',
+      PropFocusLeadService.normalizeSiteVisitHistoryStatus('Completed')
+    );
+    System.assertEquals(
+      'Rescheduled',
+      PropFocusLeadService.normalizeSiteVisitHistoryStatus('Reschedule')
+    );
+    System.assertEquals(
+      'Pending',
+      PropFocusLeadService.normalizeSiteVisitHistoryStatus('Scheduled')
+    );
+  }
+
+  @IsTest
+  static void syncLinkHistoryEngagement_marksMicrositeEngaged() {
+    Lead ld = makeLead();
+    insert new Propfocus_Link__c(
+      Lead__c = ld.Id,
+      Type__c = 'Microsite Generation',
+      Project_Name__c = 'Project A',
+      URL__c = 'https://example.test/micro-engage',
+      Created_At__c = System.now(),
+      Status__c = 'Not engaged'
+    );
+    insert new Propfocus_Link__c(
+      Lead__c = ld.Id,
+      Type__c = 'Post Visit Page',
+      Project_Name__c = 'Project A',
+      URL__c = 'https://example.test/pv-engage',
+      Created_At__c = System.now(),
+      Status__c = 'Not engaged'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.syncLinkHistoryEngagement(ld.Id, 'microsite', null);
+    Test.stopTest();
+
+    Propfocus_Link__c micro = [
+      SELECT Status__c
+      FROM Propfocus_Link__c
+      WHERE Lead__c = :ld.Id AND Type__c = 'Microsite Generation'
+      LIMIT 1
+    ];
+    Propfocus_Link__c postVisit = [
+      SELECT Status__c
+      FROM Propfocus_Link__c
+      WHERE Lead__c = :ld.Id AND Type__c = 'Post Visit Page'
+      LIMIT 1
+    ];
+    System.assertEquals('Engaged', micro.Status__c);
+    System.assertEquals('Not engaged', postVisit.Status__c);
+
+    setApiMock(200, '{"success":true,"data":{"statuses":[]}}');
+    List<PropFocusLeadService.LinkHistoryItem> history = PropFocusLeadService.getLinkHistory(
+      ld.Id
+    );
+    Boolean foundEngaged = false;
+    for (PropFocusLeadService.LinkHistoryItem item : history) {
+      if (item.type == 'Microsite Generation') {
+        System.assertEquals('Engaged', item.status);
+        foundEngaged = true;
+      }
+    }
+    System.assertEquals(true, foundEngaged);
+  }
+
+  @IsTest
+  static void getLinkHistory_pullsConfirmedAndEngagedFromPropfocus() {
+    Lead ld = makeLead();
+    insert new Propfocus_Link__c(
+      Lead__c = ld.Id,
+      Type__c = 'Site Visit Confirmation',
+      Project_Name__c = 'Aamrut Farms',
+      URL__c = 'https://propfocus.in/sv/org/sv-CONF1',
+      Created_At__c = System.now(),
+      Status__c = 'Pending'
+    );
+    insert new Propfocus_Link__c(
+      Lead__c = ld.Id,
+      Type__c = 'Microsite Generation',
+      Project_Name__c = 'Hosachiguru Abhivrudhi',
+      URL__c = 'https://propfocus.in/buyer-TOKEN',
+      Created_At__c = System.now().addMinutes(-1),
+      Status__c = 'Not engaged'
+    );
+
+    setApiMock(
+      200,
+      '{"success":true,"data":{"statuses":[' +
+        '{"url":"https://propfocus.in/sv/org/sv-CONF1","type":"Site Visit Confirmation","project_name":"Aamrut Farms","status":"Confirmed"},' +
+        '{"url":"https://propfocus.in/buyer-TOKEN","type":"Microsite Generation","project_name":"Hosachiguru Abhivrudhi","status":"Engaged"}' +
+        ']}}'
+    );
+
+    Test.startTest();
+    List<PropFocusLeadService.LinkHistoryItem> history = PropFocusLeadService.getLinkHistory(
+      ld.Id
+    );
+    Test.stopTest();
+
+    System.assertEquals(2, history.size());
+    System.assertEquals('Confirmed', history[0].status);
+    System.assertEquals('Engaged', history[1].status);
+
+    Propfocus_Link__c svRow = [
+      SELECT Status__c
+      FROM Propfocus_Link__c
+      WHERE Lead__c = :ld.Id AND Type__c = 'Site Visit Confirmation'
+      LIMIT 1
+    ];
+    Propfocus_Link__c microRow = [
+      SELECT Status__c
+      FROM Propfocus_Link__c
+      WHERE Lead__c = :ld.Id AND Type__c = 'Microsite Generation'
+      LIMIT 1
+    ];
+    System.assertEquals('Confirmed', svRow.Status__c);
+    System.assertEquals('Engaged', microRow.Status__c);
+    System.assert(
+      apiMock.lastApiRequestBody != null &&
+      apiMock.lastApiRequestBody.contains('organization_id') &&
+      apiMock.lastApiRequestBody.contains('buyer_id'),
+      'Expected organization_id and buyer_id in callout body'
+    );
+  }
+
+  @IsTest
+  static void getLinkHistory_keepsStoredStatusWhenCalloutFails() {
+    Lead ld = makeLead();
+    insert new Propfocus_Link__c(
+      Lead__c = ld.Id,
+      Type__c = 'Site Visit Confirmation',
+      Project_Name__c = 'Aamrut Farms',
+      URL__c = 'https://propfocus.in/sv/org/sv-PEND',
+      Created_At__c = System.now(),
+      Status__c = 'Pending'
+    );
+    setApiMock(500, '{"success":false,"error":"boom"}');
+
+    Test.startTest();
+    List<PropFocusLeadService.LinkHistoryItem> history = PropFocusLeadService.getLinkHistory(
+      ld.Id
+    );
+    Test.stopTest();
+
+    System.assertEquals(1, history.size());
+    System.assertEquals('Pending', history[0].status);
   }
 }

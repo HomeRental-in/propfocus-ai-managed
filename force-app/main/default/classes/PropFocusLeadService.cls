@@ -1,4 +1,4 @@
-public class PropFocusLeadService implements Callable {
+public with sharing class PropFocusLeadService implements Callable {
   // Fixed JSON key in the Propfocus API request body. This is a wire-contract
   // with the Propfocus backend and is intentionally independent of any
   // Salesforce field API name or namespace.
@@ -284,6 +284,7 @@ public class PropFocusLeadService implements Callable {
     if (
       normalized.contains('confirm') ||
       normalized.contains('complete') ||
+      normalized.contains('conduct') ||
       normalized.contains('visited') ||
       normalized.contains('done')
     ) {
@@ -306,16 +307,39 @@ public class PropFocusLeadService implements Callable {
     String projectName,
     String siteVisitStatus
   ) {
-    if (recordId == null || String.isBlank(projectName)) {
+    if (recordId == null || String.isBlank(siteVisitStatus)) {
       return;
     }
     String mappedStatus = normalizeSiteVisitHistoryStatus(siteVisitStatus);
     List<Propfocus_Link__c> rows;
     if (isOpportunityRecord(recordId)) {
+      if (!String.isBlank(projectName)) {
+        rows = [
+          SELECT Id, Status__c
+          FROM Propfocus_Link__c
+          WHERE Opportunity__c = :recordId
+            AND Type__c IN ('Site Visit Confirmation', 'Site Visit')
+            AND Project_Name__c = :projectName
+            AND Status__c != 'Reused'
+          ORDER BY Created_At__c DESC
+          LIMIT 1
+        ];
+      } else {
+        rows = [
+          SELECT Id, Status__c
+          FROM Propfocus_Link__c
+          WHERE Opportunity__c = :recordId
+            AND Type__c IN ('Site Visit Confirmation', 'Site Visit')
+            AND Status__c != 'Reused'
+          ORDER BY Created_At__c DESC
+          LIMIT 1
+        ];
+      }
+    } else if (!String.isBlank(projectName)) {
       rows = [
         SELECT Id, Status__c
         FROM Propfocus_Link__c
-        WHERE Opportunity__c = :recordId
+        WHERE Lead__c = :recordId
           AND Type__c IN ('Site Visit Confirmation', 'Site Visit')
           AND Project_Name__c = :projectName
           AND Status__c != 'Reused'
@@ -328,7 +352,6 @@ public class PropFocusLeadService implements Callable {
         FROM Propfocus_Link__c
         WHERE Lead__c = :recordId
           AND Type__c IN ('Site Visit Confirmation', 'Site Visit')
-          AND Project_Name__c = :projectName
           AND Status__c != 'Reused'
         ORDER BY Created_At__c DESC
         LIMIT 1
@@ -341,32 +364,97 @@ public class PropFocusLeadService implements Callable {
     update rows;
   }
 
-  private static Map<String, String> resolveSiteVisitStatusByProject(Id leadId) {
-    Map<String, String> byProject = new Map<String, String>();
-    PropfocusConfigService.Config cfg = PropfocusConfigService.getConfig();
-    if (
-      String.isBlank(cfg.siteVisitObject) ||
-      String.isBlank(cfg.siteVisitProjectField) ||
-      String.isBlank(cfg.siteVisitStatusField)
-    ) {
-      return byProject;
+  /**
+   * Marks matching Microsite / Post Visit history rows as Engaged.
+   * communicationHint: microsite | post_visit | blank (both).
+   * projectName: optional project filter; blank updates latest matching rows.
+   */
+  public static void syncLinkHistoryEngagement(
+    Id recordId,
+    String communicationHint,
+    String projectName
+  ) {
+    if (recordId == null) {
+      return;
     }
-    String projectFieldApiName = cfg.siteVisitProjectField;
-    String statusFieldApiName = cfg.siteVisitStatusField;
-    for (SObject row : queryLatestSiteVisits(leadId, 50)) {
-      String projectName = asString(
-        getFieldPathValue(row, projectFieldApiName)
-      );
-      String rawStatus = asString(row.get(statusFieldApiName));
-      if (String.isBlank(projectName)) {
+    Set<String> types = resolveEngagementHistoryTypes(communicationHint);
+    if (types.isEmpty()) {
+      return;
+    }
+    List<Propfocus_Link__c> rows;
+    if (isOpportunityRecord(recordId)) {
+      rows = [
+        SELECT Id, Status__c, Type__c, Project_Name__c
+        FROM Propfocus_Link__c
+        WHERE Opportunity__c = :recordId
+          AND Type__c IN :types
+          AND Status__c != 'Reused'
+          AND Status__c != 'Engaged'
+        ORDER BY Created_At__c DESC
+        LIMIT 20
+      ];
+    } else {
+      rows = [
+        SELECT Id, Status__c, Type__c, Project_Name__c
+        FROM Propfocus_Link__c
+        WHERE Lead__c = :recordId
+          AND Type__c IN :types
+          AND Status__c != 'Reused'
+          AND Status__c != 'Engaged'
+        ORDER BY Created_At__c DESC
+        LIMIT 20
+      ];
+    }
+    if (rows.isEmpty()) {
+      return;
+    }
+
+    String projectKey = normalizeProjectKey(projectName);
+    Set<String> updatedTypeKeys = new Set<String>();
+    List<Propfocus_Link__c> toUpdate = new List<Propfocus_Link__c>();
+    for (Propfocus_Link__c row : rows) {
+      if (
+        !String.isBlank(projectKey) &&
+        normalizeProjectKey(row.Project_Name__c) != projectKey
+      ) {
         continue;
       }
-      String key = normalizeProjectKey(projectName);
-      if (!byProject.containsKey(key)) {
-        byProject.put(key, normalizeSiteVisitHistoryStatus(rawStatus));
+      // One latest row per history type (and project when filtered).
+      String typeKey =
+        String.valueOf(row.Type__c) +
+        '|' +
+        (String.isBlank(projectKey) ? '' : projectKey);
+      if (updatedTypeKeys.contains(typeKey)) {
+        continue;
       }
+      updatedTypeKeys.add(typeKey);
+      row.Status__c = 'Engaged';
+      toUpdate.add(row);
     }
-    return byProject;
+    if (!toUpdate.isEmpty()) {
+      update toUpdate;
+    }
+  }
+
+  @TestVisible
+  private static Set<String> resolveEngagementHistoryTypes(
+    String communicationHint
+  ) {
+    String normalizedHint = communicationHint == null
+      ? ''
+      : communicationHint.trim().toLowerCase().replace('-', '_').replace(' ', '_');
+    if (normalizedHint.contains('post')) {
+      return new Set<String>{ 'Post Visit Page', 'Post Visit' };
+    }
+    if (normalizedHint.contains('micro')) {
+      return new Set<String>{ 'Microsite Generation', 'Microsite' };
+    }
+    return new Set<String>{
+      'Microsite Generation',
+      'Microsite',
+      'Post Visit Page',
+      'Post Visit'
+    };
   }
 
   private static List<LinkHistoryItem> enrichLinkHistoryStatuses(
@@ -376,21 +464,16 @@ public class PropFocusLeadService implements Callable {
     if (items.isEmpty()) {
       return items;
     }
-    Map<String, String> siteVisitByProject = resolveSiteVisitStatusByProject(
-      leadId
-    );
+    // Pull live statuses from PropFocus (SF → PF Named Credential). Persist
+    // onto Propfocus_Link__c when changed. Do not overlay CRM Site Visit fields.
+    pullAndPersistLinkHistoryStatuses(leadId, items);
     for (LinkHistoryItem item : items) {
       if (item == null || String.isBlank(item.type)) {
         continue;
       }
       String typeLower = item.type.toLowerCase();
       if (typeLower.contains('site visit')) {
-        String projectKey = normalizeProjectKey(item.projectName);
-        if (siteVisitByProject.containsKey(projectKey)) {
-          item.status = siteVisitByProject.get(projectKey);
-        } else {
-          item.status = normalizeSiteVisitHistoryStatus(item.status);
-        }
+        item.status = normalizeSiteVisitHistoryStatus(item.status);
       } else if (
         typeLower.contains('microsite') ||
         typeLower.contains('post visit')
@@ -399,6 +482,147 @@ public class PropFocusLeadService implements Callable {
       }
     }
     return items;
+  }
+
+  /**
+   * Callout to PropFocus POST /api/v1/salesforce/link-history-status and update
+   * matching history rows. Failures leave stored Status__c unchanged.
+   */
+  @TestVisible
+  private static void pullAndPersistLinkHistoryStatuses(
+    Id leadId,
+    List<LinkHistoryItem> items
+  ) {
+    if (leadId == null || items == null || items.isEmpty()) {
+      return;
+    }
+    try {
+      String organizationId = PropfocusConfigService.requireOrganizationId();
+      Map<String, Object> leadDetails = getLeadDetails(leadId);
+      String buyerId = asString(leadDetails.get('buyerId'));
+      if (String.isBlank(buyerId)) {
+        return;
+      }
+
+      List<Object> linksPayload = new List<Object>();
+      for (LinkHistoryItem item : items) {
+        if (item == null) {
+          continue;
+        }
+        linksPayload.add(
+          new Map<String, Object>{
+            'type' => item.type,
+            'url' => item.url,
+            'project_name' => item.projectName
+          }
+        );
+      }
+      if (linksPayload.isEmpty()) {
+        return;
+      }
+
+      Map<String, Object> body = new Map<String, Object>{
+        'organization_id' => organizationId,
+        'buyer_id' => buyerId,
+        'links' => linksPayload
+      };
+
+      HttpRequest req = new HttpRequest();
+      req.setEndpoint(
+        PropfocusConfigService.apiEndpoint(
+          '/api/v1/salesforce/link-history-status'
+        )
+      );
+      req.setMethod('POST');
+      req.setHeader('Content-Type', 'application/json');
+      req.setTimeout(12000);
+      req.setBody(JSON.serialize(body));
+
+      HttpResponse res = PropfocusHttpService.send(req);
+      if (res == null || res.getStatusCode() != 200) {
+        return;
+      }
+
+      Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(
+        res.getBody()
+      );
+      if (asBoolean(response.get('success')) == false) {
+        return;
+      }
+
+      applyPulledLinkHistoryStatuses(
+        items,
+        getListFromPayload(response, 'statuses')
+      );
+    } catch (Exception e) {
+      // Keep stored Status__c; history UI must still load.
+    }
+  }
+
+  @TestVisible
+  private static void applyPulledLinkHistoryStatuses(
+    List<LinkHistoryItem> items,
+    List<Object> statuses
+  ) {
+    if (items == null || items.isEmpty() || statuses == null || statuses.isEmpty()) {
+      return;
+    }
+
+    Map<String, String> statusByUrl = new Map<String, String>();
+    List<String> statusByIndex = new List<String>();
+    for (Object rowObj : statuses) {
+      Map<String, Object> row = asMap(rowObj);
+      if (row == null) {
+        statusByIndex.add(null);
+        continue;
+      }
+      String pulledStatus = asString(row.get('status'));
+      statusByIndex.add(pulledStatus);
+      String url = asString(row.get('url'));
+      if (!String.isBlank(url) && !String.isBlank(pulledStatus)) {
+        statusByUrl.put(url, pulledStatus);
+      }
+    }
+
+    List<Propfocus_Link__c> toUpdate = new List<Propfocus_Link__c>();
+    for (Integer i = 0; i < items.size(); i++) {
+      LinkHistoryItem item = items[i];
+      if (item == null || item.id == null) {
+        continue;
+      }
+      String pulled = null;
+      if (!String.isBlank(item.url) && statusByUrl.containsKey(item.url)) {
+        pulled = statusByUrl.get(item.url);
+      } else if (i < statusByIndex.size()) {
+        pulled = statusByIndex[i];
+      }
+      if (String.isBlank(pulled)) {
+        continue;
+      }
+
+      String typeLower = item.type == null ? '' : item.type.toLowerCase();
+      String mapped;
+      if (typeLower.contains('site visit')) {
+        mapped = normalizeSiteVisitHistoryStatus(pulled);
+      } else if (
+        typeLower.contains('microsite') ||
+        typeLower.contains('post visit')
+      ) {
+        mapped = normalizeEngagementHistoryStatus(pulled);
+      } else {
+        mapped = pulled;
+      }
+
+      if (item.status == mapped) {
+        continue;
+      }
+      item.status = mapped;
+      toUpdate.add(new Propfocus_Link__c(Id = item.id, Status__c = mapped));
+    }
+
+    if (!toUpdate.isEmpty()) {
+      update toUpdate;
+    }
   }
 
   private static String requireParentFieldApiName(
@@ -516,17 +740,6 @@ public class PropFocusLeadService implements Callable {
     return null;
   }
 
-  private static String requireLeadFieldApiName(
-    String value,
-    String configFieldApiName
-  ) {
-    return requireParentFieldApiName(
-      Lead.SObjectType,
-      value,
-      configFieldApiName
-    );
-  }
-
   private static String getLeadPreSalesRepSourceFieldApiName() {
     String configuredFieldApiName = PropfocusConfigService.getPreSalesRepSourceField();
     if (String.isBlank(configuredFieldApiName)) {
@@ -549,10 +762,6 @@ public class PropFocusLeadService implements Callable {
       configuredFieldApiName,
       'Opportunity_Pre_Sales_Rep_Source_Field__c'
     );
-  }
-
-  private static String getPreSalesRepSourceFieldApiName() {
-    return getLeadPreSalesRepSourceFieldApiName();
   }
 
   private static String resolvePreSalesRepSource(
@@ -596,10 +805,6 @@ public class PropFocusLeadService implements Callable {
     }
   }
 
-  private static SObject queryLeadById(Id leadId, List<String> fieldApiNames) {
-    return queryParentById(leadId, fieldApiNames);
-  }
-
   private static SObject queryParentById(Id recordId, List<String> fieldApiNames) {
     Set<String> selectedFields = new Set<String>{ 'Id' };
     for (String f : fieldApiNames) {
@@ -624,6 +829,7 @@ public class PropFocusLeadService implements Callable {
       leadId,
       new List<String>{
         'Propfocus_Link__c',
+        'Propfocus_Site_Visit__c',
         'Propfocus_Post_Visit__c',
         'Propfocus_Buyer_Insights_Available__c',
         fields.buyerIdField,
@@ -635,6 +841,7 @@ public class PropFocusLeadService implements Callable {
     return new Map<String, Object>{
       'Id' => ld.get('Id'),
       'Propfocus_Link__c' => ld.get('Propfocus_Link__c'),
+      'Propfocus_Site_Visit__c' => ld.get('Propfocus_Site_Visit__c'),
       'Propfocus_Post_Visit__c' => ld.get('Propfocus_Post_Visit__c'),
       'buyerInsightsAvailable' => ld.get(
         'Propfocus_Buyer_Insights_Available__c'
@@ -1124,11 +1331,19 @@ public class PropFocusLeadService implements Callable {
       return new List<SObject>();
     }
 
+    String datetimeFieldApiName = resolveSiteVisitDatetimeSelectField(
+      objectType
+    );
+
     String soql =
       'SELECT Id, CreatedDate, ' +
       statusFieldApiName +
       ', ' +
-      projectFieldApiName +
+      projectFieldApiName;
+    if (!String.isBlank(datetimeFieldApiName)) {
+      soql += ', ' + datetimeFieldApiName;
+    }
+    soql +=
       ' FROM ' +
       objectApiName +
       ' WHERE ' +
@@ -1574,6 +1789,12 @@ public class PropFocusLeadService implements Callable {
       asBoolean(response.get('reused')) == true
     );
 
+    if (communicationType == COMM_TYPE_SITE_VISIT) {
+      // Stamp the configured "SV Scheduled" status. Best-effort: a failure here
+      // must never break link generation.
+      applySiteVisitScheduledStatus(ld, leadStatusFieldApiName);
+    }
+
     String fallbackMessage = buildFallbackWhatsAppMessage(
       communicationType,
       buyerName,
@@ -1908,6 +2129,41 @@ public class PropFocusLeadService implements Callable {
     }
   }
 
+  /**
+   * Sets the configured "site visit scheduled" status on the parent record
+   * after a site visit link is created. No-op when the status value is not
+   * configured. Runs as an isolated, guarded DML so a misconfigured picklist
+   * value can never break link generation (the primary operation).
+   */
+  @TestVisible
+  private static void applySiteVisitScheduledStatus(
+    SObject ld,
+    String statusFieldApiName
+  ) {
+    if (ld == null || ld.Id == null) {
+      return;
+    }
+    String targetStatus = PropfocusConfigService.getSiteVisitScheduledStatus();
+    // Direct status fields only; relationship paths (Owner.Name) are not writable.
+    if (
+      String.isBlank(targetStatus) ||
+      String.isBlank(statusFieldApiName) ||
+      statusFieldApiName.contains('.')
+    ) {
+      return;
+    }
+    try {
+      if (targetStatus.equals(asString(getFieldPathValue(ld, statusFieldApiName)))) {
+        return;
+      }
+      SObject rec = ld.Id.getSObjectType().newSObject(ld.Id);
+      rec.put(statusFieldApiName, targetStatus);
+      update rec;
+    } catch (Exception e) {
+      logPropfocusError('applySiteVisitScheduledStatus', e.getMessage());
+    }
+  }
+
   private static String buildFallbackWhatsAppMessage(
     String communicationType,
     String buyerName,
@@ -2085,7 +2341,41 @@ public class PropFocusLeadService implements Callable {
     if (svList == null || svList.isEmpty()) {
       return null;
     }
+    String datetimeFieldApiName = PropfocusConfigService.getConfig()
+      .siteVisitDatetimeField;
+    if (!String.isBlank(datetimeFieldApiName)) {
+      Datetime visitAt = asDatetime(
+        getFieldPathValue(svList[0], datetimeFieldApiName)
+      );
+      if (visitAt != null) {
+        return visitAt;
+      }
+    }
     return (Datetime) svList[0].get('CreatedDate');
+  }
+
+  private static String resolveSiteVisitDatetimeSelectField(
+    Schema.SObjectType objectType
+  ) {
+    String configured = PropfocusConfigService.getConfig()
+      .siteVisitDatetimeField;
+    if (String.isBlank(configured)) {
+      return null;
+    }
+    try {
+      String fieldApiName = requireSafeFieldPath(
+        configured,
+        'Site_Visit_Datetime_Field__c'
+      );
+      assertFieldPathExists(
+        objectType,
+        fieldApiName,
+        'Site_Visit_Datetime_Field__c'
+      );
+      return fieldApiName;
+    } catch (Exception e) {
+      return null;
+    }
   }
 
   private static PropfocusLinkResult generateSiteVisitInternal(
@@ -2348,7 +2638,7 @@ public class PropFocusLeadService implements Callable {
     return leads[0].Propfocus_Buyer_Insights_Available__c == true;
   }
 
-  @AuraEnabled(cacheable=true)
+  @AuraEnabled
   public static List<LinkHistoryItem> getLinkHistory(Id leadId) {
     List<LinkHistoryItem> items = new List<LinkHistoryItem>();
     if (leadId == null) {

@@ -1,4 +1,4 @@
-public class PropfocusLeadTrackingService {
+public inherited sharing class PropfocusLeadTrackingService {
   public static PropfocusLeadTrackingWrapper getLeadForTracking(Id leadId) {
     if (leadId == null) {
       throw new IllegalArgumentException('Lead Id is required');

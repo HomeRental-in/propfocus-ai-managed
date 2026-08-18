@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Auto_Site_Visit_Statuses__c</fullName>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Comma-separated Lead statuses that auto-open the Confirm Site Visit modal when the Lead moves into one of them and no site visit link exists yet. Leave blank to disable auto-open.</inlineHelpText>
+    <label>Auto Site Visit Statuses</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

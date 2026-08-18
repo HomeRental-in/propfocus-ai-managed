@@ -34,9 +34,31 @@ public with sharing class PropfocusConfigService implements Callable {
       'buyerIdField' => cfg.buyerIdField,
       'buyerNameField' => cfg.buyerNameField,
       'projectField' => cfg.projectField,
-      'leadStatusField' => cfg.leadStatusField
+      'leadStatusField' => cfg.leadStatusField,
+      'siteVisitScheduledStatus' => cfg.siteVisitScheduledStatus
     };
   }
+
+  // Config property keys that the cross-namespace bridge (toConfigMap /
+  // fromConfigMap) round-trips for subscriber automation. To add a bridge
+  // field: add its key here, emit it in toConfigMap, and add a setter branch
+  // in overlayString.
+  private static final List<String> BRIDGE_FIELD_KEYS = new List<String>{
+    'siteVisitObject',
+    'siteVisitStatusField',
+    'siteVisitLeadLookupField',
+    'siteVisitOpportunityLookupField',
+    'siteVisitProjectField',
+    'siteVisitDatetimeField',
+    'siteVisitManagerNameField',
+    'siteVisitManagerPhoneField',
+    'siteVisitManagerEmailField',
+    'buyerIdField',
+    'buyerNameField',
+    'projectField',
+    'leadStatusField',
+    'siteVisitScheduledStatus'
+  };
 
   public static Config fromConfigMap(Map<String, Object> values) {
     Config cfg = getConfig();
@@ -44,91 +66,54 @@ public with sharing class PropfocusConfigService implements Callable {
       return cfg;
     }
     // Overlay packaged subscriber mappings onto the runtime config instance.
-    overlayString(cfg, values, 'siteVisitObject', 'siteVisitObject');
-    overlayString(cfg, values, 'siteVisitStatusField', 'siteVisitStatusField');
-    overlayString(
-      cfg,
-      values,
-      'siteVisitLeadLookupField',
-      'siteVisitLeadLookupField'
-    );
-    overlayString(
-      cfg,
-      values,
-      'siteVisitOpportunityLookupField',
-      'siteVisitOpportunityLookupField'
-    );
-    overlayString(cfg, values, 'siteVisitProjectField', 'siteVisitProjectField');
-    overlayString(
-      cfg,
-      values,
-      'siteVisitDatetimeField',
-      'siteVisitDatetimeField'
-    );
-    overlayString(
-      cfg,
-      values,
-      'siteVisitManagerNameField',
-      'siteVisitManagerNameField'
-    );
-    overlayString(
-      cfg,
-      values,
-      'siteVisitManagerPhoneField',
-      'siteVisitManagerPhoneField'
-    );
-    overlayString(
-      cfg,
-      values,
-      'siteVisitManagerEmailField',
-      'siteVisitManagerEmailField'
-    );
-    overlayString(cfg, values, 'buyerIdField', 'buyerIdField');
-    overlayString(cfg, values, 'buyerNameField', 'buyerNameField');
-    overlayString(cfg, values, 'projectField', 'projectField');
-    overlayString(cfg, values, 'leadStatusField', 'leadStatusField');
+    for (String key : BRIDGE_FIELD_KEYS) {
+      overlayString(cfg, values, key);
+    }
     return cfg;
   }
 
+  // Apex cannot assign a class field by name, so the mapping of key -> Config
+  // property stays explicit here; call sites are driven by BRIDGE_FIELD_KEYS.
   private static void overlayString(
     Config cfg,
     Map<String, Object> values,
-    String mapKey,
-    String configProperty
+    String key
   ) {
-    if (values == null || !values.containsKey(mapKey) || values.get(mapKey) == null) {
+    if (values == null || values.get(key) == null) {
       return;
     }
-    String text = String.valueOf(values.get(mapKey)).trim();
+    String text = String.valueOf(values.get(key)).trim();
     if (String.isBlank(text)) {
       return;
     }
-    if (configProperty == 'siteVisitObject') {
+    if (key == 'siteVisitObject') {
       cfg.siteVisitObject = text;
-    } else if (configProperty == 'siteVisitStatusField') {
+    } else if (key == 'siteVisitStatusField') {
       cfg.siteVisitStatusField = text;
-    } else if (configProperty == 'siteVisitLeadLookupField') {
+    } else if (key == 'siteVisitLeadLookupField') {
       cfg.siteVisitLeadLookupField = text;
-    } else if (configProperty == 'siteVisitOpportunityLookupField') {
+    } else if (key == 'siteVisitOpportunityLookupField') {
       cfg.siteVisitOpportunityLookupField = text;
-    } else if (configProperty == 'siteVisitProjectField') {
+    } else if (key == 'siteVisitProjectField') {
       cfg.siteVisitProjectField = text;
-    } else if (configProperty == 'siteVisitDatetimeField') {
+    } else if (key == 'siteVisitDatetimeField') {
       cfg.siteVisitDatetimeField = text;
-    } else if (configProperty == 'siteVisitManagerNameField') {
+    } else if (key == 'siteVisitManagerNameField') {
       cfg.siteVisitManagerNameField = text;
-    } else if (configProperty == 'siteVisitManagerPhoneField') {
+    } else if (key == 'siteVisitManagerPhoneField') {
       cfg.siteVisitManagerPhoneField = text;
-    } else if (configProperty == 'siteVisitManagerEmailField') {
+    } else if (key == 'siteVisitManagerEmailField') {
       cfg.siteVisitManagerEmailField = text;
-    } else if (configProperty == 'buyerIdField') {
+    } else if (key == 'buyerIdField') {
       cfg.buyerIdField = text;
-    } else if (configProperty == 'buyerNameField') {
+    } else if (key == 'buyerNameField') {
       cfg.buyerNameField = text;
-    } else if (configProperty == 'projectField') {
+    } else if (key == 'projectField') {
       cfg.projectField = text;
-    } else if (configProperty == 'leadStatusField') {
+    } else if (key == 'leadStatusField') {
       cfg.leadStatusField = text;
+    } else if (key == 'siteVisitScheduledStatus') {
+      cfg.siteVisitScheduledStatus = text;
     }
   }
 
@@ -190,6 +175,16 @@ public with sharing class PropfocusConfigService implements Callable {
     @AuraEnabled
     public Boolean showCopyModal;
     @AuraEnabled
+    public Boolean showSiteVisitButton;
+    @AuraEnabled
+    public Boolean showPostVisitButton;
+    @AuraEnabled
+    public String autoMicrositeStatuses;
+    @AuraEnabled
+    public String autoSiteVisitStatuses;
+    @AuraEnabled
+    public String autoPostVisitStatuses;
+    @AuraEnabled
     public String opportunityBuyerIdField;
     @AuraEnabled
     public String opportunityBuyerNameField;
@@ -215,6 +210,8 @@ public with sharing class PropfocusConfigService implements Callable {
     public String siteVisitOpportunityLookupField;
     @AuraEnabled
     public Boolean embedUsesSalesforceOpportunityId;
+    @AuraEnabled
+    public String siteVisitScheduledStatus;
   }
   public class ConnectionCheckResult {
     @AuraEnabled
@@ -268,6 +265,11 @@ public with sharing class PropfocusConfigService implements Callable {
       cfg.embedUsesSalesforceLeadId =
         configured.Embed_Uses_Salesforce_Lead_Id__c == true;
       cfg.showCopyModal = configured.Show_Copy_Modal__c == true;
+      cfg.showSiteVisitButton = configured.Show_Site_Visit_Button__c == true;
+      cfg.showPostVisitButton = configured.Show_Post_Visit_Button__c == true;
+      cfg.autoMicrositeStatuses = configured.Auto_Microsite_Statuses__c;
+      cfg.autoSiteVisitStatuses = configured.Auto_Site_Visit_Statuses__c;
+      cfg.autoPostVisitStatuses = configured.Auto_Post_Visit_Statuses__c;
       cfg.opportunityBuyerIdField = configured.Opportunity_Buyer_Id_Field__c;
       cfg.opportunityBuyerNameField = configured.Opportunity_Buyer_Name_Field__c;
       cfg.opportunityStatusField = configured.Opportunity_Status_Field__c;
@@ -282,6 +284,7 @@ public with sharing class PropfocusConfigService implements Callable {
       cfg.siteVisitOpportunityLookupField = configured.Opportunity_Lookup_Field__c;
       cfg.embedUsesSalesforceOpportunityId =
         configured.Embed_Uses_Salesforce_Opportunity_Id__c == true;
+      cfg.siteVisitScheduledStatus = configured.Site_Visit_Scheduled_Status__c;
     }
 
     cfg.logoUrl = LOGO_URL;
@@ -333,6 +336,8 @@ public with sharing class PropfocusConfigService implements Callable {
       cfg.embedUsesSalesforceLeadId = true;
       cfg.embedUsesSalesforceOpportunityId = true;
       cfg.showCopyModal = false;
+      cfg.showSiteVisitButton = true;
+      cfg.showPostVisitButton = true;
     }
 
     cachedConfig = cfg;
@@ -529,6 +534,15 @@ public with sharing class PropfocusConfigService implements Callable {
     return v;
   }
 
+  /**
+   * Status value to stamp on the parent record when a site visit link is
+   * created. Blank means the status must be left unchanged.
+   */
+  public static String getSiteVisitScheduledStatus() {
+    String v = getConfig().siteVisitScheduledStatus;
+    return String.isBlank(v) ? null : v.trim();
+  }
+
   @AuraEnabled(cacheable=true)
   public static Config getUiConfiguration() {
     return getConfig();
@@ -589,7 +603,8 @@ public with sharing class PropfocusConfigService implements Callable {
 
   @TestVisible
   private static String packageNamespace() {
-    String objectName = Propfocus_Config__mdt.SObjectType.getDescribe().getName();
+    String objectName = Propfocus_Config__mdt.SObjectType.getDescribe()
+      .getName();
     if (!objectName.endsWith('__mdt')) {
       return null;
     }

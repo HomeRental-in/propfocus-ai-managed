@@ -43,6 +43,14 @@ private class PropfocusInboundServiceTest {
   @IsTest
   static void success_notifiesLeadOwner() {
     Lead ld = makeLead();
+    insert new Propfocus_Link__c(
+      Lead__c = ld.Id,
+      Type__c = 'Microsite Generation',
+      Project_Name__c = 'Project A',
+      URL__c = 'https://example.test/micro',
+      Created_At__c = System.now(),
+      Status__c = 'Not engaged'
+    );
     setContext(validPayload(buyerIdFor(ld), configuredOrgId()));
 
     Test.startTest();
@@ -53,6 +61,16 @@ private class PropfocusInboundServiceTest {
     Map<String, Object> body = responseBody();
     System.assertEquals(true, body.get('success'));
     System.assertEquals(String.valueOf(ld.Id), body.get('lead_id'));
+    System.assertEquals(
+      'Engaged',
+      [
+          SELECT Status__c
+          FROM Propfocus_Link__c
+          WHERE Lead__c = :ld.Id
+          LIMIT 1
+        ]
+        .Status__c
+    );
   }
 
   @IsTest
