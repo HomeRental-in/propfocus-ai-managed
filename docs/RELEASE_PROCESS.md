@@ -106,6 +106,9 @@ Lightning pages are all preserved).
 
 ## 5. Deploy to a customer **production** org
 
+**Customer-facing click path for Released `0.12.0.3`:** [PROD_INSTALLATION.md](./PROD_INSTALLATION.md)
+(install URL, permission sets, Config, JWT, Amberstone UAT → prod field map, verification).
+
 ### 5.1 Install the released package
 
 Get the install URL or use the CLI. In production, log in via
@@ -175,6 +178,33 @@ Full detail: `docs/JWT_SETUP.txt`. Client-Credentials alternative (no cert):
   object access).
 - **Propfocus User** → sales/pre-sales reps (panel + link generation).
 - **Propfocus AI Admin** → admins.
+
+### 5.4a Local "Propfocus Callout Access" permission set (required for sales reps)
+
+The panel makes **outbound callouts** to the Propfocus API (generate links, Test
+Connection, link-history) via the Named Credential `Propfocus_API` → External
+Credential `Propfocus_API_External`. To use an External Credential a user needs
+**User External Credentials → Read** *and* **External Credential Principal
+Access**. Salesforce **strips "User External Credentials Read" from *managed*
+permission sets on install**, so the packaged **Propfocus User** set cannot grant
+it — you must create a **local (unmanaged) permission set per org**:
+
+| Step | Action |
+| --- | --- |
+| 1 | Setup → **Permission Sets** → **New** → Label: `Propfocus Callout Access` → Save |
+| 2 | **Object Settings** → **User External Credentials** → enable **Read** → Save |
+| 3 | **External Credential Principal Access** → enable **Propfocus API — Propfocus Principal** (namespace `PropfocusAI`) → Save |
+| 4 | **Manage Assignments** → assign to all **sales / pre-sales users** (alongside Propfocus User) |
+
+**Who needs it:** sales/pre-sales reps → **yes**. Admins (System Administrator
+profile) usually already have User External Credentials Read → no. The inbound
+**integration user** → no (it receives events, it doesn't run the panel callouts).
+
+**Symptom if missing:** reps see **empty Projects**, or
+*"You don't have read permissions on the User External Credential object."*
+
+This step is **per-org and manual** — it cannot ship in the managed package
+because of the managed-permission-set stripping above. (Detail: `docs/SETUP_GUIDE.md` §2.1e.)
 
 ### 5.5 Configure Propfocus Config (Custom Metadata)
 
