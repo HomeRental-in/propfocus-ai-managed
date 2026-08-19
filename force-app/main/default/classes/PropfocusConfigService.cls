@@ -216,6 +216,10 @@ public with sharing class PropfocusConfigService implements Callable {
     public String siteVisitPlannedDateField;
     @AuraEnabled
     public String siteVisitConfirmedDateField;
+    @AuraEnabled
+    public String siteVisitTimeOfDayField;
+    @AuraEnabled
+    public String siteVisitTimeOfDayValue;
   }
   public class ConnectionCheckResult {
     @AuraEnabled
@@ -291,6 +295,8 @@ public with sharing class PropfocusConfigService implements Callable {
       cfg.siteVisitScheduledStatus = configured.Site_Visit_Scheduled_Status__c;
       cfg.siteVisitPlannedDateField = configured.Site_Visit_Planned_Date_Field__c;
       cfg.siteVisitConfirmedDateField = configured.Site_Visit_Confirmed_Date_Field__c;
+      cfg.siteVisitTimeOfDayField = configured.Site_Visit_Time_Of_Day_Field__c;
+      cfg.siteVisitTimeOfDayValue = configured.Site_Visit_Time_Of_Day_Value__c;
     }
 
     cfg.logoUrl = LOGO_URL;
@@ -561,6 +567,20 @@ public with sharing class PropfocusConfigService implements Callable {
 
   public static String getSiteVisitConfirmedDateField() {
     String v = getConfig().siteVisitConfirmedDateField;
+    return String.isBlank(v) ? null : v.trim();
+  }
+
+  /**
+   * Optional Lead field (e.g. a time-of-day picklist) + the value to stamp
+   * into it when a site visit link is created. Blank field means skip.
+   */
+  public static String getSiteVisitTimeOfDayField() {
+    String v = getConfig().siteVisitTimeOfDayField;
+    return String.isBlank(v) ? null : v.trim();
+  }
+
+  public static String getSiteVisitTimeOfDayValue() {
+    String v = getConfig().siteVisitTimeOfDayValue;
     return String.isBlank(v) ? null : v.trim();
   }
 

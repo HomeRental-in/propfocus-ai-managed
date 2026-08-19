@@ -255,6 +255,14 @@
                 <behavior>Edit</behavior>
                 <field>Site_Visit_Confirmed_Date_Field__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Site_Visit_Time_Of_Day_Field__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Site_Visit_Time_Of_Day_Value__c</field>
+            </layoutItems>
         </layoutColumns>
         <style>TwoColumnsTopToBottom</style>
     </layoutSections>

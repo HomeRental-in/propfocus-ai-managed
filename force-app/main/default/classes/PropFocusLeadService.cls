@@ -790,6 +790,33 @@ public with sharing class PropFocusLeadService implements Callable {
     String preSalesRepSourceFieldApiName,
     String organizationId
   ) {
+    // Stable identity first: the owning Salesforce User's Id is immutable and
+    // unique, and Email is a near-unique human key. Name is display-only and
+    // collides across same-named users, so it must never be the sole match key.
+    SObject ownerRecord = leadRecord.getSObject('Owner');
+    Object ownerId = leadRecord.get('OwnerId');
+    if (ownerId != null) {
+      body.put('brokerSfUserId', String.valueOf(ownerId));
+    }
+    String ownerEmail = ownerRecord != null
+      ? asString(ownerRecord.get('Email'))
+      : null;
+    if (
+      String.isBlank(ownerEmail) &&
+      ownerId != null &&
+      String.valueOf(ownerId).startsWith('005')
+    ) {
+      // Owner is polymorphic (User/Queue); when the relationship field isn't
+      // hydrated, resolve the User email directly.
+      List<User> owners = [SELECT Email FROM User WHERE Id = :(Id) ownerId LIMIT 1];
+      if (!owners.isEmpty()) {
+        ownerEmail = owners[0].Email;
+      }
+    }
+    if (!String.isBlank(ownerEmail)) {
+      body.put('brokerEmail', ownerEmail.trim().toLowerCase());
+    }
+
     String brokerName = resolvePreSalesRepSource(
       leadRecord,
       preSalesRepSourceFieldApiName
@@ -797,7 +824,6 @@ public with sharing class PropFocusLeadService implements Callable {
     if (!String.isBlank(brokerName)) {
       body.put('brokerName', brokerName);
       body.put('organizationId', organizationId);
-      return;
     }
     String brokerNumber = resolveBrokerNumber(leadRecord);
     if (!String.isBlank(brokerNumber)) {
@@ -1640,8 +1666,10 @@ public with sharing class PropFocusLeadService implements Callable {
     String preSalesRepSourceFieldApiName = fields.preSalesRepSourceField;
 
     List<String> leadFieldApiNames = new List<String>{
+      'OwnerId',
       'Owner.Name',
       'Owner.Phone',
+      'Owner.Email',
       'Propfocus_Link__c',
       'Propfocus_Site_Visit__c',
       'Propfocus_Post_Visit__c',
@@ -2196,6 +2224,21 @@ public with sharing class PropFocusLeadService implements Callable {
           } else {
             rec.put(dateField, visitDate);
           }
+          changed = true;
+        }
+      }
+
+      // Optional time-of-day (e.g. a picklist) stamped with a configured value.
+      String todField = PropfocusConfigService.getSiteVisitTimeOfDayField();
+      String todValue = PropfocusConfigService.getSiteVisitTimeOfDayValue();
+      if (
+        !String.isBlank(todField) &&
+        !String.isBlank(todValue) &&
+        !todField.contains('.')
+      ) {
+        Schema.SObjectField todFld = Schema.SObjectType.Lead.fields.getMap().get(todField);
+        if (todFld != null && todFld.getDescribe().isUpdateable()) {
+          rec.put(todField, todValue);
           changed = true;
         }
       }

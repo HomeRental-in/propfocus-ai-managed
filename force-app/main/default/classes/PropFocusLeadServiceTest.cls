@@ -1656,6 +1656,48 @@ private class PropFocusLeadServiceTest {
   }
 
   @IsTest
+  static void generateMicrositeLink_sendsStableBrokerIdentity() {
+    // Broker identity must include the owning User's Id and Email (stable,
+    // unique keys) — not just the display name, which collides across
+    // same-named users.
+    Lead ld = makeLead();
+    // Resolve the owner exactly as the service will (via the Owner relationship).
+    Lead withOwner = [SELECT OwnerId, Owner.Email FROM Lead WHERE Id = :ld.Id];
+    User owner = [SELECT Id, Email FROM User WHERE Id = :withOwner.OwnerId];
+    setApiMock(
+      200,
+      '{"success":true,"micrositeUrl":"https://example.test/micro-broker"}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.generateMicrositeLink(
+      ld.Id,
+      'Client Broker',
+      new List<String>{ 'Project A' },
+      'new',
+      ''
+    );
+    String capturedBody = apiMock.lastApiRequestBody;
+    Test.stopTest();
+
+    Map<String, Object> requestBody = (Map<String, Object>) JSON.deserializeUntyped(
+      capturedBody
+    );
+    System.assertEquals(
+      String.valueOf(owner.Id),
+      requestBody.get('brokerSfUserId'),
+      'Outbound payload must carry the owning Salesforce User Id'
+    );
+    System.assertEquals(
+      owner.Email.toLowerCase(),
+      requestBody.get('brokerEmail'),
+      'Outbound payload must carry the owner email (lowercased)'
+    );
+    // brokerName remains a display-only field when resolvable; the stable keys
+    // above are what must always be present.
+  }
+
+  @IsTest
   static void resolveSiteVisitDateForWriteback_prefersVisitDateThenDateTimeThenToday() {
     System.assertEquals(
       Date.newInstance(2026, 7, 15),
