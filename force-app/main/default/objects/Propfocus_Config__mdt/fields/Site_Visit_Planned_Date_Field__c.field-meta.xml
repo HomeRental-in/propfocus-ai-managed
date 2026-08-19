@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Site_Visit_Planned_Date_Field__c</fullName>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+    <inlineHelpText>Lead Date field API name to stamp with the planned site visit date when a site visit link is generated (e.g. Planned_Site_Visit_Date__c). Populates validation-required fields so the Site Visit Scheduled Status can be applied. Leave blank to skip.</inlineHelpText>
+    <label>Site Visit Planned Date Field</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

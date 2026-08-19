@@ -247,6 +247,14 @@
                 <behavior>Edit</behavior>
                 <field>Site_Visit_Manager_Email_Field__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Site_Visit_Planned_Date_Field__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Site_Visit_Confirmed_Date_Field__c</field>
+            </layoutItems>
         </layoutColumns>
         <style>TwoColumnsTopToBottom</style>
     </layoutSections>

@@ -212,6 +212,10 @@ public with sharing class PropfocusConfigService implements Callable {
     public Boolean embedUsesSalesforceOpportunityId;
     @AuraEnabled
     public String siteVisitScheduledStatus;
+    @AuraEnabled
+    public String siteVisitPlannedDateField;
+    @AuraEnabled
+    public String siteVisitConfirmedDateField;
   }
   public class ConnectionCheckResult {
     @AuraEnabled
@@ -285,6 +289,8 @@ public with sharing class PropfocusConfigService implements Callable {
       cfg.embedUsesSalesforceOpportunityId =
         configured.Embed_Uses_Salesforce_Opportunity_Id__c == true;
       cfg.siteVisitScheduledStatus = configured.Site_Visit_Scheduled_Status__c;
+      cfg.siteVisitPlannedDateField = configured.Site_Visit_Planned_Date_Field__c;
+      cfg.siteVisitConfirmedDateField = configured.Site_Visit_Confirmed_Date_Field__c;
     }
 
     cfg.logoUrl = LOGO_URL;
@@ -540,6 +546,21 @@ public with sharing class PropfocusConfigService implements Callable {
    */
   public static String getSiteVisitScheduledStatus() {
     String v = getConfig().siteVisitScheduledStatus;
+    return String.isBlank(v) ? null : v.trim();
+  }
+
+  /**
+   * Lead Date fields to stamp with the visit date when a site visit link is
+   * created, so validation rules that require them on the scheduled status
+   * pass. Blank means skip.
+   */
+  public static String getSiteVisitPlannedDateField() {
+    String v = getConfig().siteVisitPlannedDateField;
+    return String.isBlank(v) ? null : v.trim();
+  }
+
+  public static String getSiteVisitConfirmedDateField() {
+    String v = getConfig().siteVisitConfirmedDateField;
     return String.isBlank(v) ? null : v.trim();
   }
 

@@ -1790,9 +1790,11 @@ public with sharing class PropFocusLeadService implements Callable {
     );
 
     if (communicationType == COMM_TYPE_SITE_VISIT) {
-      // Stamp the configured "SV Scheduled" status. Best-effort: a failure here
-      // must never break link generation.
-      applySiteVisitScheduledStatus(ld, leadStatusFieldApiName);
+      // Stamp the configured "SV Scheduled" status (Leads only) plus any
+      // configured planned/confirmed visit-date fields in the same update, so
+      // validation rules that require those dates pass. Best-effort: a failure
+      // here must never break link generation.
+      applySiteVisitScheduledStatus(ld, leadStatusFieldApiName, context);
     }
 
     String fallbackMessage = buildFallbackWhatsAppMessage(
@@ -2138,9 +2140,15 @@ public with sharing class PropFocusLeadService implements Callable {
   @TestVisible
   private static void applySiteVisitScheduledStatus(
     SObject ld,
-    String statusFieldApiName
+    String statusFieldApiName,
+    Map<String, Object> context
   ) {
     if (ld == null || ld.Id == null) {
+      return;
+    }
+    // Leads only. On an Opportunity the mapped status field is the Stage, and a
+    // site visit (e.g. a revisit) must never move the deal stage.
+    if (ld.Id.getSObjectType() != Lead.SObjectType) {
       return;
     }
     String targetStatus = PropfocusConfigService.getSiteVisitScheduledStatus();
@@ -2153,15 +2161,72 @@ public with sharing class PropFocusLeadService implements Callable {
       return;
     }
     try {
-      if (targetStatus.equals(asString(getFieldPathValue(ld, statusFieldApiName)))) {
-        return;
-      }
       SObject rec = ld.Id.getSObjectType().newSObject(ld.Id);
-      rec.put(statusFieldApiName, targetStatus);
-      update rec;
+      Boolean changed = false;
+
+      if (!targetStatus.equals(asString(getFieldPathValue(ld, statusFieldApiName)))) {
+        rec.put(statusFieldApiName, targetStatus);
+        changed = true;
+      }
+
+      // Stamp configured planned/confirmed visit-date fields alongside the
+      // status so validation rules requiring them on that status pass.
+      Date visitDate = resolveSiteVisitDateForWriteback(context);
+      if (visitDate != null) {
+        Map<String, Schema.SObjectField> leadFields = Schema.SObjectType.Lead.fields.getMap();
+        for (
+          String dateField : new List<String>{
+            PropfocusConfigService.getSiteVisitPlannedDateField(),
+            PropfocusConfigService.getSiteVisitConfirmedDateField()
+          }
+        ) {
+          if (String.isBlank(dateField) || dateField.contains('.')) {
+            continue;
+          }
+          Schema.SObjectField fld = leadFields.get(dateField);
+          if (fld == null) {
+            continue;
+          }
+          Schema.DescribeFieldResult dfr = fld.getDescribe();
+          if (!dfr.isUpdateable()) {
+            continue;
+          }
+          if (dfr.getType() == Schema.DisplayType.DATETIME) {
+            rec.put(dateField, Datetime.newInstance(visitDate, Time.newInstance(0, 0, 0, 0)));
+          } else {
+            rec.put(dateField, visitDate);
+          }
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        update rec;
+      }
     } catch (Exception e) {
       logPropfocusError('applySiteVisitScheduledStatus', e.getMessage());
     }
+  }
+
+  // Visit date from the site-visit context (yyyy-MM-dd `visitDate`, or derived
+  // from `visitDateTime`), falling back to today.
+  @TestVisible
+  private static Date resolveSiteVisitDateForWriteback(Map<String, Object> context) {
+    if (context != null) {
+      String visitDateStr = asString(context.get('visitDate'));
+      if (!String.isBlank(visitDateStr)) {
+        try {
+          return Date.valueOf(visitDateStr.trim().substring(0, 10));
+        } catch (Exception e) {
+          // fall through
+        }
+      }
+      Datetime dt = asDatetime(context.get('visitDateTime'));
+      if (dt != null) {
+        return dt.date();
+      }
+    }
+    return Date.today();
   }
 
   private static String buildFallbackWhatsAppMessage(

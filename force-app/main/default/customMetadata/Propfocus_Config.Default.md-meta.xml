@@ -203,6 +203,22 @@
     >SV Scheduled</value>
     </values>
     <values>
+        <field>Site_Visit_Planned_Date_Field__c</field>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    />
+    </values>
+    <values>
+        <field>Site_Visit_Confirmed_Date_Field__c</field>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    />
+    </values>
+    <values>
         <field>Site_Visit_Team_Field__c</field>
         <value
       xsi:type="xsd:string"

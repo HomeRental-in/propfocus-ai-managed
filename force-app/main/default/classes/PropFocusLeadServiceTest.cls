@@ -1606,4 +1606,82 @@ private class PropFocusLeadServiceTest {
     System.assertEquals(1, history.size());
     System.assertEquals('Pending', history[0].status);
   }
+
+  @IsTest
+  static void generatePropfocusTemplate_opportunity_siteVisit_doesNotChangeStage() {
+    // A site visit (e.g. a revisit) from an Opportunity must never move the
+    // deal Stage, even with a scheduled status configured.
+    PropfocusConfigService.fromConfigMap(
+      new Map<String, Object>{
+        'siteVisitScheduledStatus' => 'Site Visit Planned/ Scheduled'
+      }
+    );
+    Opportunity opp = PropfocusTestUtil.createOpportunity('Opp Revisit Buyer');
+    System.assertEquals('Prospecting', opp.StageName);
+    setApiMock(
+      200,
+      '{"success":true,"link":"https://example.test/opp-revisit","template":"Visit ready"}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.generatePropfocusTemplate(
+      opp.Id,
+      'site_visit',
+      JSON.serialize(
+        new Map<String, Object>{
+          'buyerName' => 'Opp Buyer',
+          'projectName' => 'Skyline Residences',
+          'visitDate' => '2026-07-15',
+          'visitTime' => '10:00'
+        }
+      )
+    );
+    Test.stopTest();
+
+    Opportunity updated = [
+      SELECT StageName, Propfocus_Site_Visit__c
+      FROM Opportunity
+      WHERE Id = :opp.Id
+    ];
+    System.assertEquals(
+      'Prospecting',
+      updated.StageName,
+      'Site visit on an Opportunity must not change the Stage'
+    );
+    System.assertEquals(
+      'https://example.test/opp-revisit',
+      updated.Propfocus_Site_Visit__c,
+      'Link write-back must still succeed'
+    );
+  }
+
+  @IsTest
+  static void resolveSiteVisitDateForWriteback_prefersVisitDateThenDateTimeThenToday() {
+    System.assertEquals(
+      Date.newInstance(2026, 7, 15),
+      PropFocusLeadService.resolveSiteVisitDateForWriteback(
+        new Map<String, Object>{ 'visitDate' => '2026-07-15' }
+      ),
+      'visitDate (yyyy-MM-dd) should be used directly'
+    );
+    System.assertEquals(
+      Date.newInstance(2026, 8, 20),
+      PropFocusLeadService.resolveSiteVisitDateForWriteback(
+        new Map<String, Object>{ 'visitDateTime' => '2026-08-20T10:30:00Z' }
+      ),
+      'visitDateTime should be used when visitDate is absent'
+    );
+    System.assertEquals(
+      Date.today(),
+      PropFocusLeadService.resolveSiteVisitDateForWriteback(
+        new Map<String, Object>()
+      ),
+      'falls back to today when no date is in the context'
+    );
+    System.assertEquals(
+      Date.today(),
+      PropFocusLeadService.resolveSiteVisitDateForWriteback(null),
+      'null context falls back to today'
+    );
+  }
 }
