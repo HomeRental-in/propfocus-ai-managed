@@ -1,13 +1,13 @@
 {
   "packageDirectories": [
     {
-      "versionName": "ver 0.12",
-      "versionNumber": "0.12.0.NEXT",
+      "versionName": "ver 0.13",
+      "versionNumber": "0.13.0.NEXT",
       "path": "force-app",
       "default": true,
       "package": "Propfocus AI",
-      "versionDescription": "Hide unused OAuth CMDT fields from Config layout; auto status buttons and Site Visit Scheduled status",
-      "ancestorId": "04tdL000000mLrlQAE"
+      "versionDescription": "RNR microsite lead type from CMDT; site-visit date/time-of-day stamps; Confirm Site Visit prefill from Lead dates; full Config layout",
+      "ancestorId": "04tdL000000mR4LQAU"
     }
   ],
   "name": "propfocus-ai-managed",
@@ -35,7 +35,9 @@
     "Propfocus AI@0.10.0-1": "04tdL000000lEh3QAE",
     "Propfocus AI@0.11.0-1": "04tdL000000mLrlQAE",
     "Propfocus AI@0.12.0-1": "04tdL000000mPfFQAU",
-    "Propfocus AI@0.12.0-2": "04tdL000000mPvNQAU"
+    "Propfocus AI@0.12.0-2": "04tdL000000mPvNQAU",
+    "Propfocus AI@0.12.0-3": "04tdL000000mR4LQAU",
+    "Propfocus AI@0.13.0-1": "04tdL000000nU4HQAU"
   },
   "sfdcLoginUrl": "https://login.salesforce.com",
   "sourceApiVersion": "66.0"

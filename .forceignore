@@ -13,11 +13,11 @@ package.xml
 
 node_modules/
 
-# NOTE: connectedApps must NOT be forceignored — .forceignore also applies to
-# `sf package version create`, so ignoring it silently drops the packaged
-# PropFocus AI connected app (JWT inbound auth) from every package version.
-# For source deploys to subscriber sandboxes, deploy targeted metadata instead
-# of the whole force-app tree.
+# Connected app Propfocus_AI was dropped from the package (forceignored since
+# ~v0.4). Managed packages cannot restore a deleted component. Including it
+# again fails version create with: Installing an app that has been deleted.
+# Inbound JWT uses a subscriber-org External Client App instead (see JWT_SETUP).
+force-app/main/default/connectedApps/
 # Org-specific JWT External Client App (created in subscriber orgs, not packaged)
 force-app/main/default/externalClientApps/
 # Custom notification type must stay in the managed package (cannot remove without Partner case)
