@@ -18,6 +18,17 @@ export function parseStatusSet(raw) {
   );
 }
 
+// Default microsite Lead Type for a lead status. Statuses in the admin-
+// configured RNR Set (Rnr_Microsite_Statuses__c) default to "rnr"; everything
+// else defaults to "new". `rnrStatuses` is a Set of normalized tokens.
+export function resolveDefaultMicrositeLeadType(leadStatus, rnrStatuses) {
+  const normalized = normalizeStatusToken(leadStatus);
+  if (normalized && rnrStatuses?.has(normalized)) {
+    return "rnr";
+  }
+  return "new";
+}
+
 // Pure check: are all mandatory fields for an auto-opened action already
 // populated, so the link can be created without showing the modal? `state`
 // carries the already-validated pieces from the component.

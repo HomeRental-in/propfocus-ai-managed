@@ -74,6 +74,10 @@
                 <behavior>Edit</behavior>
                 <field>Auto_Post_Visit_Statuses__c</field>
             </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Rnr_Microsite_Statuses__c</field>
+            </layoutItems>
         </layoutColumns>
         <style>TwoColumnsTopToBottom</style>
     </layoutSections>

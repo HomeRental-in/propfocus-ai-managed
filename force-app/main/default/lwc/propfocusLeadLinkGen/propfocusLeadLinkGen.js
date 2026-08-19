@@ -8,7 +8,8 @@ import {
   normalizeStatusToken,
   parseStatusSet,
   pickAutoModalAction as resolveAutoModalAction,
-  isAutoCreateReady as resolveAutoCreateReady
+  isAutoCreateReady as resolveAutoCreateReady,
+  resolveDefaultMicrositeLeadType
 } from "./autoModalRules";
 
 import getLeadDetails from "@salesforce/apex/PropFocusLeadService.getLeadDetails";
@@ -220,13 +221,6 @@ function resolveHistoryStatus(type, rawStatus) {
   return notEngaged;
 }
 
-function resolveDefaultMicrositeLeadType(leadStatus) {
-  const normalized = (leadStatus || "").trim().toLowerCase();
-  if (normalized === "open" || normalized === "not connected") return "rnr";
-  if (normalized === "new") return "new";
-  return "new";
-}
-
 function formatDateTimeLocalInput(value) {
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) {
@@ -321,6 +315,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
   autoMicrositeStatuses = new Set();
   autoSiteVisitStatuses = new Set();
   autoPostVisitStatuses = new Set();
+  rnrMicrositeStatuses = new Set();
   autoModalsConfigLoaded = false;
   autoStatusRecordId = null;
   lastKnownLeadStatus;
@@ -479,6 +474,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         this.autoMicrositeStatuses = parseStatusSet(cfg?.autoMicrositeStatuses);
         this.autoSiteVisitStatuses = parseStatusSet(cfg?.autoSiteVisitStatuses);
         this.autoPostVisitStatuses = parseStatusSet(cfg?.autoPostVisitStatuses);
+        this.rnrMicrositeStatuses = parseStatusSet(cfg?.rnrMicrositeStatuses);
         this.autoModalsConfigLoaded = true;
         // Re-check in case the status wire resolved before config loaded.
         this.evaluateAutoModals();
@@ -493,6 +489,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         this.autoMicrositeStatuses = new Set();
         this.autoSiteVisitStatuses = new Set();
         this.autoPostVisitStatuses = new Set();
+        this.rnrMicrositeStatuses = new Set();
         this.autoModalsConfigLoaded = true;
       });
   }
@@ -843,7 +840,8 @@ export default class PropfocusLeadLinkGen extends LightningElement {
           if (m) this.selectedProjects = [m.value];
         }
         this.micrositeLeadType = resolveDefaultMicrositeLeadType(
-          lead?.[LEAD_STATUS_FIELD]
+          lead?.[LEAD_STATUS_FIELD],
+          this.rnrMicrositeStatuses
         );
         this.selectedConfigurations = [];
         this.configurationOptions = [];

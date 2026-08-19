@@ -185,6 +185,8 @@ public with sharing class PropfocusConfigService implements Callable {
     @AuraEnabled
     public String autoPostVisitStatuses;
     @AuraEnabled
+    public String rnrMicrositeStatuses;
+    @AuraEnabled
     public String opportunityBuyerIdField;
     @AuraEnabled
     public String opportunityBuyerNameField;
@@ -278,6 +280,7 @@ public with sharing class PropfocusConfigService implements Callable {
       cfg.autoMicrositeStatuses = configured.Auto_Microsite_Statuses__c;
       cfg.autoSiteVisitStatuses = configured.Auto_Site_Visit_Statuses__c;
       cfg.autoPostVisitStatuses = configured.Auto_Post_Visit_Statuses__c;
+      cfg.rnrMicrositeStatuses = configured.Rnr_Microsite_Statuses__c;
       cfg.opportunityBuyerIdField = configured.Opportunity_Buyer_Id_Field__c;
       cfg.opportunityBuyerNameField = configured.Opportunity_Buyer_Name_Field__c;
       cfg.opportunityStatusField = configured.Opportunity_Status_Field__c;

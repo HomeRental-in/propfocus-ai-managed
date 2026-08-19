@@ -2,7 +2,8 @@ import {
   normalizeStatusToken,
   parseStatusSet,
   pickAutoModalAction,
-  isAutoCreateReady
+  isAutoCreateReady,
+  resolveDefaultMicrositeLeadType
 } from "../autoModalRules";
 
 describe("normalizeStatusToken", () => {
@@ -117,6 +118,38 @@ describe("pickAutoModalAction", () => {
 
   it("tolerates missing state", () => {
     expect(pickAutoModalAction("contacted", undefined)).toBeNull();
+  });
+});
+
+describe("resolveDefaultMicrositeLeadType", () => {
+  const rnr = parseStatusSet("Not Connected, Open");
+
+  it("defaults to rnr when the status is in the configured RNR set", () => {
+    expect(resolveDefaultMicrositeLeadType("Not Connected", rnr)).toBe("rnr");
+    expect(resolveDefaultMicrositeLeadType("open", rnr)).toBe("rnr");
+  });
+
+  it("is case/spacing-insensitive", () => {
+    expect(resolveDefaultMicrositeLeadType("  NOT_CONNECTED ", rnr)).toBe("rnr");
+  });
+
+  it("defaults to new for any other status", () => {
+    expect(resolveDefaultMicrositeLeadType("Contacted", rnr)).toBe("new");
+    expect(resolveDefaultMicrositeLeadType("Qualified", rnr)).toBe("new");
+  });
+
+  it("defaults to new when no RNR statuses are configured", () => {
+    expect(resolveDefaultMicrositeLeadType("Not Connected", new Set())).toBe(
+      "new"
+    );
+    expect(resolveDefaultMicrositeLeadType("Not Connected", undefined)).toBe(
+      "new"
+    );
+  });
+
+  it("defaults to new for empty status", () => {
+    expect(resolveDefaultMicrositeLeadType("", rnr)).toBe("new");
+    expect(resolveDefaultMicrositeLeadType(null, rnr)).toBe("new");
   });
 });
 

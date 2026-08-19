@@ -35,6 +35,14 @@
     />
     </values>
     <values>
+        <field>Rnr_Microsite_Statuses__c</field>
+        <value
+      xsi:type="xsd:string"
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    />
+    </values>
+    <values>
         <field>Buyer_Id_Field__c</field>
         <value
       xsi:type="xsd:string"
