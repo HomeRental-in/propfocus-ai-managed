@@ -2432,11 +2432,22 @@ public with sharing class PropFocusLeadService implements Callable {
       message.startsWith('Configured site visit field not found:');
   }
 
+  /**
+   * Date/time to prefill the Confirm Site Visit modal with. Resolution order:
+   *  1. the configured datetime field on the latest Site Visit record;
+   *  2. the Lead's own planned / confirmed visit-date fields (orgs that keep
+   *     the scheduled date on the Lead rather than on a visit record);
+   *  3. null → the UI defaults to now.
+   * Never falls back to a record's CreatedDate: that is when the record was
+   * made, not when the visit is, and would mislead the user.
+   */
   @AuraEnabled(cacheable=true)
   public static Datetime getLatestSiteVisitDateTime(Id leadId) {
     if (leadId == null) {
       return null;
     }
+
+    // 1. Latest Site Visit record's configured datetime field.
     List<SObject> svList;
     try {
       svList = queryLatestSiteVisits(leadId, 1);
@@ -2444,22 +2455,66 @@ public with sharing class PropFocusLeadService implements Callable {
       if (!isMissingSiteVisitMetadata(ex)) {
         throw ex;
       }
-      return null;
+      svList = null;
     }
-    if (svList == null || svList.isEmpty()) {
-      return null;
-    }
-    String datetimeFieldApiName = PropfocusConfigService.getConfig()
-      .siteVisitDatetimeField;
-    if (!String.isBlank(datetimeFieldApiName)) {
-      Datetime visitAt = asDatetime(
-        getFieldPathValue(svList[0], datetimeFieldApiName)
-      );
-      if (visitAt != null) {
-        return visitAt;
+    if (svList != null && !svList.isEmpty()) {
+      String datetimeFieldApiName = PropfocusConfigService.getConfig()
+        .siteVisitDatetimeField;
+      if (!String.isBlank(datetimeFieldApiName)) {
+        Datetime visitAt = asDatetime(
+          getFieldPathValue(svList[0], datetimeFieldApiName)
+        );
+        if (visitAt != null) {
+          return visitAt;
+        }
       }
     }
-    return (Datetime) svList[0].get('CreatedDate');
+
+    // 2. Lead-level planned / confirmed visit dates.
+    return resolveLeadLevelSiteVisitDate(leadId);
+  }
+
+  /**
+   * Reads the Lead's configured planned / confirmed visit-date fields (planned
+   * first, then confirmed) and returns the first populated value as a Datetime.
+   * Leads only; returns null for Opportunities or when nothing is configured.
+   */
+  @TestVisible
+  private static Datetime resolveLeadLevelSiteVisitDate(Id leadId) {
+    if (leadId == null || leadId.getSObjectType() != Lead.SObjectType) {
+      return null;
+    }
+    List<String> candidates = new List<String>{
+      PropfocusConfigService.getSiteVisitPlannedDateField(),
+      PropfocusConfigService.getSiteVisitConfirmedDateField()
+    };
+    Map<String, Schema.SObjectField> leadFields = Schema.SObjectType.Lead.fields.getMap();
+    List<String> selectable = new List<String>();
+    for (String f : candidates) {
+      if (
+        !String.isBlank(f) &&
+        !f.contains('.') &&
+        leadFields.containsKey(f) &&
+        leadFields.get(f).getDescribe().isAccessible()
+      ) {
+        selectable.add(f);
+      }
+    }
+    if (selectable.isEmpty()) {
+      return null;
+    }
+    try {
+      SObject ld = queryParentById(leadId, selectable);
+      for (String f : selectable) {
+        Datetime dt = asDatetime(ld.get(f));
+        if (dt != null) {
+          return dt;
+        }
+      }
+    } catch (Exception e) {
+      // Best-effort prefill; never block the modal.
+    }
+    return null;
   }
 
   private static String resolveSiteVisitDatetimeSelectField(

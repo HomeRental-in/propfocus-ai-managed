@@ -939,6 +939,83 @@ private class PropFocusLeadServiceTest {
   }
 
   @IsTest
+  static void getLatestSiteVisitDateTime_noCreatedDateFallback() {
+    // A visit record exists but its configured datetime field is blank and no
+    // Lead-level date fields are configured → must return null (UI defaults
+    // to now), NOT the record's CreatedDate.
+    Lead ld = makeLead();
+    PropfocusConfigService.Config cfg = PropfocusConfigService.getConfig();
+    cfg.siteVisitObject = Propfocus_Call_Log__c.SObjectType.getDescribe()
+      .getName();
+    cfg.siteVisitLeadLookupField = Propfocus_Call_Log__c.Lead__c.getDescribe()
+      .getName();
+    cfg.siteVisitStatusField = Propfocus_Call_Log__c.Duration__c.getDescribe()
+      .getName();
+    cfg.siteVisitProjectField = Propfocus_Call_Log__c.Disposition__c.getDescribe()
+      .getName();
+    cfg.siteVisitDatetimeField = Propfocus_Call_Log__c.Call_Time__c.getDescribe()
+      .getName();
+    cfg.siteVisitPlannedDateField = null;
+    cfg.siteVisitConfirmedDateField = null;
+
+    insert new Propfocus_Call_Log__c(
+      Lead__c = ld.Id,
+      Disposition__c = 'Project A',
+      Duration__c = 'Scheduled',
+      Call_Time__c = null
+    );
+
+    Test.startTest();
+    Datetime latest = PropFocusLeadService.getLatestSiteVisitDateTime(ld.Id);
+    Test.stopTest();
+
+    System.assertEquals(
+      null,
+      latest,
+      'Blank visit datetime must not fall back to CreatedDate'
+    );
+  }
+
+  @IsTest
+  static void resolveLeadLevelSiteVisitDate_guards() {
+    Lead ld = makeLead();
+    PropfocusConfigService.Config cfg = PropfocusConfigService.getConfig();
+
+    // Nothing configured → null.
+    cfg.siteVisitPlannedDateField = null;
+    cfg.siteVisitConfirmedDateField = null;
+    System.assertEquals(
+      null,
+      PropFocusLeadService.resolveLeadLevelSiteVisitDate(ld.Id),
+      'no configured Lead date fields → null'
+    );
+
+    // Configured but nonexistent / relationship-path fields are ignored → null.
+    cfg.siteVisitPlannedDateField = 'No_Such_Field__c';
+    cfg.siteVisitConfirmedDateField = 'Owner.Name';
+    System.assertEquals(
+      null,
+      PropFocusLeadService.resolveLeadLevelSiteVisitDate(ld.Id),
+      'unknown or relationship-path fields must be skipped safely'
+    );
+
+    // Opportunities are never read for Lead-level dates.
+    Opportunity opp = PropfocusTestUtil.createOpportunity('Lead Date Guard');
+    cfg.siteVisitPlannedDateField = 'CloseDate';
+    System.assertEquals(
+      null,
+      PropFocusLeadService.resolveLeadLevelSiteVisitDate(opp.Id),
+      'Opportunity ids must return null'
+    );
+
+    // null id → null.
+    System.assertEquals(
+      null,
+      PropFocusLeadService.resolveLeadLevelSiteVisitDate(null)
+    );
+  }
+
+  @IsTest
   static void getLinkHistory_excludesReusedAndDuplicateUrls() {
     Lead ld = makeLead();
     String reusedUrl = 'https://example.test/reused';
