@@ -218,7 +218,11 @@ Setup → Custom Metadata Types → **Propfocus Config** → **Default** → Edi
 | Buyer Id / Name / Project / Lead Status Field | map to the customer's fields |
 | Site Visit Object + field mappings | the customer's site-visit object/fields |
 | Auto Microsite / Site Visit / Post Visit Statuses | the statuses that auto-open each modal |
-| Site Visit Scheduled Status | the status to stamp on site-visit generation |
+| **RNR Microsite Statuses** | statuses whose microsite Lead Type defaults to **RNR** (e.g. `Not Connected, Open`). **Required** — there is no built-in default; blank means every microsite defaults to New. |
+| Site Visit Datetime Field | the **Site Visit object's** date/time field (e.g. `Site_Visit_Scheduled_Date_Time__c`) — prefills the Confirm Site Visit modal. Must be a field on the Site Visit object, not the Lead. |
+| Site Visit Scheduled Status | the Lead status to stamp on site-visit generation (Leads only; never touches Opportunity stage) |
+| Site Visit Planned / Confirmed Date Field | Lead date fields stamped with the visit date alongside the status (satisfies validation rules requiring them) |
+| Site Visit Time Of Day Field / Value | optional Lead picklist + value (e.g. `Site_Visit_Time_of_Day__c` / `Morning`) stamped with the status |
 
 See the full field list in `docs/FIELDS.md`. Named Credential / External
 Credential (outbound OAuth to Propfocus) per `docs/SETUP_GUIDE.md` §2.4.

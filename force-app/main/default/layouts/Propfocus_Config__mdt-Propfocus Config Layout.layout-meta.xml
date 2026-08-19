@@ -85,6 +85,33 @@
         <customLabel>true</customLabel>
         <detailHeading>true</detailHeading>
         <editHeading>true</editHeading>
+        <label>Outbound OAuth (legacy fallback — prefer External Credential)</label>
+        <layoutColumns>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>OAuth_Token_Url__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>OAuth_Grant_Type__c</field>
+            </layoutItems>
+        </layoutColumns>
+        <layoutColumns>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>OAuth_Client_Id__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>OAuth_Client_Secret__c</field>
+            </layoutItems>
+        </layoutColumns>
+        <style>TwoColumnsTopToBottom</style>
+    </layoutSections>
+    <layoutSections>
+        <customLabel>true</customLabel>
+        <detailHeading>true</detailHeading>
+        <editHeading>true</editHeading>
         <label>Lead field mapping</label>
         <layoutColumns>
             <layoutItems>
@@ -250,6 +277,10 @@
             <layoutItems>
                 <behavior>Edit</behavior>
                 <field>Site_Visit_Manager_Email_Field__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Site_Visit_Scheduled_Status__c</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
