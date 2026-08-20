@@ -7,7 +7,7 @@
       "default": true,
       "package": "Propfocus AI",
       "versionDescription": "RNR microsite lead type from CMDT; site-visit date/time-of-day stamps; Confirm Site Visit prefill from Lead dates; full Config layout",
-      "ancestorId": "04tdL000000mR4LQAU"
+      "ancestorVersion": "HIGHEST"
     }
   ],
   "name": "propfocus-ai-managed",
