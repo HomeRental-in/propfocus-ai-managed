@@ -1038,6 +1038,13 @@ private class PropFocusLeadServiceTest {
         .contains('connect to Propfocus'),
       'Credential errors map to the connection message'
     );
+    System.assert(
+      PropFocusLeadService.resolvePlainApiErrorMessage(
+          'Microsite not created: Please provide either brokerNumber OR (brokerSfUserId / brokerEmail / brokerName and optionally organizationId), not both'
+        )
+        .contains('identify your broker profile'),
+      'Broker-contract errors map to the broker-profile message'
+    );
     System.assertEquals(
       null,
       PropFocusLeadService.resolvePlainApiErrorMessage('some other failure'),

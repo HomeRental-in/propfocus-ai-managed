@@ -242,6 +242,12 @@ public with sharing class PropFocusLeadService implements Callable {
       return 'Your user isn\'t registered as a broker in Propfocus. Please contact the Propfocus support team.';
     }
     if (
+      lower.contains('brokernumber') &&
+      (lower.contains('not both') || lower.contains('provide either'))
+    ) {
+      return 'Couldn\'t identify your broker profile. Please contact the Propfocus support team.';
+    }
+    if (
       lower.contains('project') &&
       (lower.contains('not found') ||
         lower.contains('unknown') ||
