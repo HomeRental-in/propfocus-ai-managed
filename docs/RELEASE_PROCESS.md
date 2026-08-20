@@ -98,6 +98,16 @@ sf package version report  --package 04t… --target-dev-hub DevHub   # Released
 > ⚠️ **Promotion is permanent and irreversible** — the version's contents are
 > locked forever. Only promote code you are ready to ship to production.
 
+**Version-numbering rules (learned the hard way, all enforced by Salesforce):**
+
+- Once a version is **released**, its `major.minor.patch` line is closed — no
+  more builds on it (no "0.13.0.2 after 0.13.0.1 is released").
+- The **patch** segment needs "patch versioning" enabled via a Partner case;
+  without it, bump the **minor** after every release (0.13 → 0.14 → …). Update
+  `versionNumber` in `sfdx-project.json` right after promoting.
+- Keep `"ancestorVersion": "HIGHEST"` in `sfdx-project.json` — a hardcoded
+  `ancestorId` breaks the next build as soon as a newer version is released.
+
 A released version can be **installed in production** and **upgrades in place**
 (non-destructive: config records, `Propfocus_Link__c` data, permission sets, and
 Lightning pages are all preserved).
