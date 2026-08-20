@@ -220,7 +220,45 @@ public with sharing class PropFocusLeadService implements Callable {
     String technicalDetail
   ) {
     logPropfocusError(operation, technicalDetail);
-    PropFocusServiceException.throwUserFacing(CUSTOMER_SUPPORT_MESSAGE);
+    String plain = resolvePlainApiErrorMessage(technicalDetail);
+    PropFocusServiceException.throwUserFacing(
+      String.isBlank(plain) ? CUSTOMER_SUPPORT_MESSAGE : plain
+    );
+  }
+
+  /**
+   * Maps known Propfocus API error patterns to short, plain-English messages a
+   * sales rep can act on. Returns null for anything unrecognized (callers fall
+   * back to the generic support message). Full technical detail is always in
+   * the debug log via logPropfocusError.
+   */
+  @TestVisible
+  private static String resolvePlainApiErrorMessage(String technicalDetail) {
+    if (String.isBlank(technicalDetail)) {
+      return null;
+    }
+    String lower = technicalDetail.toLowerCase();
+    if (lower.contains('broker') && lower.contains('not found')) {
+      return 'Your user isn\'t registered as a broker in Propfocus. Please contact the Propfocus support team.';
+    }
+    if (
+      lower.contains('project') &&
+      (lower.contains('not found') ||
+        lower.contains('unknown') ||
+        lower.contains('does not exist'))
+    ) {
+      return 'This project isn\'t available in Propfocus. Check the project selection or ask your admin.';
+    }
+    if (
+      lower.contains('oauth token') ||
+      lower.contains('external credential') ||
+      lower.contains('unable to fetch') ||
+      lower.contains('unauthorized') ||
+      lower.contains('invalid_client')
+    ) {
+      return 'Couldn\'t connect to Propfocus. Ask your admin to check the Propfocus connection settings.';
+    }
+    return null;
   }
 
   private static void throwCustomerFacingHttpException(
@@ -1795,8 +1833,7 @@ public with sharing class PropFocusLeadService implements Callable {
     }
     if (String.isBlank(buyerId)) {
       PropFocusServiceException.throwUserFacing(
-        'Buyer Id is required on the ' +
-          (fields.isOpportunity ? 'Opportunity' : 'Lead')
+        'This record has no Buyer ID yet. Generate a microsite from the original lead first, or ask your admin to fill the Buyer ID field.'
       );
     }
     if (String.isBlank(buyerName)) {
@@ -1875,7 +1912,15 @@ public with sharing class PropFocusLeadService implements Callable {
       buildIdempotencyKey(idempotencyOperation, leadId, body)
     );
 
-    HttpResponse res = PropfocusHttpService.send(req);
+    HttpResponse res;
+    try {
+      res = PropfocusHttpService.send(req);
+    } catch (System.CalloutException e) {
+      logPropfocusError('generatePropfocusTemplate', e.getMessage());
+      PropFocusServiceException.throwUserFacing(
+        'Couldn\'t connect to Propfocus. Ask your admin to check the Propfocus connection settings.'
+      );
+    }
     if (res.getStatusCode() != 200) {
       throwCustomerFacingHttpException('generatePropfocusTemplate', res);
     }

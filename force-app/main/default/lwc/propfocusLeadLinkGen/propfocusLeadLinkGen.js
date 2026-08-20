@@ -11,6 +11,7 @@ import {
   isAutoCreateReady as resolveAutoCreateReady,
   resolveDefaultMicrositeLeadType
 } from "./autoModalRules";
+import { resolveErrorMessage } from "./errorMessages";
 
 import getLeadDetails from "@salesforce/apex/PropFocusLeadService.getLeadDetails";
 import getProjects from "@salesforce/apex/PropFocusLeadService.getProjects";
@@ -562,9 +563,9 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         this.projectOptions = options;
         return this.postVisitConfigurationOptions;
       })
-      .catch(() => {
+      .catch((error) => {
         this.projectOptions = [];
-        this.showToast("Error", CUSTOMER_SUPPORT_MESSAGE, "error");
+        this.showToast("Error", resolveErrorMessage(error), "error");
         return [];
       });
   }
@@ -855,7 +856,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         this.loadConfigurationsForSelectedProjects();
       })
       .catch((error) =>
-        this.showToast("Error", CUSTOMER_SUPPORT_MESSAGE, "error")
+        this.showToast("Error", resolveErrorMessage(error), "error")
       )
       .finally(() => {
         this.isLoading = false;
@@ -1110,7 +1111,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         }
       })
       .catch((error) =>
-        this.showToast("Error", CUSTOMER_SUPPORT_MESSAGE, "error")
+        this.showToast("Error", resolveErrorMessage(error), "error")
       )
       .finally(() => {
         this.isLoading = false;
@@ -1170,7 +1171,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         }
       })
       .catch((error) =>
-        this.showToast("Error", CUSTOMER_SUPPORT_MESSAGE, "error")
+        this.showToast("Error", resolveErrorMessage(error), "error")
       )
       .finally(() => {
         this.isLoading = false;
@@ -1221,8 +1222,8 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         await this.loadLinkHistory();
         this.markDataReloaded();
       })
-      .catch(() =>
-        this.showToast("Error", CUSTOMER_SUPPORT_MESSAGE, "error")
+      .catch((error) =>
+        this.showToast("Error", resolveErrorMessage(error), "error")
       )
       .finally(() => {
         this.isLoading = false;
@@ -1272,8 +1273,8 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         await this.loadLinkHistory();
         this.markDataReloaded();
       })
-      .catch(() =>
-        this.showToast("Error", CUSTOMER_SUPPORT_MESSAGE, "error")
+      .catch((error) =>
+        this.showToast("Error", resolveErrorMessage(error), "error")
       )
       .finally(() => {
         this.isLoading = false;
@@ -1331,8 +1332,8 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         this.bumpIframeCache();
         this.markDataReloaded();
       })
-      .catch(() =>
-        this.showToast("Error", CUSTOMER_SUPPORT_MESSAGE, "error")
+      .catch((error) =>
+        this.showToast("Error", resolveErrorMessage(error), "error")
       )
       .finally(() => {
         this.isLoading = false;

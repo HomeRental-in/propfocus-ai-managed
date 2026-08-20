@@ -1016,6 +1016,73 @@ private class PropFocusLeadServiceTest {
   }
 
   @IsTest
+  static void resolvePlainApiErrorMessage_mapsKnownCauses() {
+    System.assert(
+      PropFocusLeadService.resolvePlainApiErrorMessage(
+          'Broker "Sales Manager" not found in organization "a129..."'
+        )
+        .contains('registered as a broker'),
+      'Broker errors map to the broker message'
+    );
+    System.assert(
+      PropFocusLeadService.resolvePlainApiErrorMessage(
+          'Project "Skyline" not found for organization'
+        )
+        .contains('project'),
+      'Project errors map to the project message'
+    );
+    System.assert(
+      PropFocusLeadService.resolvePlainApiErrorMessage(
+          'Unable to fetch the OAuth token. Error: invalid_client.'
+        )
+        .contains('connect to Propfocus'),
+      'Credential errors map to the connection message'
+    );
+    System.assertEquals(
+      null,
+      PropFocusLeadService.resolvePlainApiErrorMessage('some other failure'),
+      'Unknown errors return null (generic fallback)'
+    );
+    System.assertEquals(
+      null,
+      PropFocusLeadService.resolvePlainApiErrorMessage(null)
+    );
+  }
+
+  @IsTest
+  static void generatePropfocusTemplate_surfacesBrokerNotFound() {
+    Lead ld = makeLead();
+    setApiMock(
+      400,
+      '{"success":false,"error":"Broker \\"Sales Manager\\" not found in organization \\"a129ea1f\\". Verify in the admin panel."}'
+    );
+
+    Test.startTest();
+    String message;
+    try {
+      PropFocusLeadService.generatePropfocusTemplate(
+        ld.Id,
+        'microsite',
+        JSON.serialize(
+          new Map<String, Object>{
+            'buyerName' => 'Priya Sharma',
+            'projects' => new List<String>{ 'Project A' }
+          }
+        )
+      );
+      System.assert(false, 'Expected an exception');
+    } catch (Exception e) {
+      message = e.getMessage();
+    }
+    Test.stopTest();
+
+    System.assert(
+      message != null && message.contains('registered as a broker'),
+      'Rep-facing message expected, got: ' + message
+    );
+  }
+
+  @IsTest
   static void getLinkHistory_mergesBuyerSiblingHistory() {
     // A Lead and an Opportunity share the same buyer id value; history viewed
     // from the Opportunity must include the Lead's links (buyer-scoped).
