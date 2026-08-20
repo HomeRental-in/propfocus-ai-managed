@@ -1925,6 +1925,14 @@ private class PropFocusLeadServiceTest {
     );
     // brokerName remains a display-only field when resolvable; the stable keys
     // above are what must always be present.
+    // The API rejects brokerNumber combined with the identity group — it must
+    // be absent whenever any identity field is sent (even if the owner has a
+    // phone).
+    System.assertEquals(
+      false,
+      requestBody.containsKey('brokerNumber'),
+      'brokerNumber must not be sent alongside broker identity fields'
+    );
   }
 
   @IsTest

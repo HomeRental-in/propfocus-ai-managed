@@ -964,9 +964,18 @@ public with sharing class PropFocusLeadService implements Callable {
       body.put('brokerName', brokerName);
       body.put('organizationId', organizationId);
     }
-    String brokerNumber = resolveBrokerNumber(leadRecord);
-    if (!String.isBlank(brokerNumber)) {
-      body.put('brokerNumber', brokerNumber);
+    // The API accepts either brokerNumber OR the identity group
+    // (brokerSfUserId / brokerEmail / brokerName) — never both. Send the
+    // phone only as a last resort when no identity field resolved.
+    Boolean hasBrokerIdentity =
+      body.containsKey('brokerSfUserId') ||
+      body.containsKey('brokerEmail') ||
+      body.containsKey('brokerName');
+    if (!hasBrokerIdentity) {
+      String brokerNumber = resolveBrokerNumber(leadRecord);
+      if (!String.isBlank(brokerNumber)) {
+        body.put('brokerNumber', brokerNumber);
+      }
     }
   }
 
