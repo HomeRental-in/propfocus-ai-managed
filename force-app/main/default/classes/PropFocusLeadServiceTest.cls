@@ -1016,6 +1016,92 @@ private class PropFocusLeadServiceTest {
   }
 
   @IsTest
+  static void getLinkHistory_mergesBuyerSiblingHistory() {
+    // A Lead and an Opportunity share the same buyer id value; history viewed
+    // from the Opportunity must include the Lead's links (buyer-scoped).
+    Lead ld = makeLead();
+    String buyerValue = PropfocusTestUtil.buyerIdFor(ld);
+    Opportunity opp = PropfocusTestUtil.createOpportunity('Sibling History');
+    // Test config maps Opportunity buyer id to Name.
+    opp.Name = buyerValue;
+    update opp;
+
+    insert new Propfocus_Link__c(
+      Lead__c = ld.Id,
+      Type__c = 'Microsite Generation',
+      Project_Name__c = 'Project A',
+      URL__c = 'https://example.test/lead-side-link',
+      Created_At__c = System.now().addMinutes(-5),
+      Status__c = 'Not engaged'
+    );
+    setApiMock(200, '{"success":true,"data":{"statuses":[]}}');
+
+    Test.startTest();
+    List<PropFocusLeadService.LinkHistoryItem> history = PropFocusLeadService.getLinkHistory(
+      opp.Id
+    );
+    Test.stopTest();
+
+    Boolean foundLeadLink = false;
+    for (PropFocusLeadService.LinkHistoryItem item : history) {
+      if (item.url == 'https://example.test/lead-side-link') {
+        foundLeadLink = true;
+      }
+    }
+    System.assertEquals(
+      true,
+      foundLeadLink,
+      'Opportunity history must include the sibling Lead\'s links'
+    );
+  }
+
+  @IsTest
+  static void getLinkHistory_appendsUnknownPulledLinks() {
+    // Propfocus returns a buyer link Salesforce has no row for: it must be
+    // persisted on the viewed record and appear in the history.
+    Lead ld = makeLead();
+    insert new Propfocus_Link__c(
+      Lead__c = ld.Id,
+      Type__c = 'Microsite Generation',
+      Project_Name__c = 'Project A',
+      URL__c = 'https://example.test/known',
+      Created_At__c = System.now().addMinutes(-10),
+      Status__c = 'Not engaged'
+    );
+    setApiMock(
+      200,
+      '{"success":true,"data":{"statuses":[' +
+        '{"url":"https://example.test/known","type":"Microsite Generation","status":"Engaged"},' +
+        '{"url":"https://example.test/propfocus-only","type":"Post Visit Page","project_name":"Project B","status":"Not engaged","created_at":"2026-08-20T05:00:00.000Z"}' +
+        ']}}'
+    );
+
+    Test.startTest();
+    List<PropFocusLeadService.LinkHistoryItem> history = PropFocusLeadService.getLinkHistory(
+      ld.Id
+    );
+    Test.stopTest();
+
+    System.assertEquals(2, history.size(), 'Unknown link must be appended');
+    Boolean foundNew = false;
+    for (PropFocusLeadService.LinkHistoryItem item : history) {
+      if (item.url == 'https://example.test/propfocus-only') {
+        foundNew = true;
+        System.assertEquals('Project B', item.projectName);
+        System.assertNotEquals(null, item.id, 'Appended link must be persisted');
+      }
+    }
+    System.assertEquals(true, foundNew);
+
+    List<Propfocus_Link__c> persisted = [
+      SELECT Id, Type__c
+      FROM Propfocus_Link__c
+      WHERE Lead__c = :ld.Id AND URL__c = 'https://example.test/propfocus-only'
+    ];
+    System.assertEquals(1, persisted.size(), 'Row must be inserted on the Lead');
+  }
+
+  @IsTest
   static void getLinkHistory_excludesReusedAndDuplicateUrls() {
     Lead ld = makeLead();
     String reusedUrl = 'https://example.test/reused';

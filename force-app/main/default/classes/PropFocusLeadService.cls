@@ -550,10 +550,11 @@ public with sharing class PropFocusLeadService implements Callable {
         return;
       }
 
-      applyPulledLinkHistoryStatuses(
-        items,
-        getListFromPayload(response, 'statuses')
-      );
+      List<Object> statuses = getListFromPayload(response, 'statuses');
+      applyPulledLinkHistoryStatuses(items, statuses);
+      // The response may include buyer links Salesforce has no row for yet
+      // (created directly in Propfocus). Persist and display them too.
+      appendUnknownPulledLinks(leadId, items, statuses);
     } catch (Exception e) {
       // Keep stored Status__c; history UI must still load.
     }
@@ -622,6 +623,106 @@ public with sharing class PropFocusLeadService implements Callable {
 
     if (!toUpdate.isEmpty()) {
       update toUpdate;
+    }
+  }
+
+  /**
+   * Persists and displays buyer links returned by Propfocus that Salesforce
+   * has no Propfocus_Link__c row for (e.g. created directly in Propfocus).
+   * New rows are attached to the record whose history is being viewed.
+   * Best-effort: a failure here must never block the history from loading.
+   */
+  @TestVisible
+  private static void appendUnknownPulledLinks(
+    Id leadId,
+    List<LinkHistoryItem> items,
+    List<Object> statuses
+  ) {
+    if (leadId == null || items == null || statuses == null || statuses.isEmpty()) {
+      return;
+    }
+    try {
+      Set<String> knownUrls = new Set<String>();
+      for (LinkHistoryItem item : items) {
+        if (item != null && !String.isBlank(item.url)) {
+          knownUrls.add(item.url);
+        }
+      }
+
+      Boolean isOpp = isOpportunityRecord(leadId);
+      List<Propfocus_Link__c> toInsert = new List<Propfocus_Link__c>();
+      List<Map<String, Object>> pendingRows = new List<Map<String, Object>>();
+      for (Object rowObj : statuses) {
+        Map<String, Object> row = asMap(rowObj);
+        if (row == null) {
+          continue;
+        }
+        String url = asString(row.get('url'));
+        if (String.isBlank(url) || knownUrls.contains(url)) {
+          continue;
+        }
+        knownUrls.add(url);
+        Datetime createdAt = asDatetime(
+          firstNonBlank(row, new List<String>{ 'created_at', 'createdAt' })
+        );
+        Propfocus_Link__c rec = new Propfocus_Link__c(
+          Type__c = asString(row.get('type')),
+          Project_Name__c = asString(
+            firstNonBlank(row, new List<String>{ 'project_name', 'projectName' })
+          ),
+          URL__c = url,
+          Created_At__c = createdAt == null ? System.now() : createdAt,
+          Status__c = asString(row.get('status'))
+        );
+        if (isOpp) {
+          rec.Opportunity__c = leadId;
+        } else {
+          rec.Lead__c = leadId;
+        }
+        toInsert.add(rec);
+        pendingRows.add(row);
+        if (toInsert.size() >= 50) {
+          break;
+        }
+      }
+      if (toInsert.isEmpty()) {
+        return;
+      }
+      insert toInsert;
+
+      for (Integer i = 0; i < toInsert.size(); i++) {
+        Propfocus_Link__c rec = toInsert[i];
+        LinkHistoryItem item = new LinkHistoryItem();
+        item.id = rec.Id;
+        item.type = formatLinkHistoryType(rec.Type__c);
+        item.projectName = rec.Project_Name__c;
+        item.status = rec.Status__c;
+        item.url = rec.URL__c;
+        item.createdAt = rec.Created_At__c;
+        items.add(item);
+      }
+      sortLinkHistoryItemsByCreatedAtDesc(items);
+    } catch (Exception e) {
+      // History must still load without the Propfocus-side extras.
+    }
+  }
+
+  private static void sortLinkHistoryItemsByCreatedAtDesc(
+    List<LinkHistoryItem> items
+  ) {
+    // Insertion sort: history lists are small (<=100) and mostly sorted.
+    for (Integer i = 1; i < items.size(); i++) {
+      LinkHistoryItem current = items[i];
+      Integer j = i - 1;
+      while (
+        j >= 0 &&
+        (items[j].createdAt == null ||
+          (current.createdAt != null && items[j].createdAt < current.createdAt))
+      ) {
+        items[j + 1] = items[j];
+        j--;
+      }
+      items[j + 1] = current;
     }
   }
 
@@ -2808,24 +2909,24 @@ public with sharing class PropFocusLeadService implements Callable {
       return items;
     }
     Set<String> seenUrls = new Set<String>();
-    List<Propfocus_Link__c> rows;
+    // Buyer-scoped: include link rows from every Lead/Opportunity that shares
+    // this record's buyer id, so the buyer's whole journey shows on any of
+    // their records (e.g. the Lead and its converted Opportunity).
+    Set<Id> leadIds = new Set<Id>();
+    Set<Id> oppIds = new Set<Id>();
     if (isOpportunityRecord(leadId)) {
-      rows = [
-        SELECT Id, Type__c, Project_Name__c, URL__c, Created_At__c, Status__c
-        FROM Propfocus_Link__c
-        WHERE Opportunity__c = :leadId
-        ORDER BY Created_At__c DESC
-        LIMIT 50
-      ];
+      oppIds.add(leadId);
     } else {
-      rows = [
-        SELECT Id, Type__c, Project_Name__c, URL__c, Created_At__c, Status__c
-        FROM Propfocus_Link__c
-        WHERE Lead__c = :leadId
-        ORDER BY Created_At__c DESC
-        LIMIT 50
-      ];
+      leadIds.add(leadId);
     }
+    collectBuyerSiblingRecordIds(leadId, leadIds, oppIds);
+    List<Propfocus_Link__c> rows = [
+      SELECT Id, Type__c, Project_Name__c, URL__c, Created_At__c, Status__c
+      FROM Propfocus_Link__c
+      WHERE Lead__c IN :leadIds OR Opportunity__c IN :oppIds
+      ORDER BY Created_At__c DESC
+      LIMIT 100
+    ];
     for (Propfocus_Link__c row : rows) {
       if (row.Status__c == 'Reused' || seenUrls.contains(row.URL__c)) {
         continue;
@@ -2841,5 +2942,72 @@ public with sharing class PropFocusLeadService implements Callable {
       items.add(item);
     }
     return enrichLinkHistoryStatuses(leadId, items);
+  }
+
+  /**
+   * Finds all Leads and Opportunities that carry the same buyer id value as
+   * the given record (via the configured buyer id fields) and adds their ids
+   * to the passed sets. Best-effort: relationship-path or unknown buyer id
+   * fields, blank buyer values, or query errors simply leave the sets as-is.
+   */
+  @TestVisible
+  private static void collectBuyerSiblingRecordIds(
+    Id recordId,
+    Set<Id> leadIds,
+    Set<Id> oppIds
+  ) {
+    try {
+      Map<String, Object> details = getLeadDetails(recordId);
+      String buyerValue = asString(details.get('buyerId'));
+      if (String.isBlank(buyerValue)) {
+        return;
+      }
+
+      String leadBuyerField = PropfocusConfigService.getConfig().buyerIdField;
+      if (isDirectFilterableField(Lead.SObjectType, leadBuyerField)) {
+        String soql =
+          'SELECT Id FROM Lead WHERE ' +
+          leadBuyerField +
+          ' = :buyerValue AND IsConverted = false LIMIT 20';
+        for (SObject row : Database.query(soql)) {
+          leadIds.add(row.Id);
+        }
+      }
+
+      String oppBuyerField = PropfocusConfigService.getConfig()
+        .opportunityBuyerIdField;
+      if (isDirectFilterableField(Opportunity.SObjectType, oppBuyerField)) {
+        String soql =
+          'SELECT Id FROM Opportunity WHERE ' +
+          oppBuyerField +
+          ' = :buyerValue LIMIT 20';
+        for (SObject row : Database.query(soql)) {
+          oppIds.add(row.Id);
+        }
+      }
+    } catch (Exception e) {
+      // History must still load with record-scoped rows only.
+    }
+  }
+
+  private static Boolean isDirectFilterableField(
+    Schema.SObjectType sobjectType,
+    String fieldApiName
+  ) {
+    if (
+      String.isBlank(fieldApiName) ||
+      fieldApiName.contains('.') ||
+      !Pattern.matches('^[A-Za-z][A-Za-z0-9_]*(__c)?$', fieldApiName)
+    ) {
+      return false;
+    }
+    Schema.SObjectField fld = sobjectType.getDescribe()
+      .fields.getMap()
+      .get(fieldApiName);
+    if (fld == null) {
+      return false;
+    }
+    Schema.DescribeFieldResult dfr = fld.getDescribe();
+    return dfr.isAccessible() && dfr.isFilterable();
   }
 }
