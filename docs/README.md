@@ -2,7 +2,7 @@
 
 | Document                                                               | Audience             | Purpose                                                              |
 | ---------------------------------------------------------------------- | -------------------- | -------------------------------------------------------------------- |
-| [PROD_INSTALLATION.md](./PROD_INSTALLATION.md)                         | Salesforce admin     | **Start here (production go-live)** — Released 0.12.0.3 step-by-step |
+| [PROD_INSTALLATION.md](./PROD_INSTALLATION.md)                         | Salesforce admin     | **Start here (production go-live)** — Released 0.16.0.1 step-by-step |
 | [E2E_INSTALLATION.md](./E2E_INSTALLATION.md)                           | Salesforce admin     | Full e2e, upgrade, uninstall (any org)                               |
 | [SETUP_GUIDE.md](./SETUP_GUIDE.md)                                     | Salesforce admin     | Install + configure + test (w/ examples)                             |
 | [FAQ.txt](./FAQ.txt)                                                   | Admin / stakeholders | FAQ, upgrades, troubleshooting                                       |

@@ -71,17 +71,17 @@ Do these **before** opening the install link. Lead Field History Tracking is **n
 **Install URL (v0.12.0-3, Released):**
 
 ```
-https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000mR4LQAU
+https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000nuSTQAY
 ```
 
-Sandboxes: use `https://test.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000mR4LQAU`.
+Sandboxes: use `https://test.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000nuSTQAY`.
 
-| #    | Action                                                                                                    | Pass when                                       |
-| ---- | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| 1.1  | Log into the **target org** first (sandbox: use `https://test.salesforce.com`, then open the install URL) | You are in the correct org                      |
-| 1.1b | **Sandbox only:** after install, complete [Sandbox override](#sandbox--uat--point-at-dev) before Phase 4  | All URLs point to `dev.propfocus.in`            |
-| 1.2  | Open install URL → **Install for Admins Only** → Install                                                  | Install completes with no errors                |
-| 1.3  | Setup → **Installed Packages**                                                                            | **Propfocus AI** version **0.12.0.3** is listed |
+| #    | Action                                                                                                    | Pass when                                                           |
+| ---- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| 1.1  | Log into the **target org** first (sandbox: use `https://test.salesforce.com`, then open the install URL) | You are in the correct org                                          |
+| 1.1b | **Sandbox only:** after install, complete [Sandbox override](#sandbox--uat--point-at-dev) before Phase 4  | All URLs point to `dev.propfocus.in`                                |
+| 1.2  | Open install URL → **Install for Admins Only** → Install                                                  | Install completes with no errors                                    |
+| 1.3  | Setup → **Installed Packages**                                                                            | **Propfocus AI** version **0.16.0.1** (or later Released) is listed |
 
 **Installed for you (no action):** Apex, Lead trigger, inbound REST, Platform Event, custom objects, permission sets, External Credential + Named Credential (skeleton), Remote Site, CSP Trusted Site (`https://propfocus.in` only — sandboxes add `dev.propfocus.in` manually, see Sandbox override), LWCs, Admin Setup tab, Propfocus AI app, default `Propfocus_Config` CMDT record.
 
@@ -339,11 +339,29 @@ If installing in a **Salesforce sandbox**, override these packaged production de
 
 Use the **dev** Organization Id and OAuth Client Id/Secret from Propfocus for that environment. Re-run Phase 8 after changing URLs.
 
+### Platform side (Propfocus team): issue the OAuth client
+
+The Client Id/Secret the org's External Credential principal needs is a row in the
+platform's `oauth_clients` table. Create it on the target environment's host
+(dev shown; the script prints the id and the secret **once**):
+
+```bash
+ssh -i ~/.ssh/prop-focus-dev.pem ec2-user@3.6.136.192 \
+  'docker exec -e DB_SSL=require backend node scripts/manage-oauth-clients.js add "<Customer> Salesforce Sandbox" "<purpose>"'
+```
+
+(`DB_SSL=require` is mandatory — RDS refuses unencrypted connections.) Also confirm the
+customer **organization exists** on that environment (`organizations` table) with at least
+one active **broker** and **project** — link generation resolves both, and the org's UUID is
+what goes into `Propfocus Config → Organization Id`. The admin then pastes the Client
+Id/Secret into **Setup → Named Credentials → External Credentials → Propfocus API →
+Principals → `Propfocus_Principal` → Edit**.
+
 ---
 
 ## Phase 9 — Production install checklist
 
-**Preferred playbook for production go-live (Released 0.12.0.3):** [PROD_INSTALLATION.md](./PROD_INSTALLATION.md).
+**Preferred playbook for production go-live (Released 0.16.0.1):** [PROD_INSTALLATION.md](./PROD_INSTALLATION.md).
 
 Production orgs use the packaged defaults (`https://propfocus.in`). Complete Phases 0–8 with production credentials:
 
@@ -437,7 +455,7 @@ Prerequisites
 [ ] Enterprise: change window + pipeline path for CMDT / FlexiPage / perm sets
 
 Install
-[ ] Package 0.12.0.3 installed (or upgraded — see Upgrade from 0.5.x)
+[ ] Package 0.16.0.1 installed (or upgraded — see Upgrade from 0.5.x)
 
 Users
 [ ] Propfocus User assigned to sales users
@@ -508,3 +526,20 @@ More: [SETUP_GUIDE.md](./SETUP_GUIDE.md) troubleshooting · [FAQ.txt](./FAQ.txt)
 | [INBOUND.md](./INBOUND.md)                                          | REST payloads, auth options                              |
 | [JWT_SETUP.txt](./JWT_SETUP.txt)                                    | Full JWT External Client App steps                       |
 | [FAQ.txt](./FAQ.txt)                                                | Upgrades, uninstall, common Q&A                          |
+
+---
+
+## Appendix — Configuring a subscriber org from the CLI (lessons from real installs)
+
+All of Phase 3–6 can be done with `sf` against the customer org instead of clicking Setup.
+The traps below cost real time; respect them.
+
+| What                            | How                                                                                                    | Trap                                                                                                                                                                                                                                                                                              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Propfocus Config` record       | Deploy `CustomMetadata` member **`PropfocusAI__Propfocus_Config.PropfocusAI__Default`**                | Deploying member `…Propfocus_Config.Default` silently **creates a second, local-namespace record** that shadows nothing and confuses everyone — the managed code reads its own namespace's record. Delete the stray via destructive changes if you make one.                                      |
+| Blanking a config field         | Include the field with `<value xsi:nil="true"/>`                                                       | **Omitting** a field keeps the record's existing value — deploys merge, they don't replace. Notably `Site Visit Scheduled Status` ships as `SV Scheduled`; if that isn't a real Lead Status picklist value in this org, nil it (or map it) or site-visit generation will stamp an invalid status. |
+| External Credential (token URL) | Deployable from the subscriber org (`ExternalCredential` type)                                         | —                                                                                                                                                                                                                                                                                                 |
+| Named Credential (base URL)     | **Setup UI only**                                                                                      | A subscriber deploy fails with _"the namespace of the named credential and external credential don't match"_. Edit in Setup → Named Credentials instead.                                                                                                                                          |
+| Local dev CSP Trusted Site      | Deploy a `CspTrustedSite` (see Sandbox override)                                                       | Not packaged since 0.16.0 — must be created per sandbox.                                                                                                                                                                                                                                          |
+| Panel placement                 | Add `PropfocusAI:propfocusLeadLinkGen` to the Lead FlexiPage                                           | On heavily customized pages where the whole layout is **one full-page custom LWC**, place the Propfocus panel **first** in the region — placed after, the custom component's floating card renders on top of it and the panel is invisible.                                                       |
+| Permission sets                 | `sf org assign permset --name PropfocusAI__Propfocus_User …` plus the local `Propfocus_Callout_Access` | The local callout set is still required (see §2.1b).                                                                                                                                                                                                                                              |

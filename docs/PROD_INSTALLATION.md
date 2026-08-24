@@ -1,7 +1,7 @@
-# Propfocus AI — Production Installation Guide (v0.12.0.3)
+# Propfocus AI — Production Installation Guide (v0.16.0.1)
 
 **Audience:** Customer Salesforce admin + Propfocus backend  
-**Goal:** Install Released **Propfocus AI `0.12.0.3`** in a **production** org, configure it, and prove inbound + outbound work.  
+**Goal:** Install Released **Propfocus AI `0.16.0.1`** in a **production** org, configure it, and prove inbound + outbound work.  
 **Time:** First production org typically a few hours of Salesforce setup plus backend registration. Enterprise change control can stretch this across days.  
 **Namespace:** `PropfocusAI`
 
@@ -16,22 +16,22 @@ For how versions are built and promoted, see [RELEASE_PROCESS.md](./RELEASE_PROC
 |                                   |                          |
 | --------------------------------- | ------------------------ |
 | **Package**                       | Propfocus AI             |
-| **Version**                       | **0.12.0.3** (Released)  |
-| **Subscriber package version Id** | `04tdL000000mR4LQAU`     |
+| **Version**                       | **0.16.0.1** (Released)  |
+| **Subscriber package version Id** | `04tdL000000nuSTQAY`     |
 | **Ancestor**                      | Released `0.11.0.1`      |
 | **Coverage**                      | 79% (promotion gate met) |
 
 **Production install URL** — log in at `https://login.salesforce.com` first:
 
 ```
-https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000mR4LQAU
+https://login.salesforce.com/packaging/installPackage.apexp?p0=04tdL000000nuSTQAY
 ```
 
 CLI (if the production org is authorized):
 
 ```bash
 sf org login web --instance-url https://login.salesforce.com --alias amberstone-prod
-sf package install --package 04tdL000000mR4LQAU --target-org amberstone-prod --wait 30 \
+sf package install --package 04tdL000000nuSTQAY --target-org amberstone-prod --wait 30 \
   --security-type AdminsOnly --upgrade-type Mixed --no-prompt
 ```
 
@@ -48,11 +48,23 @@ Do **not** install `0.12.0.1` or `0.12.0.2`. Those are betas. Production only ac
 5. **JWT `aud` is production.** `https://login.salesforce.com` — not `https://test.salesforce.com`.
 6. **Uninstall is destructive.** Prefer Upgrade if a Released version is already installed. Snapshot Config before any uninstall.
 
-Amberstone UAT (`amberstoneproperties--uat2026`) is on **beta `0.12.0.2`**. That does **not** block production. Production is a different org and can take Released `0.12.0.3` as a first install or as an upgrade from any earlier **Released** version (`0.11.0.1`, `0.10.0.1`, …).
+Amberstone UAT (`amberstoneproperties--uat2026`) is on **beta `0.12.0.2`**. That does **not** block production. Production is a different org and can take Released `0.16.0.1` as a first install or as an upgrade from any earlier **Released** version (`0.11.0.1`, `0.10.0.1`, …).
 
 ---
 
-## What 0.12.0.3 adds (vs 0.11)
+## What 0.16.0.1 adds (vs 0.12)
+
+- **0.13/0.14** — RNR microsite lead type from CMDT (`RNR Microsite Statuses`); site-visit
+  date/time-of-day stamps on the Lead; Confirm Site Visit modal prefill from Lead dates; full
+  Config layout.
+- **0.15** — Existing-link guard: repeat generate calls return the record's stored link with **no
+  callout** (ends the duplicate WhatsApp flood to agents); explicit Regenerate opts back in.
+  Duplicate re-check bypasses the Lightning client cache. Admin Setup shows the inbound endpoint.
+- **0.16** — The install screen no longer shows `dev.propfocus.in`: the package ships only
+  production CSP Trusted Sites (`propfocus.in`, `www.propfocus.in`). Sandboxes create a local dev
+  CSP site (see the sandbox override in E2E_INSTALLATION.md).
+
+## What 0.12.0.3 added (vs 0.11)
 
 - Auto-open Generate Microsite / Confirm Site Visit / Generate Post Visit when Lead status matches Config lists.
 - **Site Visit Scheduled Status** — optional Lead/Opportunity status stamp when a site-visit link is created.
@@ -84,7 +96,7 @@ In production: **Setup → Installed Packages → Propfocus AI**.
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Package **not listed**                                          | First-time install. Use the URL above → **Install**.                                                                                                   |
 | Any **Released** version (`0.11.0.1`, `0.10.0.1`, `0.7.0.2`, …) | Same URL → Salesforce offers **Upgrade**. Config and data are kept. Then fill any new 0.12 Config fields (auto statuses, Site Visit Scheduled Status). |
-| A **Beta**                                                      | Stop. Do **not** Upgrade. Snapshot Config, uninstall (destructive), then install Released `0.12.0.3`, then restore Config.                             |
+| A **Beta**                                                      | Stop. Do **not** Upgrade. Snapshot Config, uninstall (destructive), then install Released `0.16.0.1`, then restore Config.                             |
 
 If you cannot see the org, ask the admin to screenshot Installed Packages before the change window.
 
@@ -110,7 +122,7 @@ Lead Field History Tracking is **not** required.
 | #   | Action                                                                                 | Pass when                                            |
 | --- | -------------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | 1.1 | Log into **production** as a System Administrator at `https://login.salesforce.com`    | Host is production                                   |
-| 1.2 | Open the install URL above                                                             | Install wizard for **Propfocus AI 0.12.0.3**         |
+| 1.2 | Open the install URL above                                                             | Install wizard for **Propfocus AI 0.16.0.1**         |
 | 1.3 | Choose **Install for Admins Only** → Install                                           | Completes with no errors                             |
 | 1.4 | On **Approve Third-Party Access**, approve CSP / remote site access for `propfocus.in` | Approved                                             |
 | 1.5 | Setup → **Installed Packages**                                                         | **Propfocus AI** version **0.12.0.3** / **ver 0.12** |

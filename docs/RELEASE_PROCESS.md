@@ -9,7 +9,8 @@ develop → validate → build version (beta) → test in scratch org
 ```
 
 > **Two rules that cause the most pain (learned the hard way):**
-> 1. **Production only accepts *released* (promoted) versions** — never a beta.
+>
+> 1. **Production only accepts _released_ (promoted) versions** — never a beta.
 > 2. **A beta installed in an org cannot be upgraded in place** — it must be
 >    uninstalled first (which deletes package data). So only ever put a beta in
 >    a **throwaway scratch org**, and keep every persistent org (UAT/prod) on the
@@ -76,13 +77,17 @@ sf package version report --package 04t… --target-dev-hub DevHub   # Code Cove
 ## 3. Test the beta — in a **scratch org only**
 
 ```bash
-sf org create scratch -f config/project-scratch-def.json -a pkgtest --target-dev-hub DevHub --duration-days 7
+sf org create scratch -f config/project-scratch-def.json -a pkgtest --no-ancestors --target-dev-hub DevHub --duration-days 7
 sf package install --package 04t… --target-org pkgtest --wait 30 --no-prompt
 # …exercise the feature manually…
 sf org delete scratch --target-org pkgtest --no-prompt
 ```
 
 **Never** install a beta in a UAT/prod org — you will be stuck (see the rules at top).
+
+> `--no-ancestors` is required: with ancestry (the default, since `ancestorVersion: HIGHEST`),
+> the scratch org is born with the released ancestor's metadata baked in and the beta install
+> fails with _"Cannot install component … because it was used as a scratch org ancestor"_.
 
 ---
 
@@ -107,6 +112,12 @@ sf package version report  --package 04t… --target-dev-hub DevHub   # Released
   `versionNumber` in `sfdx-project.json` right after promoting.
 - Keep `"ancestorVersion": "HIGHEST"` in `sfdx-project.json` — a hardcoded
   `ancestorId` breaks the next build as soon as a newer version is released.
+- **Removing a component** from the package also needs a Partner Community case
+  ("metadata removal" for 2GP) — without it the build fails with _"you must first
+  request access to this feature"_. Until that case is approved, retire a component
+  by **repointing/emptying it** instead of deleting the file. This is why the CSP
+  Trusted Site named `Propfocus_Dev` now holds `https://www.propfocus.in` (0.16.0):
+  the customer-facing install screen shows CSP **URLs**, never developer names.
 
 A released version can be **installed in production** and **upgrades in place**
 (non-destructive: config records, `Propfocus_Link__c` data, permission sets, and
@@ -116,7 +127,7 @@ Lightning pages are all preserved).
 
 ## 5. Deploy to a customer **production** org
 
-**Customer-facing click path for Released `0.12.0.3`:** [PROD_INSTALLATION.md](./PROD_INSTALLATION.md)
+**Customer-facing click path for Released `0.16.0.1`:** [PROD_INSTALLATION.md](./PROD_INSTALLATION.md)
 (install URL, permission sets, Config, JWT, Amberstone UAT → prod field map, verification).
 
 ### 5.1 Install the released package
@@ -132,7 +143,7 @@ sf package install --package 04t… --target-org custprod --wait 30 \
 
 Or, hand the admin the managed-package **install URL**:
 `https://login.salesforce.com/packaging/installPackage.apexp?p0=04t…`
-On the *Approve Third-Party Access* screen, approve the CSP trusted site(s).
+On the _Approve Third-Party Access_ screen, approve the CSP trusted site(s).
 
 Confirm:
 
@@ -144,12 +155,12 @@ sf package installed list --target-org custprod | grep -i propfocus
 
 Setup → Users → New User:
 
-| Field | Value |
-| --- | --- |
-| User License | **Salesforce Integration** (free; ~5 per prod org) |
-| Profile | **Salesforce API Only System Integrations** (or Minimum Access – API Only Integrations) |
-| Username | e.g. `propfocus.integration@<customer>.com` (globally unique) |
-| Email | a monitored inbox (for activation) |
+| Field        | Value                                                                                   |
+| ------------ | --------------------------------------------------------------------------------------- |
+| User License | **Salesforce Integration** (free; ~5 per prod org)                                      |
+| Profile      | **Salesforce API Only System Integrations** (or Minimum Access – API Only Integrations) |
+| Username     | e.g. `propfocus.integration@<customer>.com` (globally unique)                           |
+| Email        | a monitored inbox (for activation)                                                      |
 
 Complete the activation email. This user is your JWT `sub` / Client-Credentials
 **Run As** user. (You may reuse an existing active user instead — trade-offs in
@@ -194,24 +205,24 @@ Full detail: `docs/JWT_SETUP.txt`. Client-Credentials alternative (no cert):
 The panel makes **outbound callouts** to the Propfocus API (generate links, Test
 Connection, link-history) via the Named Credential `Propfocus_API` → External
 Credential `Propfocus_API_External`. To use an External Credential a user needs
-**User External Credentials → Read** *and* **External Credential Principal
-Access**. Salesforce **strips "User External Credentials Read" from *managed*
+**User External Credentials → Read** _and_ **External Credential Principal
+Access**. Salesforce **strips "User External Credentials Read" from _managed_
 permission sets on install**, so the packaged **Propfocus User** set cannot grant
 it — you must create a **local (unmanaged) permission set per org**:
 
-| Step | Action |
-| --- | --- |
-| 1 | Setup → **Permission Sets** → **New** → Label: `Propfocus Callout Access` → Save |
-| 2 | **Object Settings** → **User External Credentials** → enable **Read** → Save |
-| 3 | **External Credential Principal Access** → enable **Propfocus API — Propfocus Principal** (namespace `PropfocusAI`) → Save |
-| 4 | **Manage Assignments** → assign to all **sales / pre-sales users** (alongside Propfocus User) |
+| Step | Action                                                                                                                     |
+| ---- | -------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Setup → **Permission Sets** → **New** → Label: `Propfocus Callout Access` → Save                                           |
+| 2    | **Object Settings** → **User External Credentials** → enable **Read** → Save                                               |
+| 3    | **External Credential Principal Access** → enable **Propfocus API — Propfocus Principal** (namespace `PropfocusAI`) → Save |
+| 4    | **Manage Assignments** → assign to all **sales / pre-sales users** (alongside Propfocus User)                              |
 
 **Who needs it:** sales/pre-sales reps → **yes**. Admins (System Administrator
 profile) usually already have User External Credentials Read → no. The inbound
 **integration user** → no (it receives events, it doesn't run the panel callouts).
 
 **Symptom if missing:** reps see **empty Projects**, or
-*"You don't have read permissions on the User External Credential object."*
+_"You don't have read permissions on the User External Credential object."_
 
 This step is **per-org and manual** — it cannot ship in the managed package
 because of the managed-permission-set stripping above. (Detail: `docs/SETUP_GUIDE.md` §2.1e.)
@@ -220,19 +231,19 @@ because of the managed-permission-set stripping above. (Detail: `docs/SETUP_GUID
 
 Setup → Custom Metadata Types → **Propfocus Config** → **Default** → Edit:
 
-| Field | Production value |
-| --- | --- |
-| Organization Id | the customer's **Propfocus org id** (unique per customer) |
-| Api Named Credential | `Propfocus_API` |
-| Embed Base Url | `https://propfocus.in/embed/salesforce` (**prod**, not dev) |
-| Buyer Id / Name / Project / Lead Status Field | map to the customer's fields |
-| Site Visit Object + field mappings | the customer's site-visit object/fields |
-| Auto Microsite / Site Visit / Post Visit Statuses | the statuses that auto-open each modal |
-| **RNR Microsite Statuses** | statuses whose microsite Lead Type defaults to **RNR** (e.g. `Not Connected, Open`). **Required** — there is no built-in default; blank means every microsite defaults to New. |
-| Site Visit Datetime Field | the **Site Visit object's** date/time field (e.g. `Site_Visit_Scheduled_Date_Time__c`) — prefills the Confirm Site Visit modal. Must be a field on the Site Visit object, not the Lead. |
-| Site Visit Scheduled Status | the Lead status to stamp on site-visit generation (Leads only; never touches Opportunity stage) |
-| Site Visit Planned / Confirmed Date Field | Lead date fields stamped with the visit date alongside the status (satisfies validation rules requiring them) |
-| Site Visit Time Of Day Field / Value | optional Lead picklist + value (e.g. `Site_Visit_Time_of_Day__c` / `Morning`) stamped with the status |
+| Field                                             | Production value                                                                                                                                                                        |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Organization Id                                   | the customer's **Propfocus org id** (unique per customer)                                                                                                                               |
+| Api Named Credential                              | `Propfocus_API`                                                                                                                                                                         |
+| Embed Base Url                                    | `https://propfocus.in/embed/salesforce` (**prod**, not dev)                                                                                                                             |
+| Buyer Id / Name / Project / Lead Status Field     | map to the customer's fields                                                                                                                                                            |
+| Site Visit Object + field mappings                | the customer's site-visit object/fields                                                                                                                                                 |
+| Auto Microsite / Site Visit / Post Visit Statuses | the statuses that auto-open each modal                                                                                                                                                  |
+| **RNR Microsite Statuses**                        | statuses whose microsite Lead Type defaults to **RNR** (e.g. `Not Connected, Open`). **Required** — there is no built-in default; blank means every microsite defaults to New.          |
+| Site Visit Datetime Field                         | the **Site Visit object's** date/time field (e.g. `Site_Visit_Scheduled_Date_Time__c`) — prefills the Confirm Site Visit modal. Must be a field on the Site Visit object, not the Lead. |
+| Site Visit Scheduled Status                       | the Lead status to stamp on site-visit generation (Leads only; never touches Opportunity stage)                                                                                         |
+| Site Visit Planned / Confirmed Date Field         | Lead date fields stamped with the visit date alongside the status (satisfies validation rules requiring them)                                                                           |
+| Site Visit Time Of Day Field / Value              | optional Lead picklist + value (e.g. `Site_Visit_Time_of_Day__c` / `Morning`) stamped with the status                                                                                   |
 
 See the full field list in `docs/FIELDS.md`. Named Credential / External
 Credential (outbound OAuth to Propfocus) per `docs/SETUP_GUIDE.md` §2.4.
