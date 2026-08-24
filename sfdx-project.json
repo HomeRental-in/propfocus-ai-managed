@@ -1,8 +1,8 @@
 {
   "packageDirectories": [
     {
-      "versionName": "ver 0.15",
-      "versionNumber": "0.15.0.NEXT",
+      "versionName": "ver 0.16",
+      "versionNumber": "0.16.0.NEXT",
       "path": "force-app",
       "default": true,
       "package": "Propfocus AI",
@@ -37,7 +37,8 @@
     "Propfocus AI@0.12.0-1": "04tdL000000mPfFQAU",
     "Propfocus AI@0.12.0-2": "04tdL000000mPvNQAU",
     "Propfocus AI@0.12.0-3": "04tdL000000mR4LQAU",
-    "Propfocus AI@0.13.0-1": "04tdL000000nU4HQAU"
+    "Propfocus AI@0.13.0-1": "04tdL000000nU4HQAU",
+    "Propfocus AI@0.15.0-1": "04tdL000000nuHBQAY"
   },
   "sfdcLoginUrl": "https://login.salesforce.com",
   "sourceApiVersion": "66.0"
