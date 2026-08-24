@@ -83,7 +83,7 @@ Sandboxes: use `https://test.salesforce.com/packaging/installPackage.apexp?p0=04
 | 1.2  | Open install URL → **Install for Admins Only** → Install                                                  | Install completes with no errors                |
 | 1.3  | Setup → **Installed Packages**                                                                            | **Propfocus AI** version **0.12.0.3** is listed |
 
-**Installed for you (no action):** Apex, Lead trigger, inbound REST, Platform Event, custom objects, permission sets, External Credential + Named Credential (skeleton), Remote Site, CSP Trusted Sites, LWCs, Admin Setup tab, Propfocus AI app, default `Propfocus_Config` CMDT record.
+**Installed for you (no action):** Apex, Lead trigger, inbound REST, Platform Event, custom objects, permission sets, External Credential + Named Credential (skeleton), Remote Site, CSP Trusted Site (`https://propfocus.in` only — sandboxes add `dev.propfocus.in` manually, see Sandbox override), LWCs, Admin Setup tab, Propfocus AI app, default `Propfocus_Config` CMDT record.
 
 **Not installed (you configure next):** External Credential Client Id/Secret, External Client App (inbound JWT), field mappings, permission set assignments, Lead/Opportunity page LWC placement, integration user.
 
