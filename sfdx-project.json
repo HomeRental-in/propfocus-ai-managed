@@ -1,8 +1,8 @@
 {
   "packageDirectories": [
     {
-      "versionName": "ver 0.14",
-      "versionNumber": "0.14.0.NEXT",
+      "versionName": "ver 0.15",
+      "versionNumber": "0.15.0.NEXT",
       "path": "force-app",
       "default": true,
       "package": "Propfocus AI",
