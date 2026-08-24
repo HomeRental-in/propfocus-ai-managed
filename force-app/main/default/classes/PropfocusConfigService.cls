@@ -592,6 +592,132 @@ public with sharing class PropfocusConfigService implements Callable {
     return getConfig();
   }
 
+  /**
+   * One configured status value that matches no active picklist value on
+   * either configured status field. Surfaced by the admin panel: a status
+   * typed into an Auto_*_Statuses__c list that does not exist silently
+   * disables that auto-open path, which is invisible otherwise.
+   */
+  public class StatusConfigWarning {
+    @AuraEnabled
+    public String settingLabel;
+    @AuraEnabled
+    public String value;
+  }
+
+  @AuraEnabled(cacheable=true)
+  public static List<StatusConfigWarning> getStatusConfigWarnings() {
+    List<StatusConfigWarning> warnings = new List<StatusConfigWarning>();
+    Config cfg = getConfig();
+
+    Set<String> known = new Set<String>();
+    for (String value : activePicklistValues('Lead', cfg.leadStatusField)) {
+      known.add(normalizeStatusToken(value));
+    }
+    for (
+      String value : activePicklistValues(
+        'Opportunity',
+        cfg.opportunityStatusField
+      )
+    ) {
+      known.add(normalizeStatusToken(value));
+    }
+    // No describable picklist means we cannot judge the config; stay silent
+    // rather than flagging every value.
+    if (known.isEmpty()) {
+      return warnings;
+    }
+
+    Map<String, String> settings = new Map<String, String>{
+      'Auto Microsite Statuses' => cfg.autoMicrositeStatuses,
+      'Auto Site Visit Statuses' => cfg.autoSiteVisitStatuses,
+      'Auto Post Visit Statuses' => cfg.autoPostVisitStatuses,
+      'RNR Microsite Statuses' => cfg.rnrMicrositeStatuses
+    };
+    for (String settingLabel : settings.keySet()) {
+      for (String token : parseStatusTokens(settings.get(settingLabel))) {
+        if (known.contains(token)) {
+          continue;
+        }
+        StatusConfigWarning warning = new StatusConfigWarning();
+        warning.settingLabel = settingLabel;
+        warning.value = token;
+        warnings.add(warning);
+      }
+    }
+    return warnings;
+  }
+
+  /**
+   * Mirrors normalizeStatusToken in lwc/propfocusLeadLinkGen/autoModalRules.js.
+   * Both sides must agree or the admin panel would flag statuses the runtime
+   * happily matches.
+   */
+  @TestVisible
+  private static String normalizeStatusToken(String value) {
+    if (value == null) {
+      return '';
+    }
+    return value.trim().toLowerCase().replaceAll('[_-]+', ' ');
+  }
+
+  /** Mirrors parseStatusSet in autoModalRules.js. */
+  @TestVisible
+  private static List<String> parseStatusTokens(String raw) {
+    List<String> tokens = new List<String>();
+    if (String.isBlank(raw)) {
+      return tokens;
+    }
+    for (String part : raw.split(',')) {
+      String token = normalizeStatusToken(part);
+      if (String.isNotBlank(token) && !tokens.contains(token)) {
+        tokens.add(token);
+      }
+    }
+    return tokens;
+  }
+
+  /**
+   * Active picklist values for a configured status field. Empty list when the
+   * field is missing, is not a picklist, or is a relationship path.
+   */
+  private static List<String> activePicklistValues(
+    String objectApiName,
+    String fieldApiName
+  ) {
+    List<String> values = new List<String>();
+    if (String.isBlank(fieldApiName) || fieldApiName.contains('.')) {
+      return values;
+    }
+    try {
+      Schema.SObjectType sot = Schema.getGlobalDescribe().get(objectApiName);
+      if (sot == null) {
+        return values;
+      }
+      Schema.SObjectField field = sot.getDescribe()
+        .fields.getMap()
+        .get(fieldApiName.trim().toLowerCase());
+      if (field == null) {
+        return values;
+      }
+      Schema.DescribeFieldResult dfr = field.getDescribe();
+      if (
+        dfr.getType() != Schema.DisplayType.PICKLIST &&
+        dfr.getType() != Schema.DisplayType.MULTIPICKLIST
+      ) {
+        return values;
+      }
+      for (Schema.PicklistEntry entry : dfr.getPicklistValues()) {
+        if (entry.isActive()) {
+          values.add(entry.getValue());
+        }
+      }
+    } catch (Exception e) {
+      return new List<String>();
+    }
+    return values;
+  }
+
   @AuraEnabled(cacheable=true)
   public static String getInboundEndpoint() {
     String base = System.URL.getOrgDomainUrl().toExternalForm();

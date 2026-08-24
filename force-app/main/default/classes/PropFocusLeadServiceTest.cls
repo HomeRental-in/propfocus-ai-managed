@@ -1971,4 +1971,211 @@ private class PropFocusLeadServiceTest {
       'null context falls back to today'
     );
   }
+
+  // ---------------------------------------------------------------------
+  // Existing-link guard. Amberstone reported agents being flooded with link
+  // messages: every Propfocus create endpoint WhatsApps the agent, so the
+  // only reliable way to stop the flood is to never call out when the record
+  // already holds a link of that type.
+  // ---------------------------------------------------------------------
+
+  @IsTest
+  static void generateMicrosite_existingLink_makesNoCalloutAndReturnsStoredUrl() {
+    Lead ld = makeLead();
+    ld.Propfocus_Link__c = 'https://example.test/existing-micro';
+    update ld;
+    setApiMock(
+      200,
+      '{"success":true,"micrositeUrl":"https://example.test/should-not-be-used"}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.PropfocusLinkResult result = PropFocusLeadService.generateMicrositeLink(
+      ld.Id,
+      'Client 1',
+      new List<String>{ 'Project A' },
+      'rnr',
+      ''
+    );
+    String capturedEndpoint = apiMock.lastApiEndpoint;
+    Test.stopTest();
+
+    System.assertEquals(
+      null,
+      capturedEndpoint,
+      'Expected no Propfocus callout when a microsite link already exists'
+    );
+    System.assertEquals(
+      'https://example.test/existing-micro',
+      result.url,
+      'Expected the stored link to be returned unchanged'
+    );
+    System.assert(
+      result.whatsappMessage != null &&
+      result.whatsappMessage.contains('https://example.test/existing-micro'),
+      'Expected the WhatsApp message to carry the stored link'
+    );
+    System.assertEquals(
+      0,
+      [SELECT COUNT() FROM Propfocus_Link__c WHERE Lead__c = :ld.Id],
+      'Guarded call must not add a history row'
+    );
+  }
+
+  @IsTest
+  static void generateMicrosite_existingLink_leadTypeDoesNotBypassGuard() {
+    Lead ld = makeLead();
+    ld.Propfocus_Link__c = 'https://example.test/existing-micro';
+    update ld;
+    setApiMock(
+      200,
+      '{"success":true,"micrositeUrl":"https://example.test/new"}'
+    );
+
+    Test.startTest();
+    for (
+      String leadType : new List<String>{ 'new', 'rnr', 'refer', 'investor' }
+    ) {
+      PropFocusLeadService.generateMicrositeLink(
+        ld.Id,
+        'Client 1',
+        new List<String>{ 'Project A' },
+        leadType,
+        ''
+      );
+    }
+    String capturedEndpoint = apiMock.lastApiEndpoint;
+    Test.stopTest();
+
+    System.assertEquals(
+      null,
+      capturedEndpoint,
+      'Lead type must not change whether an existing link is reused'
+    );
+  }
+
+  @IsTest
+  static void generateMicrosite_allowRegenerate_stillCallsOut() {
+    Lead ld = makeLead();
+    ld.Propfocus_Link__c = 'https://example.test/existing-micro';
+    update ld;
+    setApiMock(
+      200,
+      '{"success":true,"micrositeUrl":"https://example.test/regenerated"}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.PropfocusTemplateResult result = PropFocusLeadService.generatePropfocusTemplate(
+      ld.Id,
+      'microsite',
+      '{"buyerName":"Client 1","projects":["Project A"],"allowRegenerate":true}'
+    );
+    String capturedEndpoint = apiMock.lastApiEndpoint;
+    String capturedBody = apiMock.lastApiRequestBody;
+    Test.stopTest();
+
+    System.assertNotEquals(
+      null,
+      capturedEndpoint,
+      'allowRegenerate must let the deliberate regenerate through'
+    );
+    System.assertEquals('https://example.test/regenerated', result.url);
+    System.assert(
+      capturedBody != null && !capturedBody.contains('allowRegenerate'),
+      'allowRegenerate is a local flag and must not reach the Propfocus body'
+    );
+    System.assertEquals(
+      'https://example.test/regenerated',
+      [SELECT Propfocus_Link__c FROM Lead WHERE Id = :ld.Id].Propfocus_Link__c
+    );
+  }
+
+  @IsTest
+  static void generateSiteVisit_existingLink_makesNoCallout() {
+    Lead ld = makeLead();
+    ld.Propfocus_Site_Visit__c = 'https://example.test/existing-sv';
+    update ld;
+    setApiMock(
+      200,
+      '{"success":true,"data":{"sv_url":"https://example.test/new-sv"}}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.PropfocusLinkResult result = PropFocusLeadService.generateSiteVisitWithProjectAndDateTime(
+      ld.Id,
+      'Buyer Override',
+      'Project Override',
+      Datetime.newInstance(2026, 1, 15, 9, 30, 0),
+      null
+    );
+    String capturedEndpoint = apiMock.lastApiEndpoint;
+    Test.stopTest();
+
+    System.assertEquals(
+      null,
+      capturedEndpoint,
+      'Expected no site visit callout'
+    );
+    System.assertEquals('https://example.test/existing-sv', result.url);
+  }
+
+  @IsTest
+  static void generatePostVisit_existingLink_makesNoCallout() {
+    Lead ld = makeLead();
+    ld.Propfocus_Post_Visit__c = 'https://example.test/existing-pv';
+    update ld;
+    setApiMock(
+      200,
+      '{"success":true,"data":{"postVisitUrl":"https://example.test/new-pv"}}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.PropfocusLinkResult result = PropFocusLeadService.generatePostVisitWithProjectAndConfiguration(
+      ld.Id,
+      'Buyer Post',
+      'Project Post',
+      '3 BHK',
+      Date.newInstance(2026, 1, 20)
+    );
+    String capturedEndpoint = apiMock.lastApiEndpoint;
+    Test.stopTest();
+
+    System.assertEquals(
+      null,
+      capturedEndpoint,
+      'Expected no post visit callout'
+    );
+    System.assertEquals('https://example.test/existing-pv', result.url);
+  }
+
+  @IsTest
+  static void generateMicrosite_guardIsPerLinkType() {
+    // A microsite already exists but a site visit does not: the site visit
+    // must still be generated.
+    Lead ld = makeLead();
+    ld.Propfocus_Link__c = 'https://example.test/existing-micro';
+    update ld;
+    setApiMock(
+      200,
+      '{"success":true,"data":{"sv_url":"https://example.test/fresh-sv"}}'
+    );
+
+    Test.startTest();
+    PropFocusLeadService.PropfocusLinkResult result = PropFocusLeadService.generateSiteVisitWithProjectAndDateTime(
+      ld.Id,
+      'Buyer Override',
+      'Project Override',
+      Datetime.newInstance(2026, 1, 15, 9, 30, 0),
+      null
+    );
+    String capturedEndpoint = apiMock.lastApiEndpoint;
+    Test.stopTest();
+
+    System.assertNotEquals(
+      null,
+      capturedEndpoint,
+      'An existing microsite must not block a site visit'
+    );
+    System.assertEquals('https://example.test/fresh-sv', result.url);
+  }
 }

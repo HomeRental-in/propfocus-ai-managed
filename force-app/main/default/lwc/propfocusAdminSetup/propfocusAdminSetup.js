@@ -2,6 +2,7 @@ import { LightningElement } from 'lwc';
 import getUiConfiguration from '@salesforce/apex/PropfocusConfigService.getUiConfiguration';
 import testConnection from '@salesforce/apex/PropfocusConfigService.testConnection';
 import getInboundEndpoint from '@salesforce/apex/PropfocusConfigService.getInboundEndpoint';
+import getStatusConfigWarnings from '@salesforce/apex/PropfocusConfigService.getStatusConfigWarnings';
 
 export default class PropfocusAdminSetup extends LightningElement {
     config = {};
@@ -11,10 +12,12 @@ export default class PropfocusAdminSetup extends LightningElement {
     testVariant = 'info';
     inboundEndpoint = '';
     endpointCopied = false;
+    statusWarnings = [];
 
     connectedCallback() {
         this.loadConfig();
         this.loadInboundEndpoint();
+        this.loadStatusWarnings();
     }
 
     loadConfig() {
@@ -23,6 +26,18 @@ export default class PropfocusAdminSetup extends LightningElement {
             .then((cfg) => { this.config = cfg || {}; })
             .catch(() => { this.config = {}; })
             .finally(() => { this.isLoading = false; });
+    }
+
+    loadStatusWarnings() {
+        getStatusConfigWarnings()
+            .then((warnings) => {
+                this.statusWarnings = (warnings || []).map((w) => ({
+                    key: `${w.settingLabel}::${w.value}`,
+                    settingLabel: w.settingLabel,
+                    value: w.value
+                }));
+            })
+            .catch(() => { this.statusWarnings = []; });
     }
 
     loadInboundEndpoint() {
@@ -66,6 +81,11 @@ export default class PropfocusAdminSetup extends LightningElement {
     get opportunityStatusField() { return this.config?.opportunityStatusField || ''; }
     get opportunityProjectField() { return this.config?.opportunityProjectField || ''; }
     get siteVisitOpportunityLookupField() { return this.config?.siteVisitOpportunityLookupField || ''; }
+    get autoMicrositeStatuses() { return this.config?.autoMicrositeStatuses || ''; }
+    get autoSiteVisitStatuses() { return this.config?.autoSiteVisitStatuses || ''; }
+    get autoPostVisitStatuses() { return this.config?.autoPostVisitStatuses || ''; }
+    get rnrMicrositeStatuses() { return this.config?.rnrMicrositeStatuses || ''; }
+    get hasStatusWarnings() { return this.statusWarnings.length > 0; }
     get copyEndpointLabel() { return this.endpointCopied ? 'Copied!' : 'Copy'; }
     get resultClass() {
         return this.testVariant === 'success' ? 'result result_success' : 'result result_error';

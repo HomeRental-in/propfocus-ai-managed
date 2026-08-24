@@ -29,6 +29,25 @@ export function resolveDefaultMicrositeLeadType(leadStatus, rnrStatuses) {
   return "new";
 }
 
+// Derives "does this buyer already have a link of each type" from the
+// buyer-scoped history (which includes links created from the bot/dashboard
+// or on sibling records, where the record's own link fields stay empty).
+// `historyItems` are the rows returned by getLinkHistory ({ type, ... }).
+export function resolveJourneyFlags(historyItems) {
+  const flags = { hasMicrosite: false, hasSiteVisit: false, hasPostVisit: false };
+  for (const item of historyItems || []) {
+    const type = String(item?.type || "").toLowerCase();
+    if (type.includes("microsite")) {
+      flags.hasMicrosite = true;
+    } else if (type.includes("post visit")) {
+      flags.hasPostVisit = true;
+    } else if (type.includes("site visit")) {
+      flags.hasSiteVisit = true;
+    }
+  }
+  return flags;
+}
+
 // Pure check: are all mandatory fields for an auto-opened action already
 // populated, so the link can be created without showing the modal? `state`
 // carries the already-validated pieces from the component.

@@ -3,7 +3,8 @@ import {
   parseStatusSet,
   pickAutoModalAction,
   isAutoCreateReady,
-  resolveDefaultMicrositeLeadType
+  resolveDefaultMicrositeLeadType,
+  resolveJourneyFlags
 } from "../autoModalRules";
 
 describe("normalizeStatusToken", () => {
@@ -153,6 +154,35 @@ describe("resolveDefaultMicrositeLeadType", () => {
   });
 });
 
+describe("resolveJourneyFlags", () => {
+  it("flags each link type present anywhere in the buyer's history", () => {
+    const flags = resolveJourneyFlags([
+      { type: "Microsite Generation" },
+      { type: "Site Visit Confirmation" },
+      { type: "Post Visit Page" }
+    ]);
+    expect(flags).toEqual({
+      hasMicrosite: true,
+      hasSiteVisit: true,
+      hasPostVisit: true
+    });
+  });
+
+  it("does not confuse post visit with site visit", () => {
+    expect(resolveJourneyFlags([{ type: "Post Visit Page" }])).toEqual({
+      hasMicrosite: false,
+      hasSiteVisit: false,
+      hasPostVisit: true
+    });
+  });
+
+  it("returns all false for empty/undefined history", () => {
+    const none = { hasMicrosite: false, hasSiteVisit: false, hasPostVisit: false };
+    expect(resolveJourneyFlags([])).toEqual(none);
+    expect(resolveJourneyFlags(undefined)).toEqual(none);
+  });
+});
+
 describe("isAutoCreateReady", () => {
   it("microsite: needs a valid name and at least one project", () => {
     expect(
@@ -204,5 +234,72 @@ describe("isAutoCreateReady", () => {
   it("returns false for unknown action or missing state", () => {
     expect(isAutoCreateReady("microsite", undefined)).toBe(false);
     expect(isAutoCreateReady("other", { nameValid: true })).toBe(false);
+  });
+});
+
+// Regression suite for the Amberstone report: a lead moved to "Not Connected"
+// got Lead Type RNR but no modal, because the two behaviours read two separate
+// config lists. Locks in the live Amberstone configuration.
+describe("Amberstone status configuration", () => {
+  const rnrStatuses = parseStatusSet("Not Connected, Open");
+  const asShipped = {
+    micrositeStatuses: parseStatusSet("Contacted, Qualified"),
+    siteVisitStatuses: parseStatusSet("Site Visit Planned/ Scheduled"),
+    postVisitStatuses: parseStatusSet(
+      "Converted, Cost Sheet Approved, Site Visit Done"
+    ),
+    siteVisitEnabled: true,
+    postVisitEnabled: true,
+    hasMicrosite: false,
+    hasSiteVisit: false,
+    hasPostVisit: false
+  };
+  const fixed = {
+    ...asShipped,
+    micrositeStatuses: parseStatusSet("Contacted, Qualified, Not Connected")
+  };
+
+  it("reproduces the bug: RNR resolves but nothing auto-opens", () => {
+    expect(resolveDefaultMicrositeLeadType("Not Connected", rnrStatuses)).toBe(
+      "rnr"
+    );
+    expect(pickAutoModalAction("not connected", asShipped)).toBeNull();
+  });
+
+  it("auto-opens once Not Connected is added to the microsite list", () => {
+    expect(pickAutoModalAction("not connected", fixed)).toBe("microsite");
+  });
+
+  it("still auto-opens for the statuses that already worked", () => {
+    expect(pickAutoModalAction("contacted", fixed)).toBe("microsite");
+    expect(pickAutoModalAction("qualified", fixed)).toBe("microsite");
+    expect(pickAutoModalAction("site visit planned/ scheduled", fixed)).toBe(
+      "siteVisit"
+    );
+    expect(pickAutoModalAction("site visit done", fixed)).toBe("postVisit");
+  });
+
+  it("never auto-opens once that link type exists, whatever the lead type", () => {
+    expect(
+      pickAutoModalAction("not connected", { ...fixed, hasMicrosite: true })
+    ).toBeNull();
+    expect(
+      pickAutoModalAction("contacted", { ...fixed, hasMicrosite: true })
+    ).toBeNull();
+    expect(
+      pickAutoModalAction("site visit planned/ scheduled", {
+        ...fixed,
+        hasSiteVisit: true
+      })
+    ).toBeNull();
+    expect(
+      pickAutoModalAction("site visit done", { ...fixed, hasPostVisit: true })
+    ).toBeNull();
+  });
+
+  it("leaves non-configured statuses alone", () => {
+    expect(pickAutoModalAction("new", fixed)).toBeNull();
+    expect(pickAutoModalAction("assigned", fixed)).toBeNull();
+    expect(pickAutoModalAction("unqualified", fixed)).toBeNull();
   });
 });

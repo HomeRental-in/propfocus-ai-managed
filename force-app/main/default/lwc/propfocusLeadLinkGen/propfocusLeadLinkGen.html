@@ -106,6 +106,12 @@
                         <textarea class="pf-success-message" data-success-message readonly></textarea>
                     </template>
                     <template lwc:else>
+                    <template lwc:if={showRegenerateWarning}>
+                        <div class="slds-m-bottom_small" role="alert">
+                            <lightning-icon icon-name="utility:warning" size="x-small" variant="warning"></lightning-icon>
+                            <span class="slds-m-left_x-small">This record already has a link. Continuing creates a new one and sends the agent another WhatsApp message.</span>
+                        </div>
+                    </template>
                     <lightning-input label="Full Name" value={clientName} onchange={handleNameChange} required></lightning-input>
                     <template lwc:if={showSiteVisitFields}>
                         <lightning-input type="datetime-local" label="Site Visit Date & Time" value={siteVisitDateTime} onchange={handleSiteVisitDateTimeChange} required></lightning-input>

@@ -6,7 +6,7 @@
       "path": "force-app",
       "default": true,
       "package": "Propfocus AI",
-      "versionDescription": "RNR microsite lead type from CMDT; site-visit date/time-of-day stamps; Confirm Site Visit prefill from Lead dates; full Config layout",
+      "versionDescription": "Existing-link guard (reuse stored link, no callout/WhatsApp flood); RNR microsite lead type from CMDT; site-visit date/time-of-day stamps; Confirm Site Visit prefill; full Config layout",
       "ancestorVersion": "HIGHEST"
     }
   ],

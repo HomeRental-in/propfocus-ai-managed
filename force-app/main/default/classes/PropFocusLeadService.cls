@@ -1002,6 +1002,18 @@ public with sharing class PropFocusLeadService implements Callable {
     return Database.query(soql);
   }
 
+  /**
+   * Non-cacheable twin of getLeadDetails. The LWC calls getLeadDetails
+   * imperatively, and imperative calls to a cacheable method can still be
+   * served from the Lightning client cache — which let the "does a link
+   * already exist?" re-check read a pre-generation snapshot and wave a
+   * duplicate through. The link-existence paths use this instead.
+   */
+  @AuraEnabled
+  public static Map<String, Object> getLeadDetailsFresh(Id leadId) {
+    return getLeadDetails(leadId);
+  }
+
   @AuraEnabled(cacheable=true)
   public static Map<String, Object> getLeadDetails(Id leadId) {
     ParentFields fields = resolveParentFields(leadId);
@@ -1799,6 +1811,20 @@ public with sharing class PropFocusLeadService implements Callable {
     return operation + '-' + leadPart + '-' + bodyHash;
   }
 
+  /**
+   * Parent-record field holding the generated URL for a communication type.
+   * Mirrors the writeback targets in applyCommunicationWriteback.
+   */
+  private static String resolveCommunicationLinkField(String communicationType) {
+    if (communicationType == COMM_TYPE_SITE_VISIT) {
+      return 'Propfocus_Site_Visit__c';
+    }
+    if (communicationType == COMM_TYPE_POST_VISIT) {
+      return 'Propfocus_Post_Visit__c';
+    }
+    return 'Propfocus_Link__c';
+  }
+
   private static PropfocusTemplateResult generatePropfocusTemplateInternal(
     Id leadId,
     String communicationType,
@@ -1811,6 +1837,11 @@ public with sharing class PropFocusLeadService implements Callable {
     Map<String, Object> context = contextInput == null
       ? new Map<String, Object>()
       : new Map<String, Object>(contextInput);
+
+    // Opt-in flag for the deliberate "regenerate" action. Removed from the
+    // context so it never reaches the Propfocus request body.
+    Boolean allowRegenerate = asBoolean(context.remove('allowRegenerate')) ==
+      true;
 
     ParentFields fields = resolveParentFields(leadId);
     String buyerIdFieldApiName = fields.buyerIdField;
@@ -1863,6 +1894,32 @@ public with sharing class PropFocusLeadService implements Callable {
       leadStatusFieldApiName,
       preSalesRepSourceFieldApiName
     );
+
+    // A link of this type already exists on the record, so hand back the
+    // stored one and make no callout. Every Propfocus create endpoint
+    // WhatsApps the agent, and sends an extra notice on top when it reuses a
+    // link, so calling out for a link we already hold is what floods the
+    // agent's inbox. This sits here rather than in the LWC because the callers
+    // with no UI at all (Flow, Callable, the site visit Queueable) are the
+    // ones that repeat the most.
+    if (!allowRegenerate) {
+      String existingUrl = asString(
+        ld.get(resolveCommunicationLinkField(communicationType))
+      );
+      if (String.isNotBlank(existingUrl)) {
+        PropfocusTemplateResult existing = new PropfocusTemplateResult();
+        existing.communicationType = communicationType;
+        existing.url = existingUrl;
+        existing.whatsappMessage = buildFallbackWhatsAppMessage(
+          communicationType,
+          buyerName,
+          context,
+          existingUrl,
+          resolvePreSalesRepSource(ld, preSalesRepSourceFieldApiName)
+        );
+        return existing;
+      }
+    }
 
     if (communicationType == COMM_TYPE_POST_VISIT) {
       String visitedConfiguration = firstContextString(

@@ -30,6 +30,23 @@
                 <lightning-input class="slds-m-top_small" label="Opportunity Status Field" value={opportunityStatusField} disabled></lightning-input>
                 <lightning-input class="slds-m-top_small" label="Opportunity Project Field" value={opportunityProjectField} disabled></lightning-input>
                 <lightning-input class="slds-m-top_small" label="Site Visit Opportunity Lookup Field" value={siteVisitOpportunityLookupField} disabled></lightning-input>
+
+                <h2 class="slds-text-title_caps slds-m-top_medium slds-m-bottom_x-small">Auto-open statuses</h2>
+                <p class="slds-text-body_small slds-m-bottom_small">Comma-separated record statuses. A status must appear in the matching <strong>Auto</strong> list for its modal to open on its own; the <strong>RNR</strong> list only sets the default microsite Lead Type. Edit these in <strong>Setup &rarr; Custom Metadata Types &rarr; Propfocus Config &rarr; Default</strong>.</p>
+                <lightning-input label="Auto Microsite Statuses" value={autoMicrositeStatuses} disabled></lightning-input>
+                <lightning-input class="slds-m-top_small" label="Auto Site Visit Statuses" value={autoSiteVisitStatuses} disabled></lightning-input>
+                <lightning-input class="slds-m-top_small" label="Auto Post Visit Statuses" value={autoPostVisitStatuses} disabled></lightning-input>
+                <lightning-input class="slds-m-top_small" label="RNR Microsite Statuses" value={rnrMicrositeStatuses} disabled></lightning-input>
+                <template lwc:if={hasStatusWarnings}>
+                    <div class="slds-box slds-theme_warning slds-m-top_small" role="alert">
+                        <p><strong>These configured statuses match no active picklist value, so they never take effect:</strong></p>
+                        <ul class="slds-list_dotted slds-m-top_x-small">
+                            <template for:each={statusWarnings} for:item="warning">
+                                <li key={warning.key}>{warning.settingLabel}: &ldquo;{warning.value}&rdquo;</li>
+                            </template>
+                        </ul>
+                    </div>
+                </template>
                 <div class="slds-m-top_medium">
                     <lightning-button label="Test Connection" variant="brand" onclick={handleTestConnection} disabled={isTesting}></lightning-button>
                     <template lwc:if={isTesting}>

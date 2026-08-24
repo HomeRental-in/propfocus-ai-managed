@@ -9,11 +9,12 @@ import {
   parseStatusSet,
   pickAutoModalAction as resolveAutoModalAction,
   isAutoCreateReady as resolveAutoCreateReady,
-  resolveDefaultMicrositeLeadType
+  resolveDefaultMicrositeLeadType,
+  resolveJourneyFlags
 } from "./autoModalRules";
 import { resolveErrorMessage } from "./errorMessages";
 
-import getLeadDetails from "@salesforce/apex/PropFocusLeadService.getLeadDetails";
+import getLeadDetailsFresh from "@salesforce/apex/PropFocusLeadService.getLeadDetailsFresh";
 import getProjects from "@salesforce/apex/PropFocusLeadService.getProjects";
 import getProjectsForSiteVisit from "@salesforce/apex/PropFocusLeadService.getProjectsForSiteVisit";
 import generatePropfocusTemplate from "@salesforce/apex/PropFocusLeadService.generatePropfocusTemplate";
@@ -300,6 +301,9 @@ export default class PropfocusLeadLinkGen extends LightningElement {
   hasMicrosite = false;
   hasSiteVisit = false;
   hasPostVisit = false;
+  // True when the rep deliberately re-ran an action that already has a link.
+  // Only this opts Apex out of the server-side existence guard.
+  isRegenerateRequest = false;
   hasValidBuyerInsights = false;
   previewExpanded = false;
   linkHistory = [];
@@ -321,6 +325,13 @@ export default class PropfocusLeadLinkGen extends LightningElement {
   autoStatusRecordId = null;
   lastKnownLeadStatus;
   autoPromptedKeys = new Set();
+  // "Exists" for auto-open must consider the buyer's whole journey (links made
+  // from the bot/dashboard or on sibling records leave this record's own link
+  // fields empty). Derived from the buyer-scoped history once it has loaded.
+  journeyHasMicrosite = false;
+  journeyHasSiteVisit = false;
+  journeyHasPostVisit = false;
+  historyLoaded = false;
 
   @wire(CurrentPageReference)
   setPageRef(pageRef) {
@@ -334,6 +345,10 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         this.autoPromptedKeys = new Set();
         this.lastKnownLeadStatus = undefined;
         this.autoStatusRecordId = null;
+        this.journeyHasMicrosite = false;
+        this.journeyHasSiteVisit = false;
+        this.journeyHasPostVisit = false;
+        this.historyLoaded = false;
       }
       Promise.allSettled([
         this.refreshMicrositeState(),
@@ -395,9 +410,9 @@ export default class PropfocusLeadLinkGen extends LightningElement {
       micrositeStatuses: this.autoMicrositeStatuses,
       siteVisitStatuses: this.autoSiteVisitStatuses,
       postVisitStatuses: this.autoPostVisitStatuses,
-      hasMicrosite: this.hasMicrosite,
-      hasSiteVisit: this.hasSiteVisit,
-      hasPostVisit: this.hasPostVisit,
+      hasMicrosite: this.hasMicrosite || this.journeyHasMicrosite,
+      hasSiteVisit: this.hasSiteVisit || this.journeyHasSiteVisit,
+      hasPostVisit: this.hasPostVisit || this.journeyHasPostVisit,
       siteVisitEnabled: this.showSiteVisitButtonEnabled,
       postVisitEnabled: this.showPostVisitButtonEnabled
     });
@@ -409,7 +424,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
   // stops it from re-popping for the same record+action+status after the rep
   // dismisses it (or on LDS cache refreshes).
   evaluateAutoModals() {
-    if (!this.autoModalsConfigLoaded) {
+    if (!this.autoModalsConfigLoaded || !this.historyLoaded) {
       return;
     }
     const recordId = this.autoStatusRecordId;
@@ -536,7 +551,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
       this.hasValidBuyerInsights = false;
       return Promise.resolve();
     }
-    return getLeadDetails({ leadId: this.recordId })
+    return getLeadDetailsFresh({ leadId: this.recordId })
       .then((lead) => {
         this.applyLeadLinkFromResponse(lead);
         // Existence flags are now authoritative; re-check auto-open candidates.
@@ -652,10 +667,23 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         // Default insights to the latest shared link.
         this.selectedLinkKey = this.linkHistory[0]?.linkKey || "";
         this.bumpIframeCache();
+        const flags = resolveJourneyFlags(this.linkHistory);
+        this.journeyHasMicrosite = flags.hasMicrosite;
+        this.journeyHasSiteVisit = flags.hasSiteVisit;
+        this.journeyHasPostVisit = flags.hasPostVisit;
       })
       .catch(() => {
         this.linkHistory = [];
         this.selectedLinkKey = "";
+        this.journeyHasMicrosite = false;
+        this.journeyHasSiteVisit = false;
+        this.journeyHasPostVisit = false;
+      })
+      .finally(() => {
+        // Auto-open decisions wait for the buyer's history so "exists" is
+        // judged on the whole journey, not just this record's fields.
+        this.historyLoaded = true;
+        this.evaluateAutoModals();
       });
   }
 
@@ -827,13 +855,15 @@ export default class PropfocusLeadLinkGen extends LightningElement {
       return;
     }
     this.isLoading = true;
-    getLeadDetails({ leadId: this.recordId })
+    getLeadDetailsFresh({ leadId: this.recordId })
       .then((lead) => {
         this.applyLeadLinkFromResponse(lead);
         // Auto-open path: a microsite already exists, so do not pop the modal.
-        if (skipIfExists && this.hasMicrosite) {
+        if (skipIfExists && (this.hasMicrosite || this.journeyHasMicrosite)) {
           return;
         }
+        // Reached here with a link already present only via a manual click.
+        this.isRegenerateRequest = this.hasMicrosite;
         this.clientName = lead?.[LEAD_BUYER_NAME_FIELD];
         if (lead?.[LEAD_PROJECT_FIELD]) {
           const p = String(lead[LEAD_PROJECT_FIELD]).trim();
@@ -880,6 +910,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
     this.salesTeamOptions = [];
     this.isLoadingSalesTeam = false;
     this.micrositeLeadType = "new";
+    this.isRegenerateRequest = false;
     this.selectedConfigurations = [];
     this.configurationOptions = [];
     this.showCopySuccess = false;
@@ -887,6 +918,12 @@ export default class PropfocusLeadLinkGen extends LightningElement {
     this.copyButtonLabel = "Copy message";
     this.pendingAutoCopy = false;
     if (wasSpecialFlow) this.loadProjects();
+  }
+
+  // Shown on the form when submitting will create a brand-new link. Each
+  // create call also WhatsApps the agent, so this is worth stating outright.
+  get showRegenerateWarning() {
+    return this.isRegenerateRequest && !this.showCopySuccess;
   }
 
   handleMicrositeLeadTypeChange(event) {
@@ -1069,7 +1106,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
     }
     this.isLoading = true;
     Promise.allSettled([
-      getLeadDetails({ leadId: this.recordId }),
+      getLeadDetailsFresh({ leadId: this.recordId }),
       this.loadSiteVisitProjects(),
       getLatestSiteVisitDateTime({ leadId: this.recordId })
     ])
@@ -1085,9 +1122,11 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         const dt = dtResult.status === "fulfilled" ? dtResult.value : null;
         this.applyLeadLinkFromResponse(lead);
         // Auto-open path: a site visit link already exists, so don't pop.
-        if (skipIfExists && this.hasSiteVisit) {
+        if (skipIfExists && (this.hasSiteVisit || this.journeyHasSiteVisit)) {
           return;
         }
+        // Reached here with a link already present only via a manual click.
+        this.isRegenerateRequest = this.hasSiteVisit;
         this.clientName = lead?.[LEAD_BUYER_NAME_FIELD];
         this.siteVisitProject = "";
         if (lead?.[LEAD_PROJECT_FIELD]) {
@@ -1129,7 +1168,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
     }
     this.isLoading = true;
     Promise.allSettled([
-      getLeadDetails({ leadId: this.recordId }),
+      getLeadDetailsFresh({ leadId: this.recordId }),
       this.loadSiteVisitProjects(),
       this.loadSalesTeam()
     ])
@@ -1144,9 +1183,11 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         const opts = optsResult.value;
         this.applyLeadLinkFromResponse(lead);
         // Auto-open path: a post visit link already exists, so don't pop.
-        if (skipIfExists && this.hasPostVisit) {
+        if (skipIfExists && (this.hasPostVisit || this.journeyHasPostVisit)) {
           return;
         }
+        // Reached here with a link already present only via a manual click.
+        this.isRegenerateRequest = this.hasPostVisit;
         this.clientName = lead?.[LEAD_BUYER_NAME_FIELD];
         this.postVisitProject = "";
         this.postVisitReassignTo = "";
@@ -1210,7 +1251,8 @@ export default class PropfocusLeadLinkGen extends LightningElement {
         visitDateTime: chosenDateTime.toISOString(),
         visitDate: chosenDateTime.toISOString().slice(0, 10),
         visitTime: `${String(chosenDateTime.getHours()).padStart(2, "0")}:${String(chosenDateTime.getMinutes()).padStart(2, "0")}`,
-        siteVisitManager: this.buildSiteVisitManagerPayload()
+        siteVisitManager: this.buildSiteVisitManagerPayload(),
+        allowRegenerate: this.isRegenerateRequest
       })
     })
       .then(async (result) => {
@@ -1219,6 +1261,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
           finishDeferredCopy,
           "Site visit confirmed"
         );
+        await this.refreshMicrositeState();
         await this.loadLinkHistory();
         this.markDataReloaded();
       })
@@ -1254,7 +1297,8 @@ export default class PropfocusLeadLinkGen extends LightningElement {
     const context = {
       buyerName,
       projectName: this.postVisitProject,
-      visitedConfiguration
+      visitedConfiguration,
+      allowRegenerate: this.isRegenerateRequest
     };
     if (this.postVisitReassignTo) {
       context.assignedBrokerId = this.postVisitReassignTo;
@@ -1270,6 +1314,7 @@ export default class PropfocusLeadLinkGen extends LightningElement {
           finishDeferredCopy,
           "Post visit page generated"
         );
+        await this.refreshMicrositeState();
         await this.loadLinkHistory();
         this.markDataReloaded();
       })
@@ -1318,7 +1363,8 @@ export default class PropfocusLeadLinkGen extends LightningElement {
             ? this.selectedProjects[0]
             : undefined,
         leadType: this.micrositeLeadType,
-        configurationFilter
+        configurationFilter,
+        allowRegenerate: this.isRegenerateRequest
       })
     })
       .then(async (result) => {
