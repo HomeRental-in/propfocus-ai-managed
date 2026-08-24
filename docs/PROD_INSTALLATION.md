@@ -48,7 +48,7 @@ Do **not** install `0.12.0.1` or `0.12.0.2`. Those are betas. Production only ac
 5. **JWT `aud` is production.** `https://login.salesforce.com` — not `https://test.salesforce.com`.
 6. **Uninstall is destructive.** Prefer Upgrade if a Released version is already installed. Snapshot Config before any uninstall.
 
-Amberstone UAT (`amberstoneproperties--uat2026`) is on **beta `0.12.0.2`**. That does **not** block production. Production is a different org and can take Released `0.16.0.1` as a first install or as an upgrade from any earlier **Released** version (`0.11.0.1`, `0.10.0.1`, …).
+Amberstone UAT (`amberstoneproperties--uat2026`) is on Released **`0.16.0.1`** (upgraded in place from `0.14.0.1` on 2026-08-24 — it has not been on a beta since the 0.12 line). That does **not** block production. Production is a different org and can take Released `0.16.0.1` as a first install or as an upgrade from any earlier **Released** version (`0.11.0.1`, `0.10.0.1`, …).
 
 ---
 
@@ -439,7 +439,7 @@ Managed packages do not downgrade.
 
 Use these **field API names** from Amberstone UAT (`uat2026`). They were validated there. **Do not copy** Organization Id, embed URL, Named Credential host, or JWT Consumer Key — production gets new values.
 
-UAT itself is on beta `0.12.0.2`. Production should install Released **`0.12.0.3`**, then apply this Config.
+UAT itself is on Released `0.16.0.1`. Production should install Released **`0.16.0.1`**, then apply this Config.
 
 | Config field                         | Copy from UAT                                                                                                                |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |

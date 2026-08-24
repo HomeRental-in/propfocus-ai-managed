@@ -273,6 +273,15 @@ Full E2E checklist: `docs/E2E_INSTALLATION.md`.
 
 ## 6. Upgrades (existing production orgs)
 
+> **CSP Trusted Sites on upgrade vs fresh install (verified in Amberstone UAT, 0.14.0.1 → 0.16.0.1
+> on 2026-08-24).** 0.16.0 repointed the packaged `Propfocus_Dev` site from `https://dev.propfocus.in`
+> to `https://www.propfocus.in`. On **upgrade**, Salesforce did **not** rewrite the existing site —
+> the org kept `https://dev.propfocus.in`, so sandboxes upgrading from an earlier version keep a
+> working Buyer Insights iframe and need no action. On a **fresh install** of 0.16.0+, only the
+> production sites ship, so a sandbox must create the local `https://dev.propfocus.in` CSP Trusted
+> Site (see the sandbox override in E2E_INSTALLATION.md). Check `CspTrustedSite` after either path
+> rather than assuming.
+
 For an org already on a **released** version:
 
 ```bash
