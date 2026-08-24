@@ -6,7 +6,7 @@
       "path": "force-app",
       "default": true,
       "package": "Propfocus AI",
-      "versionDescription": "Existing-link guard (reuse stored link, no callout/WhatsApp flood); RNR microsite lead type from CMDT; site-visit date/time-of-day stamps; Confirm Site Visit prefill; full Config layout",
+      "versionDescription": "Site visit Time Of Day derived from the visit time (Morning/Afternoon/Evening) with the CMDT value as fallback; regenerate warning banner removed from the generate form",
       "ancestorVersion": "HIGHEST"
     }
   ],

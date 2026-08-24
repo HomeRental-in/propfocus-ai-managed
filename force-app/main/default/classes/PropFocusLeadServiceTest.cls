@@ -2178,4 +2178,51 @@ private class PropFocusLeadServiceTest {
     );
     System.assertEquals('https://example.test/fresh-sv', result.url);
   }
+
+  @IsTest
+  static void resolveSiteVisitTimeOfDay_bucketsByVisitTime() {
+    // 00:00-11:59 Morning, 12:00-17:00 Afternoon, 17:01-23:59 Evening.
+    System.assertEquals(
+      'Morning',
+      PropFocusLeadService.resolveSiteVisitTimeOfDay(
+        new Map<String, Object>{ 'visitTime' => '00:00' }, 'FB')
+    );
+    System.assertEquals(
+      'Morning',
+      PropFocusLeadService.resolveSiteVisitTimeOfDay(
+        new Map<String, Object>{ 'visitTime' => '11:59' }, 'FB')
+    );
+    System.assertEquals(
+      'Afternoon',
+      PropFocusLeadService.resolveSiteVisitTimeOfDay(
+        new Map<String, Object>{ 'visitTime' => '12:00' }, 'FB')
+    );
+    System.assertEquals(
+      'Afternoon',
+      PropFocusLeadService.resolveSiteVisitTimeOfDay(
+        new Map<String, Object>{ 'visitTime' => '17:00' }, 'FB')
+    );
+    System.assertEquals(
+      'Evening',
+      PropFocusLeadService.resolveSiteVisitTimeOfDay(
+        new Map<String, Object>{ 'visitTime' => '17:01' }, 'FB')
+    );
+    System.assertEquals(
+      'Evening',
+      PropFocusLeadService.resolveSiteVisitTimeOfDay(
+        new Map<String, Object>{ 'visitTime' => '23:59' }, 'FB')
+    );
+    // Missing / unusable time falls back to the configured CMDT value.
+    System.assertEquals(
+      'FB',
+      PropFocusLeadService.resolveSiteVisitTimeOfDay(
+        new Map<String, Object>(), 'FB')
+    );
+    System.assertEquals(
+      'FB',
+      PropFocusLeadService.resolveSiteVisitTimeOfDay(
+        new Map<String, Object>{ 'visitTime' => 'garbage' }, 'FB')
+    );
+    System.assertEquals('FB', PropFocusLeadService.resolveSiteVisitTimeOfDay(null, 'FB'));
+  }
 }

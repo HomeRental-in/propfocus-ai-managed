@@ -2446,9 +2446,14 @@ public with sharing class PropFocusLeadService implements Callable {
         }
       }
 
-      // Optional time-of-day (e.g. a picklist) stamped with a configured value.
+      // Optional time-of-day (e.g. a picklist): derived from the visit time
+      // (Morning / Afternoon / Evening); the configured value is the fallback
+      // when the visit time is unavailable.
       String todField = PropfocusConfigService.getSiteVisitTimeOfDayField();
-      String todValue = PropfocusConfigService.getSiteVisitTimeOfDayValue();
+      String todValue = resolveSiteVisitTimeOfDay(
+        context,
+        PropfocusConfigService.getSiteVisitTimeOfDayValue()
+      );
       if (
         !String.isBlank(todField) &&
         !String.isBlank(todValue) &&
@@ -2488,6 +2493,50 @@ public with sharing class PropFocusLeadService implements Callable {
       }
     }
     return Date.today();
+  }
+
+  /**
+   * Time-of-day bucket for the visit time in the site-visit context
+   * (local "HH:mm" from `visitTime`):
+   *   00:00-11:59 -> Morning, 12:00-17:00 -> Afternoon, 17:01-23:59 -> Evening.
+   * Returns the configured fallback value when no usable time is present.
+   */
+  @TestVisible
+  private static String resolveSiteVisitTimeOfDay(
+    Map<String, Object> context,
+    String fallbackValue
+  ) {
+    Integer minutesOfDay = null;
+    if (context != null) {
+      String visitTime = firstContextString(
+        context,
+        new List<String>{ 'visitTime', 'visit_time' }
+      );
+      if (!String.isBlank(visitTime)) {
+        List<String> parts = visitTime.trim().split(':');
+        if (parts.size() >= 2) {
+          try {
+            Integer hh = Integer.valueOf(parts[0].trim());
+            Integer mm = Integer.valueOf(parts[1].trim().left(2));
+            if (hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59) {
+              minutesOfDay = hh * 60 + mm;
+            }
+          } catch (Exception e) {
+            // fall through to fallback
+          }
+        }
+      }
+    }
+    if (minutesOfDay == null) {
+      return fallbackValue;
+    }
+    if (minutesOfDay < 12 * 60) {
+      return 'Morning';
+    }
+    if (minutesOfDay <= 17 * 60) {
+      return 'Afternoon';
+    }
+    return 'Evening';
   }
 
   private static String buildFallbackWhatsAppMessage(

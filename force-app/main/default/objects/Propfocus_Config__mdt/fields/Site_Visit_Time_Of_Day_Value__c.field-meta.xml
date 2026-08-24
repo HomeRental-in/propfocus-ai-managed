@@ -2,7 +2,7 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Site_Visit_Time_Of_Day_Value__c</fullName>
     <fieldManageability>SubscriberControlled</fieldManageability>
-    <inlineHelpText>Value to write into the Site Visit Time Of Day Field when a site visit link is generated (must be a valid value for that field, e.g. Morning). Used only when the field is configured.</inlineHelpText>
+    <inlineHelpText>Fallback value for the Site Visit Time Of Day Field, used only when the visit time is unavailable. When a visit time exists, the value is derived automatically: 12:00am-11:59am = Morning, 12:00pm-5:00pm = Afternoon, 5:01pm-11:59pm = Evening.</inlineHelpText>
     <label>Site Visit Time Of Day Value</label>
     <length>255</length>
     <required>false</required>

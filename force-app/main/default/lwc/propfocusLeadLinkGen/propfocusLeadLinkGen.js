@@ -920,12 +920,6 @@ export default class PropfocusLeadLinkGen extends LightningElement {
     if (wasSpecialFlow) this.loadProjects();
   }
 
-  // Shown on the form when submitting will create a brand-new link. Each
-  // create call also WhatsApps the agent, so this is worth stating outright.
-  get showRegenerateWarning() {
-    return this.isRegenerateRequest && !this.showCopySuccess;
-  }
-
   handleMicrositeLeadTypeChange(event) {
     this.micrositeLeadType = event.detail.value;
   }
